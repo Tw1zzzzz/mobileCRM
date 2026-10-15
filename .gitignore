@@ -9,3 +9,11 @@ xcuserdata/
 .swiftpm/
 # Business requirements stay off the public repo
 *.docx
+# Gradle / Android
+.gradle/
+.kotlin/
+**/build/
+local.properties
+*.iml
+.idea/
+captures/
