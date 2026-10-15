@@ -1,0 +1,11 @@
+.DS_Store
+DerivedData/
+build/
+*.xcuserstate
+xcuserdata/
+*.xcresult
+*.ipa
+*.dSYM.zip
+.swiftpm/
+# Business requirements stay off the public repo
+*.docx
