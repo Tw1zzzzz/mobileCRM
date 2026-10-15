@@ -9,7 +9,10 @@ kotlin {
     jvm()
 
     sourceSets {
-        all { languageSettings.optIn("kotlin.time.ExperimentalTime") }
+        all {
+            languageSettings.optIn("kotlin.time.ExperimentalTime")
+            languageSettings.optIn("kotlin.uuid.ExperimentalUuidApi")
+        }
         commonMain.dependencies {
             implementation(libs.kotlinx.serialization.json)
             implementation(libs.kotlinx.datetime)
