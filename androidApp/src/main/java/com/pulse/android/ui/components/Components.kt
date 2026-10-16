@@ -30,6 +30,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
@@ -100,6 +101,7 @@ fun GradientButton(
             .height(54.dp)
             .clip(RoundedCornerShape(Metrics.buttonRadius))
             .background(brush)
+            .alpha(if (enabled) 1f else 0.45f)
             .pressable(enabled && !isLoading, onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically

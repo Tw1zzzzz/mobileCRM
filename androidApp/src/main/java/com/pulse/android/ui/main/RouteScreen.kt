@@ -12,6 +12,8 @@ fun RouteScreen(route: Route) {
     when (route) {
         Route.Sleep -> com.pulse.android.ui.health.SleepScreen()
         Route.SleepRecovery -> com.pulse.android.ui.health.SleepRecoveryScreen()
+        Route.Fitness -> com.pulse.android.ui.health.FitnessScreen()
+        Route.FitnessWeek -> com.pulse.android.ui.health.FitnessWeekScreen()
         else -> {
             val (title, step) = placeholderInfo(route)
             ComingSoon(title, step)
