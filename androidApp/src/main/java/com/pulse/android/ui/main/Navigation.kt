@@ -30,12 +30,40 @@ enum class AppTab(val title: String, val icon: ImageVector) {
             if (role?.isStaff == true) listOf(TODAY, PLAYERS, ANALYTICS, LINEUPS, PROFILE) else listOf(TODAY, STATE, DIARY, PROFILE)
 
         fun showsQuickAdd(role: UserRole?): Boolean = role?.isStaff != true
+
+        /** Tab hosting section screens (Сон, Тесты, Календарь…) for the role. */
+        fun hub(role: UserRole?): AppTab = if (role?.isStaff == true) TODAY else STATE
     }
 }
 
-/** Screens pushed inside a tab (filled in step 3). */
+/** Screens pushed inside a tab (same set as iOS `Route`). */
 sealed interface Route {
-    data class Placeholder(val title: String, val step: String) : Route
+    data object Sleep : Route
+    data object SleepRecovery : Route
+    data object Fitness : Route
+    data object FitnessWeek : Route
+    data object ScreenTime : Route
+    data object ScreenTimeApps : Route
+    data object Tests : Route
+    data object Cognitive : Route
+    data object Mood : Route
+    data object Balance : Route
+    data object GameTests : Route
+    data object Statistics : Route
+    data class Calendar(val createNew: Boolean = false) : Route
+    data class Event(val id: kotlin.uuid.Uuid) : Route
+    data object Players : Route
+    data class Player(val id: kotlin.uuid.Uuid) : Route
+    data object Nutrition : Route
+    data object NutritionHistory : Route
+    data object Lineups : Route
+    data class Lineup(val id: kotlin.uuid.Uuid) : Route
+    data object TeamAnalytics : Route
+    data object TeamCorrelations : Route
+    data object GameStats : Route
+    data object TeamFood : Route
+    data object WeeklyReport : Route
+    data object PlayerPortrait : Route
 }
 
 /** One back stack per tab, like iOS `AppRouter`; tapping the open tab again returns it to its first screen. */
@@ -61,6 +89,16 @@ class AppRouter {
     fun popToRoot(tab: AppTab) {
         if (path(tab).isNotEmpty()) stacks[tab] = emptyList()
     }
+
+    /** Resets a tab to its root and pushes the given stack. */
+    fun show(routes: List<Route>, tab: AppTab) {
+        selectedTab = tab
+        stacks[tab] = routes
+    }
+
+    /** Opens the questionnaire full-screen (reminder cards). */
+    var showsSurvey by mutableStateOf(false)
+    var pendingFoodCapture by mutableStateOf(false)
 
     fun select(tab: AppTab) {
         if (tab == selectedTab) popToRoot(tab) else selectedTab = tab

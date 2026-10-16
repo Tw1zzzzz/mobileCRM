@@ -45,7 +45,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pulse.android.ui.ProvideCore
 import com.pulse.android.ui.components.IconBadge
+import com.pulse.android.ui.today.NotificationsSheet
+import com.pulse.android.ui.today.TodayScreen
 import com.pulse.android.ui.components.ScreenBackground
 import com.pulse.android.ui.components.SecondaryButton
 import com.pulse.android.ui.components.pressable
@@ -62,25 +65,34 @@ fun MainScreen(core: PulseCore, user: User) {
     val router = remember { AppRouter() }
     val tabs = AppTab.tabs(user.role)
     var showQuickAdd by remember { mutableStateOf(false) }
+    var showNotifications by remember { mutableStateOf(false) }
     LaunchedEffect(user.role) { if (router.selectedTab !in tabs) router.selectedTab = AppTab.TODAY }
     BackHandler(enabled = router.path(router.selectedTab).isNotEmpty()) { router.pop() }
 
-    ScreenBackground {
+    ProvideCore(core, router) { ScreenBackground {
         Column(Modifier.fillMaxSize()) {
             Box(Modifier.weight(1f)) {
                 val route = router.path(router.selectedTab).lastOrNull()
-                if (route == null) TabRoot(router.selectedTab, core, user, router) else RouteScreen(route)
+                when {
+                    route != null -> RouteScreen(route)
+                    router.selectedTab == AppTab.TODAY && !user.role.isStaff -> TodayScreen { showNotifications = true }
+                    else -> TabRoot(router.selectedTab, core, user, router)
+                }
             }
             PulseTabBar(tabs, router.selectedTab, onSelect = router::select,
                 onPlus = if (AppTab.showsQuickAdd(user.role)) ({ showQuickAdd = true }) else null)
         }
     }
     if (showQuickAdd) {
-        ModalBottomSheet(onDismissRequest = { showQuickAdd = false }, containerColor = Palette.card) {
-            Placeholder("Быстрое добавление", "Сон, еда, настроение, тесты и тренировки одним касанием — шаг 3.1")
-            Spacer(Modifier.height(40.dp))
+        ModalBottomSheet(onDismissRequest = { showQuickAdd = false }, containerColor = Palette.background) {
+            QuickAddSheet { showQuickAdd = false }
         }
     }
+    if (showNotifications) {
+        ModalBottomSheet(onDismissRequest = { showNotifications = false }, containerColor = Palette.background) {
+            NotificationsSheet { showNotifications = false }
+        }
+    } }
 }
 
 @Composable
@@ -118,12 +130,6 @@ private fun ProfilePlaceholder(core: PulseCore, user: User) {
     SecondaryButton("Выйти из аккаунта", icon = Icons.AutoMirrored.Outlined.Logout, tint = Palette.red) { core.session.logout() }
 }
 
-@Composable
-private fun RouteScreen(route: Route) {
-    when (route) {
-        is Route.Placeholder -> Box(Modifier.fillMaxSize().statusBarsPadding().padding(16.dp)) { Placeholder(route.title, route.step) }
-    }
-}
 
 @Composable
 fun Placeholder(title: String, detail: String) {

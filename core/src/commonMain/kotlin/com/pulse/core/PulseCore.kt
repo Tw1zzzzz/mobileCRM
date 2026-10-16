@@ -9,6 +9,12 @@ import com.pulse.core.auth.AuthService
 import com.pulse.core.auth.LocalAuthService
 import com.pulse.core.auth.SessionStore
 import com.pulse.core.demo.PlayerSurveyState
+import com.pulse.core.feature.ActivityStreak
+import com.pulse.core.feature.NotificationInbox
+import com.pulse.core.model.WeeklyInputs
+import com.pulse.core.util.startOfDay
+import kotlin.time.Clock
+import kotlin.time.Instant
 import com.pulse.core.model.CalendarEvent
 import com.pulse.core.model.GameGoals
 import com.pulse.core.model.Lineup
@@ -102,6 +108,50 @@ class PulseCore(
         game.reload(isDemo)
         survey.reload(user)
         onAccountActivated?.invoke(user, accountChanged)
+    }
+
+    /** Personal weekly report inputs from every store (iOS `WeeklySource`); 70 days cover two compared weeks. */
+    fun weeklyInputs(now: Instant = Clock.System.now(), days: Int = 70): WeeklyInputs {
+        val user = session.user.value
+        return WeeklyInputs(
+            sleep = sleep.sessions,
+            sleepGoalMinutes = sleep.window.durationMinutes,
+            workouts = fitness.loadWorkouts(now),
+            dailyLoad = fitness.dailyLoad(days, now),
+            screenMinutes = screenTime.daily(days, now),
+            screenLimitMinutes = screenTime.state.value.dailyLimitMinutes,
+            kcal = nutrition.dailyCalories(days, now),
+            kcalGoal = nutrition.goals.kcal,
+            mood = wellbeing.moodEntries,
+            cognitive = cognitive.results,
+            matches = game.matches(user, days, now),
+            elo = game.eloHistory(user, days, now),
+            focus = survey.survey?.goals ?: emptyList()
+        )
+    }
+
+    /** The bell's inbox for the signed-in account. */
+    fun inboxItems(now: Instant = Clock.System.now()): List<NotificationInbox.Item> = NotificationInbox.items(
+        NotificationInbox.Context(
+            isDemo = session.user.value?.isDemo ?: false,
+            now = now,
+            events = calendar.events,
+            batteryDone = cognitive.completedToday(now),
+            moodSlotsFilled = wellbeing.filledSlots(now).size,
+            // Sleep is attributed to the wake-up day, so last night = a session ending today.
+            sleptLastNight = sleep.minutes(now) != null,
+            isSleeping = sleep.isSleeping,
+            healthName = fitness.healthName
+        )
+    )
+
+    /** «Дней подряд» shown next to the flame. */
+    fun streakDays(now: Instant = Clock.System.now()): Int {
+        val user = session.user.value
+        if (user != null && user.isDemo) return user.streakDays
+        val dates = wellbeing.moodEntries.map { it.day } + cognitive.results.map { it.date } + nutrition.meals.map { it.date } +
+            sleep.sessions.map { it.end } + fitness.workouts.map { it.date }
+        return ActivityStreak.days(dates.map { it.startOfDay() }.toSet(), now)
     }
 
     /** Профиль → Демо-режим → «Сбросить демо-данные» (demo accounts only): the demo folder is recreated. */

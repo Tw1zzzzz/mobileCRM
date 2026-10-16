@@ -503,3 +503,29 @@ class DashboardAndStaffDataTests {
         assertTrue(TeamAnalytics.teamReadinessTrend(14).all { it.low <= it.average && it.average <= it.high })
     }
 }
+
+class InboxAndStreakTests {
+    @BeforeTest fun zone() = pinTestZone()
+
+    @Test fun derivedRemindersFollowTheDay() {
+        val morning = Clock.System.now().startOfDay().setting(10, 0)
+        val event = CalendarEvent(Uuid.random(), "Тренировка", "", morning.addingMinutes(90), morning.addingMinutes(180), emptyList(), EventTag.Personal, null)
+        val items = com.pulse.core.feature.NotificationInbox.derived(com.pulse.core.feature.NotificationInbox.Context(false, morning, listOf(event)))
+        assertTrue(items.map { it.title }.contains("Тренировка"))
+        assertTrue(items.any { it.id.startsWith("battery-") } && items.any { it.id.startsWith("mood-") } && items.any { it.id.startsWith("sleep-") })
+        val done = com.pulse.core.feature.NotificationInbox.derived(
+            com.pulse.core.feature.NotificationInbox.Context(false, morning, emptyList(), batteryDone = true, moodSlotsFilled = 1, sleptLastNight = true)
+        )
+        assertTrue(done.isEmpty())
+        val dismissed = com.pulse.core.feature.NotificationInbox.dismissing(items[0].id, "")
+        assertEquals(items.drop(1), com.pulse.core.feature.NotificationInbox.visible(items, dismissed))
+    }
+
+    @Test fun streakCountsConsecutiveDays() {
+        val today = Clock.System.now().startOfDay()
+        val days = setOf(today, today.addingDays(-1), today.addingDays(-2), today.addingDays(-4))
+        assertEquals(3, com.pulse.core.feature.ActivityStreak.days(days, today))
+        assertEquals(2, com.pulse.core.feature.ActivityStreak.days(setOf(today.addingDays(-1), today.addingDays(-2)), today))
+        assertEquals(0, com.pulse.core.feature.ActivityStreak.days(emptySet(), today))
+    }
+}
