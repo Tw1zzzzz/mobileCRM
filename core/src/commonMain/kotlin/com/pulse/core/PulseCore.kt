@@ -12,6 +12,8 @@ import com.pulse.core.demo.PlayerSurveyState
 import com.pulse.core.feature.ActivityStreak
 import com.pulse.core.feature.NotificationInbox
 import com.pulse.core.model.WeeklyInputs
+import com.pulse.core.util.addingDays
+import com.pulse.core.util.isSameDay
 import com.pulse.core.util.startOfDay
 import kotlin.time.Clock
 import kotlin.time.Instant
@@ -128,6 +130,42 @@ class PulseCore(
             elo = game.eloHistory(user, days, now),
             focus = survey.survey?.goals ?: emptyList()
         )
+    }
+
+    /** «Восстановление» inputs: personal norm = average of the previous days (today excluded). */
+    fun recoveryInput(now: Instant = Clock.System.now()): com.pulse.core.model.RecoveryMath.Input {
+        val night = sleep.displayNight(now)
+        val energy = (wellbeing.averageMood(now) ?: wellbeing.averageMood(now.addingDays(-1)))?.energy
+        val health = fitness.state.value.health
+        if (health == null) {
+            if (!sleep.state.value.isDemo) return com.pulse.core.model.RecoveryMath.Input(sleepScore = night?.score, energy = energy)
+            return com.pulse.core.model.RecoveryMath.Input(
+                hrv = (night?.hrv ?: 58).toDouble(), hrvBaseline = 55.0,
+                restingHeartRate = (night?.restingHeartRate ?: 56).toDouble(), restingBaseline = 58.0,
+                sleepScore = night?.score, energy = energy
+            )
+        }
+        val previousHrv = health.hrvByDay.filter { !it.date.isSameDay(now) }.map { it.value }
+        val previousRhr = health.restingHeartRateByDay.filter { !it.date.isSameDay(now) }.map { it.value }
+        return com.pulse.core.model.RecoveryMath.Input(
+            hrv = night?.hrv?.toDouble() ?: health.hrvByDay.lastOrNull()?.value,
+            hrvBaseline = com.pulse.core.util.StatisticsMath.mean(previousHrv),
+            restingHeartRate = night?.restingHeartRate?.toDouble() ?: health.restingHeartRate?.toDouble(),
+            restingBaseline = com.pulse.core.util.StatisticsMath.mean(previousRhr),
+            sleepScore = night?.score,
+            energy = energy
+        )
+    }
+
+    /** Advice under the recovery ring, combined with the training load. */
+    fun recoveryAdvice(score: Int, now: Instant = Clock.System.now()): String {
+        val load = fitness.loadRatio(now).status
+        return when {
+            score < 34 -> "Сегодня лучше лёгкая тренировка или отдых и ранний отбой."
+            load == com.pulse.core.model.LoadStatus.HIGH -> "Восстановление в норме, но нагрузка резко выросла — не увеличивай объём."
+            score >= 67 -> "Можно тренироваться в полную силу."
+            else -> "Подойдёт тренировка средней интенсивности."
+        }
     }
 
     /** The bell's inbox for the signed-in account. */

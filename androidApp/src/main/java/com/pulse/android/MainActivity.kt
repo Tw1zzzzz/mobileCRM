@@ -22,11 +22,19 @@ class MainActivity : ComponentActivity() {
             navigationBarStyle = SystemBarStyle.dark(android.graphics.Color.TRANSPARENT)
         )
         val core = (application as PulseApplication).core
+        val debugRoute = if (BuildConfig.DEBUG) intent.getStringExtra("route") else null
+        if (BuildConfig.DEBUG) intent.getStringExtra("demo")?.let { role ->
+            val target = com.pulse.core.model.UserRole.entries.firstOrNull { it.name.equals(role, ignoreCase = true) || it.badgeTitle.equals(role, ignoreCase = true) }
+                ?: if (role == "player") com.pulse.core.model.UserRole.TEAM_PLAYER else null
+            if (target != null && core.session.user.value?.role != target) {
+                kotlinx.coroutines.runBlocking { core.session.switchToDemo(target) }
+            }
+        }
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
                 val user by core.session.user.collectAsStateWithLifecycle()
                 Crossfade(user, label = "session") { current ->
-                    if (current == null) AuthScreen(core.session) else MainScreen(core, current)
+                    if (current == null) AuthScreen(core.session) else MainScreen(core, current, debugRoute)
                 }
             }
         }

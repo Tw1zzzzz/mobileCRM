@@ -62,8 +62,11 @@ import com.pulse.core.model.User
 /** Signed-in shell: role-specific tabs, a back stack per tab, the custom bottom bar with the «+» hump. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(core: PulseCore, user: User) {
+fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null) {
     val router = remember { AppRouter() }
+    LaunchedEffect(debugRoute) {
+        debugRoute?.let { DebugRoutes.resolve(it, user.role.isStaff) }?.let { (tab, routes) -> router.show(routes, tab) }
+    }
     val tabs = AppTab.tabs(user.role)
     var showQuickAdd by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }

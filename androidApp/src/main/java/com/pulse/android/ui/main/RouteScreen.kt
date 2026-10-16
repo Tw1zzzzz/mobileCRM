@@ -10,6 +10,8 @@ import com.pulse.android.ui.components.ScreenScaffold
 @Composable
 fun RouteScreen(route: Route) {
     when (route) {
+        Route.Sleep -> com.pulse.android.ui.health.SleepScreen()
+        Route.SleepRecovery -> com.pulse.android.ui.health.SleepRecoveryScreen()
         else -> {
             val (title, step) = placeholderInfo(route)
             ComingSoon(title, step)

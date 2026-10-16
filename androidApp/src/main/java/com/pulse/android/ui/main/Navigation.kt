@@ -66,6 +66,37 @@ sealed interface Route {
     data object PlayerPortrait : Route
 }
 
+/** `adb shell am start … --es route sleep` opens a screen directly (debug builds; used for UI review). */
+object DebugRoutes {
+    fun resolve(name: String, staff: Boolean): Pair<AppTab, List<Route>>? {
+        val hub = if (staff) AppTab.TODAY else AppTab.STATE
+        return when (name) {
+            "today" -> AppTab.TODAY to emptyList()
+            "state" -> AppTab.STATE to emptyList()
+            "profile" -> AppTab.PROFILE to emptyList()
+            "sleep" -> hub to listOf(Route.Sleep)
+            "recovery" -> hub to listOf(Route.Sleep, Route.SleepRecovery)
+            "fitness" -> hub to listOf(Route.Fitness)
+            "fitnessWeek" -> hub to listOf(Route.Fitness, Route.FitnessWeek)
+            "screen" -> hub to listOf(Route.ScreenTime)
+            "screenApps" -> hub to listOf(Route.ScreenTime, Route.ScreenTimeApps)
+            "nutrition" -> hub to listOf(Route.Nutrition)
+            "nutritionHistory" -> hub to listOf(Route.Nutrition, Route.NutritionHistory)
+            "tests" -> hub to listOf(Route.Tests)
+            "cognitive" -> hub to listOf(Route.Tests, Route.Cognitive)
+            "mood" -> hub to listOf(Route.Tests, Route.Mood)
+            "balance" -> hub to listOf(Route.Tests, Route.Balance)
+            "gameTests" -> hub to listOf(Route.Tests, Route.GameTests)
+            "stats" -> hub to listOf(Route.Statistics)
+            "calendar" -> hub to listOf(Route.Calendar())
+            "gameStats" -> hub to listOf(Route.GameStats)
+            "weekly" -> AppTab.TODAY to listOf(Route.WeeklyReport)
+            "portrait" -> AppTab.PROFILE to listOf(Route.PlayerPortrait)
+            else -> null
+        }
+    }
+}
+
 /** One back stack per tab, like iOS `AppRouter`; tapping the open tab again returns it to its first screen. */
 class AppRouter {
     var selectedTab by mutableStateOf(AppTab.TODAY)
