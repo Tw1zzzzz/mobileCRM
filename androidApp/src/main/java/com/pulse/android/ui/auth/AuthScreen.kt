@@ -31,7 +31,6 @@ import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
@@ -57,6 +56,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.ErrorBanner
 import com.pulse.android.ui.components.GradientButton
 import com.pulse.android.ui.components.pressable
@@ -110,7 +110,7 @@ fun AuthScreen(session: SessionStore) {
         }
     }
     legal?.let { document ->
-        ModalBottomSheet(onDismissRequest = { legal = null }, containerColor = Palette.background) {
+        PulseSheet({ legal = null }) {
             Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 30.dp)) {
                 Text(document.title, color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Bold)
                 Text(document.text, color = Palette.textSecondary, fontSize = 15.sp, lineHeight = 21.sp, modifier = Modifier.padding(top = 14.dp))

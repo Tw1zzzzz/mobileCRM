@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
@@ -47,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
+import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.Callout
 import com.pulse.android.ui.components.DividerLine
 import com.pulse.android.ui.components.DurationText
@@ -421,7 +421,7 @@ fun SleepRecoveryScreen() {
         }
     }
     if (editWindow) {
-        ModalBottomSheet(onDismissRequest = { editWindow = false }, containerColor = Palette.background) {
+        PulseSheet({ editWindow = false }) {
             val window = store.window
             val bed = rememberTimePickerState(window.bedtimeHour, window.bedtimeMinute, is24Hour = true)
             val wake = rememberTimePickerState(window.wakeHour, window.wakeMinute, is24Hour = true)

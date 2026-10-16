@@ -25,7 +25,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.outlined.Construction
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -46,6 +45,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.ProvideCore
+import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.IconBadge
 import com.pulse.android.ui.state.StateHubScreen
 import com.pulse.android.ui.today.NotificationsSheet
@@ -89,12 +89,12 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null) {
         }
     }
     if (showQuickAdd) {
-        ModalBottomSheet(onDismissRequest = { showQuickAdd = false }, containerColor = Palette.background) {
+        PulseSheet({ showQuickAdd = false }) {
             QuickAddSheet { showQuickAdd = false }
         }
     }
     if (showNotifications) {
-        ModalBottomSheet(onDismissRequest = { showNotifications = false }, containerColor = Palette.background) {
+        PulseSheet({ showNotifications = false }) {
             NotificationsSheet { showNotifications = false }
         }
     } }

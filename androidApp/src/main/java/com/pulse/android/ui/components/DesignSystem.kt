@@ -27,6 +27,9 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -267,6 +270,18 @@ fun <T> PulseScrollTabs(options: List<T>, selected: T, title: (T) -> String, onS
 }
 
 /** Sheet title row with a close button (iOS `SheetScaffold`). */
+/** Bottom sheet that opens at full content height (like iOS `.large`), never half-expanded. */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun PulseSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+    ModalBottomSheet(
+        onDismissRequest = onDismiss,
+        sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true),
+        containerColor = Palette.background,
+        content = content
+    )
+}
+
 @Composable
 fun SheetScaffold(title: String, onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {

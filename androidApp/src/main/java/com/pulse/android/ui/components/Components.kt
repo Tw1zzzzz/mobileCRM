@@ -187,9 +187,9 @@ fun PulseSection(title: String, actionTitle: String? = null, onAction: (() -> Un
 
 /** Rounded-square tinted icon used in list rows and tiles. */
 @Composable
-fun IconBadge(icon: ImageVector, tint: Color, size: Dp = 40.dp, iconSize: Dp = 18.dp) {
+fun IconBadge(icon: ImageVector, tint: Color, size: Dp = 40.dp, iconSize: Dp = 18.dp, background: Color? = null) {
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(size * 0.3f)).background(tint.copy(alpha = 0.16f)),
+        Modifier.size(size).clip(RoundedCornerShape(size * 0.3f)).background(background ?: tint.copy(alpha = 0.16f)),
         contentAlignment = Alignment.Center
     ) {
         Icon(icon, null, tint = tint, modifier = Modifier.size(iconSize))

@@ -36,6 +36,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
@@ -124,14 +125,17 @@ fun PulseBarChart(
     height: Dp = 140.dp,
     brush: Brush = Brush.verticalGradient(listOf(Color(0xFF16B4FF), Palette.blue)),
     highlight: Int? = null,
-    goal: Double? = null
+    goal: Double? = null,
+    upper: Double? = null,
+    barBrush: ((Int) -> Brush?)? = null,
+    labelsBelow: (@Composable () -> Unit)? = null
 ) {
     val count = values.size
     fun xFraction(i: Int) = (i + 0.5f) / count.coerceAtLeast(1)
     Column(modifier) {
         ScrubbableChart(count, height, calloutFor, ::xFraction) { selected ->
             Canvas(Modifier.fillMaxSize()) {
-                val top = maxOf(values.maxOrNull() ?: 0.0, goal ?: 0.0, 1.0)
+                val top = upper ?: maxOf(values.maxOrNull() ?: 0.0, goal ?: 0.0, 1.0)
                 for (step in 1..3) {
                     val y = size.height * (1 - step / 3f)
                     drawLine(Color.White.copy(alpha = 0.07f), Offset(0f, y), Offset(size.width, y), 1.dp.toPx(), pathEffect = PathEffect.dashPathEffect(floatArrayOf(6f, 8f)))
@@ -143,11 +147,11 @@ fun PulseBarChart(
                 val slot = size.width / count.coerceAtLeast(1)
                 val barWidth = slot * 0.6f
                 values.forEachIndexed { i, value ->
-                    val barHeight = (size.height * (value / top)).toFloat().coerceAtLeast(if (value > 0) 3.dp.toPx() else 0f)
+                    val barHeight = (size.height * (value.coerceAtMost(top) / top)).toFloat().coerceAtLeast(if (value > 0) 3.dp.toPx() else 0f)
                     val alpha = if (selected == null || selected == i) 1f else 0.35f
                     val isHighlight = highlight == i
                     drawRoundRect(
-                        if (isHighlight) Brush.verticalGradient(listOf(Palette.cyan, Color(0xFF12C8F5))) else brush,
+                        barBrush?.invoke(i) ?: if (isHighlight) Brush.verticalGradient(listOf(Palette.cyan, Color(0xFF12C8F5))) else brush,
                         topLeft = Offset(slot * i + (slot - barWidth) / 2, size.height - barHeight),
                         size = Size(barWidth, barHeight),
                         cornerRadius = CornerRadius(4.dp.toPx()),
@@ -156,10 +160,29 @@ fun PulseBarChart(
                 }
             }
         }
-        Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
+        labelsBelow?.invoke()
+        if (labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
             labels.forEachIndexed { i, label ->
                 Text(label, color = if (highlight == i) Palette.textPrimary else Palette.textSecondary, fontSize = 12.sp,
                     fontWeight = if (highlight == i) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, modifier = Modifier.weight(1f), maxLines = 1)
+            }
+        }
+    }
+}
+
+/** Axis labels centered on fractions of the width (clamped to the edges), e.g. hours 00, 06, 12, 18, 23. */
+@Composable
+fun FractionLabels(labels: List<Pair<Float, String>>, modifier: Modifier = Modifier) {
+    Layout(
+        content = { labels.forEach { (_, text) -> Text(text, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1) } },
+        modifier = modifier.fillMaxWidth().padding(top = 6.dp)
+    ) { measurables, constraints ->
+        val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0)) }
+        val width = constraints.maxWidth
+        layout(width, placeables.maxOfOrNull { it.height } ?: 0) {
+            placeables.forEachIndexed { i, placeable ->
+                val x = (labels[i].first * width - placeable.width / 2f).roundToInt().coerceIn(0, (width - placeable.width).coerceAtLeast(0))
+                placeable.place(x, 0)
             }
         }
     }

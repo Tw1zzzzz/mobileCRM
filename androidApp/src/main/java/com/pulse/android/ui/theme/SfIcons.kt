@@ -9,6 +9,9 @@ import androidx.compose.material.icons.automirrored.outlined.Note
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
 import androidx.compose.material.icons.automirrored.outlined.TrendingUp
+import androidx.compose.material.icons.automirrored.outlined.TrendingDown
+import androidx.compose.material.icons.outlined.Remove
+import androidx.compose.material.icons.outlined.LockOpen
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.Add
@@ -110,6 +113,7 @@ fun sfIcon(name: String): ImageVector = when (name) {
     "arrow.right" -> Icons.AutoMirrored.Outlined.ArrowForward
     "arrow.triangle.2.circlepath", "clock.arrow.circlepath" -> Icons.Outlined.Sync
     "arrow.up.forward.circle.fill", "arrow.up.right", "arrow.up.right.circle.fill", "chart.line.uptrend.xyaxis" -> Icons.AutoMirrored.Outlined.TrendingUp
+    "chart.line.downtrend.xyaxis" -> Icons.AutoMirrored.Outlined.TrendingDown
     "bed.double" -> Icons.Outlined.Bed
     "bell" -> Icons.Outlined.Notifications
     "bell.slash" -> Icons.Outlined.NotificationsOff
@@ -161,6 +165,7 @@ fun sfIcon(name: String): ImageVector = when (name) {
     "link" -> Icons.Outlined.Link
     "list.bullet.rectangle" -> Icons.AutoMirrored.Outlined.ListAlt
     "lock", "lock.fill" -> Icons.Outlined.Lock
+    "lock.open" -> Icons.Outlined.LockOpen
     "magnifyingglass" -> Icons.Outlined.Search
     "metronome" -> Icons.Outlined.Speed
     "moon", "moon.fill", "moon.zzz" -> Icons.Outlined.Bedtime
@@ -168,7 +173,8 @@ fun sfIcon(name: String): ImageVector = when (name) {
     "note.text" -> Icons.AutoMirrored.Outlined.Note
     "number" -> Icons.Outlined.Tag
     "paperplane.fill" -> Icons.AutoMirrored.Outlined.Send
-    "pencil" -> Icons.Outlined.Edit
+    "pencil", "square.and.pencil" -> Icons.Outlined.Edit
+    "minus" -> Icons.Outlined.Remove
     "person" -> Icons.Outlined.Person
     "person.3", "person.3.fill" -> Icons.Outlined.Groups
     "person.badge.shield.checkmark" -> Icons.Outlined.AdminPanelSettings

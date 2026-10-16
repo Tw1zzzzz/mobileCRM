@@ -19,7 +19,6 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
-import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -38,6 +37,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
+import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.Callout
 import com.pulse.android.ui.components.ChipButton
 import com.pulse.android.ui.components.DividerLine
@@ -111,11 +111,11 @@ fun FitnessScreen() {
             if (zones != null && average != null) HeartRateZonesCard(zones, average) else NoHeartRateCard(store.healthName)
         }
     }
-    if (logWorkout) ModalBottomSheet(onDismissRequest = { logWorkout = false }, containerColor = Palette.background) {
+    if (logWorkout) PulseSheet({ logWorkout = false }) {
         LogWorkoutSheet({ logWorkout = false }) { store.add(it) }
     }
     rating?.let { workout ->
-        ModalBottomSheet(onDismissRequest = { rating = null }, containerColor = Palette.background) {
+        PulseSheet({ rating = null }) {
             RateWorkoutSheet(workout, store) { rating = null }
         }
     }
