@@ -165,7 +165,7 @@ fun FormDayCard(result: FormIndex.Result, onClick: () -> Unit) {
 }
 
 @Composable
-private fun GameSummaryCard(onClick: () -> Unit) {
+fun GameSummaryCard(onClick: () -> Unit) {
     val core = observeCore()
     val user = core.session.user.value
     val player = core.game.profile(user)
@@ -223,7 +223,7 @@ fun DeltaLabel(value: Int, suffix: String) {
 }
 
 @Composable
-private fun FaceitPromptCard() {
+fun FaceitPromptCard() {
     val core = observeCore()
     val router = LocalRouter.current
     Column(Modifier.pulseCard(padding = 16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {

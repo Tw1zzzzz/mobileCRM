@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.ProvideCore
 import com.pulse.android.ui.components.IconBadge
+import com.pulse.android.ui.state.StateHubScreen
 import com.pulse.android.ui.today.NotificationsSheet
 import com.pulse.android.ui.today.TodayScreen
 import com.pulse.android.ui.components.ScreenBackground
@@ -76,6 +77,7 @@ fun MainScreen(core: PulseCore, user: User) {
                 when {
                     route != null -> RouteScreen(route)
                     router.selectedTab == AppTab.TODAY && !user.role.isStaff -> TodayScreen { showNotifications = true }
+                    router.selectedTab == AppTab.STATE -> StateHubScreen()
                     else -> TabRoot(router.selectedTab, core, user, router)
                 }
             }
