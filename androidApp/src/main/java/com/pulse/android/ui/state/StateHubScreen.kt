@@ -17,6 +17,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -40,7 +42,6 @@ import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.Sparkline
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
-import com.pulse.android.ui.main.Placeholder
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
 import com.pulse.android.ui.theme.Palette
@@ -78,7 +79,10 @@ fun StateHubScreen() {
     val context = LocalContext.current
     var section by remember { mutableStateOf(StateSection.load(context)) }
     val user = core.session.user.value
-    ScreenScaffold(spacing = 20.dp, header = {
+    // Each section starts at the top, not at the previous section's scroll offset.
+    val scroll = rememberScrollState()
+    LaunchedEffect(section) { scroll.scrollTo(0) }
+    ScreenScaffold(spacing = 20.dp, scrollState = scroll, header = {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             NavHeader("Состояние", listOfNotNull(user?.role?.title, user?.team).joinToString(" · "))
             PulseScrollTabs(StateSection.entries, section, { it.title }) {
@@ -91,8 +95,11 @@ fun StateHubScreen() {
             StateSection.BODY -> BodySection()
             StateSection.TESTS -> TestsSection()
             StateSection.GAME -> GameSection()
-            StateSection.STATISTICS -> Placeholder("Статистика", "Периоды, графики, неигровой и игровой анализ — шаг 3.4")
-            StateSection.ANALYTICS -> Placeholder("Аналитика", "Настроение, когнитивная форма и главные связи за 30 дней — шаг 3.4")
+            StateSection.STATISTICS -> com.pulse.android.ui.statistics.StatisticsContent()
+            StateSection.ANALYTICS -> com.pulse.android.ui.statistics.AnalyticsSection {
+                section = StateSection.STATISTICS
+                StateSection.save(context, StateSection.STATISTICS)
+            }
         }
     }
 }

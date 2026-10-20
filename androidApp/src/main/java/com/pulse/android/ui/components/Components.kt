@@ -141,11 +141,11 @@ fun SecondaryButton(title: String, modifier: Modifier = Modifier, icon: ImageVec
 
 /** Selectable chip used for filters and tags. */
 @Composable
-fun ChipButton(title: String, isSelected: Boolean, onClick: () -> Unit) {
+fun ChipButton(title: String, isSelected: Boolean, tint: Color? = null, onClick: () -> Unit) {
     Box(
         Modifier
             .clip(CircleShape)
-            .then(if (isSelected) Modifier.background(Gradients.accent) else Modifier.background(Palette.tile).border(1.dp, Palette.stroke, CircleShape))
+            .then(if (isSelected) Modifier.background(tint?.let { Brush.horizontalGradient(listOf(it, it)) } ?: Gradients.accent) else Modifier.background(Palette.tile).border(1.dp, Palette.stroke, CircleShape))
             .pressable(onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp)
     ) {

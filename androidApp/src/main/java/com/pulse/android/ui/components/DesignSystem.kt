@@ -3,6 +3,7 @@ package com.pulse.android.ui.components
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.ScrollState
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.horizontalScroll
@@ -135,11 +136,16 @@ fun NavHeader(title: String, subtitle: String? = null, onBack: (() -> Unit)? = n
 
 /** Standard screen: fixed header + scrolling content (the background comes from the shell). */
 @Composable
-fun ScreenScaffold(spacing: Dp = Metrics.sectionSpacing, header: @Composable () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+fun ScreenScaffold(
+    spacing: Dp = Metrics.sectionSpacing,
+    scrollState: ScrollState = rememberScrollState(),
+    header: @Composable () -> Unit,
+    content: @Composable ColumnScope.() -> Unit
+) {
     Column(Modifier.fillMaxSize().statusBarsPadding()) {
         Box(Modifier.padding(horizontal = Metrics.screenPadding).padding(top = 4.dp, bottom = 10.dp)) { header() }
         Column(
-            Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = Metrics.screenPadding)
+            Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = Metrics.screenPadding)
                 .padding(top = 10.dp, bottom = 24.dp),
             verticalArrangement = Arrangement.spacedBy(spacing),
             content = content
@@ -306,7 +312,7 @@ fun HubRow(icon: String, tint: Color, title: String, subtitle: String, onClick: 
         IconBadge(sfIcon(icon), tint, 52.dp, 22.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(title, color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text(subtitle, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1)
+            Text(subtitle, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 2)
         }
         Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(16.dp))
     }
