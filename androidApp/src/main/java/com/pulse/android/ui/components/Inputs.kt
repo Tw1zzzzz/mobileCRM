@@ -23,6 +23,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.theme.Palette
@@ -31,11 +33,14 @@ import kotlin.math.roundToInt
 /** Titled slider with the integer value on the right (iOS `PulseSlider`). */
 @OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
-fun PulseSlider(title: String, value: Double, range: ClosedFloatingPointRange<Double> = 1.0..10.0, tint: Color = Palette.cyan, step: Double = 1.0, onChange: (Double) -> Unit) {
+fun PulseSlider(
+    title: String, value: Double, range: ClosedFloatingPointRange<Double> = 1.0..10.0, tint: Color = Palette.cyan, step: Double = 1.0,
+    valueText: String? = null, onChange: (Double) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row {
             Text(title, color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-            Text("${value.roundToInt()}", color = tint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            Text(valueText ?: "${value.roundToInt()}", color = tint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         val steps = ((range.endInclusive - range.start) / step).roundToInt() - 1
         val colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = tint, inactiveTrackColor = Palette.track,
@@ -55,12 +60,17 @@ fun PulseSlider(title: String, value: Double, range: ClosedFloatingPointRange<Do
 
 /** Text field styled for the dark cards (iOS `PulseTextField`). */
 @Composable
-fun PulseTextField(title: String, value: String, placeholder: String = "", keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true, onChange: (String) -> Unit) {
+fun PulseTextField(
+    title: String, value: String, placeholder: String = "", keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true,
+    secure: Boolean = false, onChange: (String) -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, color = Palette.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         TextField(
             value, onChange, placeholder = { Text(placeholder, color = Palette.textTertiary) }, singleLine = singleLine,
-            keyboardOptions = KeyboardOptions(keyboardType = keyboard), shape = RoundedCornerShape(12.dp),
+            keyboardOptions = KeyboardOptions(keyboardType = if (secure) KeyboardType.Password else keyboard, autoCorrectEnabled = !secure),
+            visualTransformation = if (secure) PasswordVisualTransformation() else VisualTransformation.None,
+            shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFF1C2333), unfocusedContainerColor = Color(0xFF1C2333),
                 focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Palette.cyan,

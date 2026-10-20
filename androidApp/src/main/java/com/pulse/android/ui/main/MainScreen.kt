@@ -27,6 +27,8 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -81,6 +83,7 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null) {
                     route != null -> RouteScreen(route)
                     router.selectedTab == AppTab.TODAY && !user.role.isStaff -> TodayScreen { showNotifications = true }
                     router.selectedTab == AppTab.STATE -> StateHubScreen()
+                    router.selectedTab == AppTab.PROFILE -> com.pulse.android.ui.profile.ProfileScreen()
                     else -> TabRoot(router.selectedTab, core, user, router)
                 }
             }
@@ -96,6 +99,28 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null) {
     if (showNotifications) {
         PulseSheet({ showNotifications = false }) {
             NotificationsSheet { showNotifications = false }
+        }
+    }
+    // First sign-in of a player: questionnaire + «Игровой характер»; later from the reminder cards.
+    var showSurvey by remember { mutableStateOf(false) }
+    var surveyTestOnly by remember { mutableStateOf(false) }
+    val needsOnboarding = core.survey.needsOnboarding
+    LaunchedEffect(needsOnboarding, router.showsSurvey, user.role) {
+        if (user.role.isStaff || showSurvey) return@LaunchedEffect
+        if (needsOnboarding || router.showsSurvey) {
+            // Fixed when the cover opens: saving the survey on step 2 must not switch the flow.
+            surveyTestOnly = router.surveyTestOnly || (core.survey.survey != null && core.survey.latestResult == null)
+            router.showsSurvey = false
+            router.surveyTestOnly = false
+            showSurvey = true
+        }
+    }
+    if (showSurvey) {
+        Dialog({ showSurvey = false }, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnBackPress = false)) {
+            com.pulse.android.ui.onboarding.OnboardingFlow(surveyTestOnly) {
+                if (core.survey.needsOnboarding) core.survey.dismissOnboarding()
+                showSurvey = false
+            }
         }
     } }
 }
@@ -114,7 +139,7 @@ private fun TabRoot(tab: AppTab, core: PulseCore, user: User, router: AppRouter)
             AppTab.PLAYERS -> Placeholder("«Игроки»", "Состав и питание команды — шаг 3.7")
             AppTab.ANALYTICS -> Placeholder("«Аналитика»", "Дашборд команды, сводка недели и корреляции — шаг 3.7")
             AppTab.LINEUPS -> Placeholder("«База знаний»", "Раскидки, скрипты и заметки команды — шаг 3.6")
-            AppTab.PROFILE -> ProfilePlaceholder(core, user)
+            AppTab.PROFILE -> Unit
         }
         Text(
             "Каркас Android-версии (шаг 2). Данные и расчёты — общее ядро, те же, что на iPhone.",
@@ -123,18 +148,6 @@ private fun TabRoot(tab: AppTab, core: PulseCore, user: User, router: AppRouter)
         Spacer(Modifier.height(24.dp))
     }
 }
-
-@Composable
-private fun ProfilePlaceholder(core: PulseCore, user: User) {
-    Column(Modifier.pulseCard(), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(user.nickname, color = Palette.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(user.email, color = Palette.textSecondary, fontSize = 15.sp)
-        Text("${user.role.title}${user.team?.let { " · $it" } ?: ""}${if (user.isDemo) " · демо" else ""}", color = Palette.cyan, fontSize = 14.sp)
-        Text("Записей сна: ${core.sleep.sessions.size} · приёмов пищи: ${core.nutrition.meals.size}", color = Palette.textTertiary, fontSize = 13.sp)
-    }
-    SecondaryButton("Выйти из аккаунта", icon = Icons.AutoMirrored.Outlined.Logout, tint = Palette.red) { core.session.logout() }
-}
-
 
 @Composable
 fun Placeholder(title: String, detail: String) {

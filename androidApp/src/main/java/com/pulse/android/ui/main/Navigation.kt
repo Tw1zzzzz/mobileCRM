@@ -129,6 +129,8 @@ class AppRouter {
 
     /** Opens the questionnaire full-screen (reminder cards). */
     var showsSurvey by mutableStateOf(false)
+    /** Set before `showsSurvey` to re-run only the «Игровой характер» test. */
+    var surveyTestOnly by mutableStateOf(false)
     var pendingFoodCapture by mutableStateOf(false)
 
     fun select(tab: AppTab) {

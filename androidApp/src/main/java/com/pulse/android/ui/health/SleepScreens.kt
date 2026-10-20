@@ -420,25 +420,29 @@ fun SleepRecoveryScreen() {
             }
         }
     }
-    if (editWindow) {
-        PulseSheet({ editWindow = false }) {
-            val window = store.window
-            val bed = rememberTimePickerState(window.bedtimeHour, window.bedtimeMinute, is24Hour = true)
-            val wake = rememberTimePickerState(window.wakeHour, window.wakeMinute, is24Hour = true)
-            val colors = TimePickerDefaults.colors(
-                timeSelectorSelectedContainerColor = Palette.blue, timeSelectorUnselectedContainerColor = Palette.tile,
-                timeSelectorSelectedContentColor = Color.White, timeSelectorUnselectedContentColor = Palette.textPrimary
-            )
-            SheetScaffold("Окно сна", { editWindow = false }) {
-                Text("Отбой", color = Palette.textSecondary, fontSize = 15.sp)
-                TimeInput(bed, colors = colors)
-                Text("Подъём", color = Palette.textSecondary, fontSize = 15.sp)
-                TimeInput(wake, colors = colors)
-                GradientButton("Сохранить") {
-                    store.updateWindow(window.copy(bedtimeHour = bed.hour, bedtimeMinute = bed.minute, wakeHour = wake.hour, wakeMinute = wake.minute))
-                    editWindow = false
-                }
-            }
+    if (editWindow) PulseSheet({ editWindow = false }) { SleepWindowSheet { editWindow = false } }
+}
+
+/** Bedtime and wake-up editor («Восстановление» and Профиль → Цели → Сон). */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun SleepWindowSheet(onClose: () -> Unit) {
+    val store = observeCore().sleep
+    val window = store.window
+    val bed = rememberTimePickerState(window.bedtimeHour, window.bedtimeMinute, is24Hour = true)
+    val wake = rememberTimePickerState(window.wakeHour, window.wakeMinute, is24Hour = true)
+    val colors = TimePickerDefaults.colors(
+        timeSelectorSelectedContainerColor = Palette.blue, timeSelectorUnselectedContainerColor = Palette.tile,
+        timeSelectorSelectedContentColor = Color.White, timeSelectorUnselectedContentColor = Palette.textPrimary
+    )
+    SheetScaffold("Окно сна", onClose) {
+        Text("Отбой", color = Palette.textSecondary, fontSize = 15.sp)
+        TimeInput(bed, colors = colors)
+        Text("Подъём", color = Palette.textSecondary, fontSize = 15.sp)
+        TimeInput(wake, colors = colors)
+        GradientButton("Сохранить") {
+            store.updateWindow(window.copy(bedtimeHour = bed.hour, bedtimeMinute = bed.minute, wakeHour = wake.hour, wakeMinute = wake.minute))
+            onClose()
         }
     }
 }

@@ -99,9 +99,10 @@ fun GradientButton(
         modifier
             .fillMaxWidth()
             .height(54.dp)
+            // Dims the whole button (background included) when disabled, like iOS.
+            .alpha(if (enabled) 1f else 0.45f)
             .clip(RoundedCornerShape(Metrics.buttonRadius))
             .background(brush)
-            .alpha(if (enabled) 1f else 0.45f)
             .pressable(enabled && !isLoading, onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically

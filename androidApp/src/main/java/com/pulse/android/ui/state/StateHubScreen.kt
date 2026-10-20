@@ -38,6 +38,7 @@ import com.pulse.android.ui.components.IconBadge
 import com.pulse.android.ui.components.NavHeader
 import com.pulse.android.ui.components.PulseScrollTabs
 import com.pulse.android.ui.components.PulseSection
+import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.Sparkline
 import com.pulse.android.ui.components.pressable
@@ -46,7 +47,6 @@ import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.sfIcon
-import com.pulse.android.ui.today.FaceitPromptCard
 import com.pulse.android.ui.today.GameSummaryCard
 import com.pulse.core.model.DailyValue
 import com.pulse.core.model.DaySlot
@@ -192,9 +192,13 @@ private fun GameSection() {
     val core = observeCore()
     val router = LocalRouter.current
     val recent = core.game.recentMatches(core.session.user.value, 3)
-    if (!core.game.isConnected) FaceitPromptCard()
+    var goalsSheet by remember { mutableStateOf(false) }
+    com.pulse.android.ui.game.FaceitSourceCard()
     if (core.game.hasData) {
         GameSummaryCard { router.open(Route.GameStats) }
+        PulseSection("Цели", "Изменить", { goalsSheet = true }) {
+            com.pulse.android.ui.profile.GameGoalsCard { goalsSheet = true }
+        }
         PulseSection("Последние матчи", "Все", { router.open(Route.GameStats) }) {
             Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 16.dp)) {
                 recent.forEachIndexed { index, match ->
@@ -205,6 +209,7 @@ private fun GameSection() {
         }
     }
     Spacer(Modifier.height(4.dp))
+    if (goalsSheet) PulseSheet({ goalsSheet = false }) { com.pulse.android.ui.profile.GameGoalsSheet { goalsSheet = false } }
 }
 
 @Composable

@@ -24,6 +24,9 @@ fun RouteScreen(route: Route) {
         Route.Balance -> com.pulse.android.ui.tests.BalanceScreen()
         Route.GameTests -> com.pulse.android.ui.tests.GameTestsScreen()
         Route.Statistics -> com.pulse.android.ui.statistics.StatisticsScreen()
+        Route.GameStats -> com.pulse.android.ui.game.GameStatsScreen()
+        Route.PlayerPortrait -> com.pulse.android.ui.onboarding.PlayerPortraitScreen()
+        Route.WeeklyReport -> com.pulse.android.ui.weekly.WeeklyReportScreen()
         else -> {
             val (title, step) = placeholderInfo(route)
             ComingSoon(title, step)
