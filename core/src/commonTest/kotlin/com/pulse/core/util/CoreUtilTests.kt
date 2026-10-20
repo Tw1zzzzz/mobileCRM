@@ -124,6 +124,15 @@ class FormattersTests {
         assertEquals(3, thursday.daysUntil(at(2026, 10, 18, 1, 0)))
     }
 
+    @Test fun relativeTime() {
+        val now = at(2026, 10, 20, 18, 0)
+        assertEquals("сейчас", Formatters.relative(now, now))
+        assertEquals("25 мин. назад", Formatters.relative(at(2026, 10, 20, 17, 35), now))
+        assertEquals("3 ч. назад", Formatters.relative(at(2026, 10, 20, 14, 40), now))
+        assertEquals("2 дн. назад", Formatters.relative(at(2026, 10, 18, 12, 0), now))
+        assertEquals("2 нед. назад", Formatters.relative(at(2026, 10, 5, 12, 0), now))
+    }
+
     @Test fun russianPlurals() {
         val forms = listOf(1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 111, 101).map { Formatters.plural(it, "вариация", "вариации", "вариаций") }
         assertEquals(

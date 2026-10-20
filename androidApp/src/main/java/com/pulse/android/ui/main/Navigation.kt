@@ -93,6 +93,9 @@ object DebugRoutes {
             "weekly" -> AppTab.TODAY to listOf(Route.WeeklyReport)
             "portrait" -> AppTab.PROFILE to listOf(Route.PlayerPortrait)
             "diary" -> (if (staff) AppTab.LINEUPS else AppTab.DIARY) to emptyList()
+            "players" -> AppTab.PLAYERS to emptyList()
+            "analytics" -> AppTab.ANALYTICS to emptyList()
+            "player" -> AppTab.PLAYERS to listOf(Route.Player(com.pulse.core.demo.DemoData.players[0].id))
             else -> null
         }
     }

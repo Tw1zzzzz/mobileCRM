@@ -104,6 +104,18 @@ object Formatters {
     fun liters(milliliters: Int): String =
         decimal(milliliters / 1000.0, if (milliliters % 1000 == 0) 0 else 1)
 
+    /** Short relative time like iOS `RelativeDateTimeFormatter` (ru, short): «5 мин. назад», «3 ч. назад», «2 дн. назад». */
+    fun relative(instant: Instant, now: Instant): String {
+        val minutes = (now - instant).inWholeMinutes
+        return when {
+            minutes < 1 -> "сейчас"
+            minutes < 60 -> "$minutes мин. назад"
+            minutes < 24 * 60 -> "${minutes / 60} ч. назад"
+            minutes < 7 * 24 * 60 -> "${minutes / (24 * 60)} дн. назад"
+            else -> "${minutes / (7 * 24 * 60)} нед. назад"
+        }
+    }
+
     /** «1 год», «3 года», «7 лет». */
     fun years(value: Int): String = plural(value, "год", "года", "лет")
 

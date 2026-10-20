@@ -31,6 +31,11 @@ fun RouteScreen(route: Route) {
         is Route.Lineup -> com.pulse.android.ui.diary.LineupDetailScreen(route.id)
         is Route.Calendar -> com.pulse.android.ui.calendar.CalendarScreen(route.createNew)
         is Route.Event -> com.pulse.android.ui.calendar.EventDetailScreen(route.id)
+        Route.Players -> com.pulse.android.ui.staff.PlayersScreen()
+        is Route.Player -> com.pulse.android.ui.staff.PlayerDetailScreen(route.id)
+        Route.TeamAnalytics -> com.pulse.android.ui.staff.TeamAnalyticsScreen()
+        Route.TeamCorrelations -> com.pulse.android.ui.staff.TeamCorrelationsScreen()
+        Route.TeamFood -> com.pulse.android.ui.staff.TeamFoodScreen()
         else -> {
             val (title, step) = placeholderInfo(route)
             ComingSoon(title, step)

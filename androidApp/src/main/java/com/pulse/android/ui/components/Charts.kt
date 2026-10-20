@@ -54,6 +54,10 @@ data class Callout(val title: String, val lines: List<Pair<String, Color>>) {
     constructor(title: String, value: String, tint: Color) : this(title, listOf(value to tint))
 }
 
+/** Callout bubble for charts outside this file (scatter). */
+@Composable
+internal fun CalloutBubbleBox(callout: Callout) = CalloutBubble(callout)
+
 @Composable
 private fun CalloutBubble(callout: Callout, modifier: Modifier = Modifier) {
     Column(
@@ -202,7 +206,9 @@ fun PulseLineChart(
     upper: Double? = null,
     labels: List<String> = emptyList(),
     secondary: List<Double>? = null,
-    secondaryColor: Color = Palette.purple
+    secondaryColor: Color = Palette.purple,
+    /** Optional spread around the line (per-point low and high), drawn as a translucent band. */
+    band: Pair<List<Double>, List<Double>>? = null
 ) {
     val count = values.size
     fun xFraction(i: Int) = if (count <= 1) 0.5f else i / (count - 1f)
@@ -210,7 +216,7 @@ fun PulseLineChart(
         ScrubbableChart(count, height, calloutFor, ::xFraction) { selected ->
             Canvas(Modifier.fillMaxSize()) {
                 if (count == 0) return@Canvas
-                val all = values + (secondary ?: emptyList())
+                val all = values + (secondary ?: emptyList()) + (band?.let { it.first + it.second } ?: emptyList())
                 val low = lower ?: (all.min() - maxOf((all.max() - all.min()) * 0.15, 0.5))
                 val high = upper ?: (all.max() + maxOf((all.max() - all.min()) * 0.15, 0.5))
                 fun point(i: Int, v: Double) = Offset(size.width * xFraction(i), (size.height * (1 - (v - low) / (high - low))).toFloat())
@@ -229,6 +235,12 @@ fun PulseLineChart(
                     }
                 }
                 val line = smooth(values)
+                band?.let { (lows, highs) ->
+                    if (lows.size == count && highs.size == count && count > 1) {
+                        val area = smooth(highs).apply { for (i in count - 1 downTo 0) point(i, lows[i]).let { lineTo(it.x, it.y) }; close() }
+                        drawPath(area, color.copy(alpha = 0.15f))
+                    }
+                }
                 if (showsArea && count > 1) {
                     val area = Path().apply {
                         addPath(line)

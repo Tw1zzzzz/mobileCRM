@@ -82,6 +82,9 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null) {
                 when {
                     route != null -> RouteScreen(route)
                     router.selectedTab == AppTab.TODAY && !user.role.isStaff -> TodayScreen { showNotifications = true }
+                    router.selectedTab == AppTab.TODAY -> com.pulse.android.ui.staff.StaffTodayScreen { showNotifications = true }
+                    router.selectedTab == AppTab.PLAYERS -> com.pulse.android.ui.staff.StaffPlayersTab()
+                    router.selectedTab == AppTab.ANALYTICS -> com.pulse.android.ui.staff.StaffAnalyticsTab()
                     router.selectedTab == AppTab.STATE -> StateHubScreen()
                     router.selectedTab == AppTab.PROFILE -> com.pulse.android.ui.profile.ProfileScreen()
                     router.selectedTab == AppTab.DIARY || router.selectedTab == AppTab.LINEUPS -> com.pulse.android.ui.diary.DiaryScreen(showsBack = false)

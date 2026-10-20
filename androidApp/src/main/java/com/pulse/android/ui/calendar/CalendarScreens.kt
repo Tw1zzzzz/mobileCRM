@@ -149,7 +149,7 @@ fun CalendarScreen(startsWithCreate: Boolean) {
 }
 
 @Composable
-private fun EventRow(event: CalendarEvent) {
+fun EventRow(event: CalendarEvent) {
     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(4.dp, 44.dp).clip(RoundedCornerShape(2.dp)).background(event.tag.tint.color))
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
