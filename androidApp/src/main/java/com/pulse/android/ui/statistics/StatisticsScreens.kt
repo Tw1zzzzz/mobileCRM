@@ -17,10 +17,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.SelectableDates
 import androidx.compose.material3.Text
 import androidx.compose.material3.DateRangePickerState
-import android.content.res.Configuration
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalConfiguration
 import java.util.Locale
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -50,6 +47,7 @@ import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.PulseSegmented
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.RadarChart
+import com.pulse.android.ui.components.RussianLocale
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.Sparkline
@@ -329,10 +327,8 @@ private fun CustomPeriodSheet(onClose: () -> Unit, onApply: (StatsPeriod) -> Uni
             }
         )
     }
-    // The app is Russian-only: month names, weekdays and the Monday week start follow ru, not the phone language.
-    val configuration = Configuration(LocalConfiguration.current).apply { setLocale(Locale.forLanguageTag("ru")) }
     SheetScaffold("Произвольный период", onClose) {
-        CompositionLocalProvider(LocalConfiguration provides configuration) {
+        RussianLocale {
         DateRangePicker(
             state, modifier = Modifier.height(460.dp), title = null, showModeToggle = false,
             colors = DatePickerDefaults.colors(containerColor = Palette.background, dayContentColor = Palette.textPrimary,

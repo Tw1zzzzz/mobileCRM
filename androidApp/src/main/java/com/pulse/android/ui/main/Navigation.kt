@@ -92,6 +92,7 @@ object DebugRoutes {
             "gameStats" -> hub to listOf(Route.GameStats)
             "weekly" -> AppTab.TODAY to listOf(Route.WeeklyReport)
             "portrait" -> AppTab.PROFILE to listOf(Route.PlayerPortrait)
+            "diary" -> (if (staff) AppTab.LINEUPS else AppTab.DIARY) to emptyList()
             else -> null
         }
     }

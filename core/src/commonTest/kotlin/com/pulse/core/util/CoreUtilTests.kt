@@ -123,6 +123,16 @@ class FormattersTests {
         assertEquals(LocalDate(2026, 10, 15), thursday.localDate())
         assertEquals(3, thursday.daysUntil(at(2026, 10, 18, 1, 0)))
     }
+
+    @Test fun russianPlurals() {
+        val forms = listOf(1, 2, 4, 5, 11, 12, 14, 21, 22, 25, 111, 101).map { Formatters.plural(it, "вариация", "вариации", "вариаций") }
+        assertEquals(
+            listOf("1 вариация", "2 вариации", "4 вариации", "5 вариаций", "11 вариаций", "12 вариаций", "14 вариаций",
+                "21 вариация", "22 вариации", "25 вариаций", "111 вариаций", "101 вариация"),
+            forms
+        )
+        assertEquals("3 года", Formatters.years(3))
+    }
 }
 
 class StatisticsMathTests {
@@ -147,4 +157,5 @@ class IsoInstantSerializerTests {
         assertEquals("""{"at":"2026-10-15T19:00:00Z"}""", json)
         assertEquals(Instant.fromEpochSeconds(1_792_090_800), Json.decodeFromString(Box.serializer(), json).at)
     }
+
 }

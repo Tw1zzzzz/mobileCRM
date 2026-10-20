@@ -1,6 +1,7 @@
 package com.pulse.android.ui.theme
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.NorthEast
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material.icons.outlined.Refresh
 import androidx.compose.material.icons.outlined.Description
@@ -119,7 +120,8 @@ fun sfIcon(name: String): ImageVector = when (name) {
     "arrow.counterclockwise" -> Icons.Outlined.Undo
     "arrow.right" -> Icons.AutoMirrored.Outlined.ArrowForward
     "arrow.triangle.2.circlepath", "clock.arrow.circlepath" -> Icons.Outlined.Sync
-    "arrow.up.forward.circle.fill", "arrow.up.right", "arrow.up.right.circle.fill", "chart.line.uptrend.xyaxis" -> Icons.AutoMirrored.Outlined.TrendingUp
+    "arrow.up.forward.circle.fill", "arrow.up.right.circle.fill", "chart.line.uptrend.xyaxis" -> Icons.AutoMirrored.Outlined.TrendingUp
+    "arrow.up.right" -> Icons.Outlined.NorthEast
     "chart.line.downtrend.xyaxis" -> Icons.AutoMirrored.Outlined.TrendingDown
     "bed.double" -> Icons.Outlined.Bed
     "bell" -> Icons.Outlined.Notifications

@@ -18,7 +18,11 @@ import androidx.compose.material3.SliderDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
+import android.content.res.Configuration
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalConfiguration
+import java.util.Locale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
@@ -79,4 +83,11 @@ fun PulseTextField(
             modifier = Modifier.fillMaxWidth()
         )
     }
+}
+
+/** The app is Russian-only: system pickers inside follow ru (month names, weekdays, Monday first), not the phone language. */
+@Composable
+fun RussianLocale(content: @Composable () -> Unit) {
+    val configuration = Configuration(LocalConfiguration.current).apply { setLocale(Locale.forLanguageTag("ru")) }
+    CompositionLocalProvider(LocalConfiguration provides configuration, content = content)
 }

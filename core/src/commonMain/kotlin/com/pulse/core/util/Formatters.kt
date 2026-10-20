@@ -105,13 +105,16 @@ object Formatters {
         decimal(milliliters / 1000.0, if (milliliters % 1000 == 0) 0 else 1)
 
     /** «1 год», «3 года», «7 лет». */
-    fun years(value: Int): String {
+    fun years(value: Int): String = plural(value, "год", "года", "лет")
+
+    /** Russian plural: «1 вариация», «3 вариации», «5 вариаций», «11 вариаций», «21 вариация». */
+    fun plural(value: Int, one: String, few: String, many: String): String {
         val mod10 = value % 10
         val mod100 = value % 100
         val word = when {
-            mod10 == 1 && mod100 != 11 -> "год"
-            mod10 in 2..4 && mod100 !in 12..14 -> "года"
-            else -> "лет"
+            mod10 == 1 && mod100 != 11 -> one
+            mod10 in 2..4 && mod100 !in 12..14 -> few
+            else -> many
         }
         return "$value $word"
     }

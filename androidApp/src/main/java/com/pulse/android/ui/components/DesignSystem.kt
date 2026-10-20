@@ -241,7 +241,7 @@ fun Sparkline(values: List<DailyValue>, modifier: Modifier = Modifier, color: Co
 
 /** Equal-width segmented control (iOS `PulseSegmented`). */
 @Composable
-fun <T> PulseSegmented(options: List<T>, selected: T, title: (T) -> String, height: Dp = 42.dp, onSelect: (T) -> Unit) {
+fun <T> PulseSegmented(options: List<T>, selected: T, title: (T) -> String, height: Dp = 42.dp, fontSize: TextUnit = 15.sp, onSelect: (T) -> Unit) {
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp)).background(Color(0xFF1C2333)).padding(5.dp), horizontalArrangement = Arrangement.spacedBy(2.dp)) {
         options.forEach { option ->
             val isSelected = option == selected
@@ -250,7 +250,7 @@ fun <T> PulseSegmented(options: List<T>, selected: T, title: (T) -> String, heig
                     .then(if (isSelected) Modifier.background(Gradients.accent) else Modifier).pressable { onSelect(option) },
                 contentAlignment = Alignment.Center
             ) {
-                Text(title(option), color = if (isSelected) Color.White else Palette.textSecondary, fontSize = 15.sp,
+                Text(title(option), color = if (isSelected) Color.White else Palette.textSecondary, fontSize = fontSize,
                     fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }

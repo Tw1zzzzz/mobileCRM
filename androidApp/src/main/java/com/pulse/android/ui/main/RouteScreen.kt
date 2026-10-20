@@ -27,6 +27,10 @@ fun RouteScreen(route: Route) {
         Route.GameStats -> com.pulse.android.ui.game.GameStatsScreen()
         Route.PlayerPortrait -> com.pulse.android.ui.onboarding.PlayerPortraitScreen()
         Route.WeeklyReport -> com.pulse.android.ui.weekly.WeeklyReportScreen()
+        Route.Lineups -> com.pulse.android.ui.diary.DiaryScreen(showsBack = true)
+        is Route.Lineup -> com.pulse.android.ui.diary.LineupDetailScreen(route.id)
+        is Route.Calendar -> com.pulse.android.ui.calendar.CalendarScreen(route.createNew)
+        is Route.Event -> com.pulse.android.ui.calendar.EventDetailScreen(route.id)
         else -> {
             val (title, step) = placeholderInfo(route)
             ComingSoon(title, step)
