@@ -18,6 +18,11 @@ fun RouteScreen(route: Route) {
         Route.ScreenTimeApps -> com.pulse.android.ui.health.ScreenTimeAppsScreen()
         Route.Nutrition -> com.pulse.android.ui.health.NutritionScreen()
         Route.NutritionHistory -> com.pulse.android.ui.health.NutritionHistoryScreen()
+        Route.Tests -> com.pulse.android.ui.tests.TestsScreen()
+        Route.Cognitive -> com.pulse.android.ui.tests.CognitiveScreen()
+        Route.Mood -> com.pulse.android.ui.tests.MoodScreen()
+        Route.Balance -> com.pulse.android.ui.tests.BalanceScreen()
+        Route.GameTests -> com.pulse.android.ui.tests.GameTestsScreen()
         else -> {
             val (title, step) = placeholderInfo(route)
             ComingSoon(title, step)

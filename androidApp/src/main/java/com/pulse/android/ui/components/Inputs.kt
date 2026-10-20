@@ -1,6 +1,13 @@
 package com.pulse.android.ui.components
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +29,7 @@ import com.pulse.android.ui.theme.Palette
 import kotlin.math.roundToInt
 
 /** Titled slider with the integer value on the right (iOS `PulseSlider`). */
+@OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 @Composable
 fun PulseSlider(title: String, value: Double, range: ClosedFloatingPointRange<Double> = 1.0..10.0, tint: Color = Palette.cyan, step: Double = 1.0, onChange: (Double) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -30,11 +38,17 @@ fun PulseSlider(title: String, value: Double, range: ClosedFloatingPointRange<Do
             Text("${value.roundToInt()}", color = tint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
         val steps = ((range.endInclusive - range.start) / step).roundToInt() - 1
+        val colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = tint, inactiveTrackColor = Palette.track,
+            activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent)
+        // iOS look: round white thumb on a continuous track, no Material stop dot or thumb gap.
         Slider(
             value.toFloat(), { onChange((it / step).roundToInt() * step) },
-            valueRange = range.start.toFloat()..range.endInclusive.toFloat(), steps = steps.coerceIn(0, 200),
-            colors = SliderDefaults.colors(thumbColor = Color.White, activeTrackColor = tint, inactiveTrackColor = Palette.track,
-                activeTickColor = Color.Transparent, inactiveTickColor = Color.Transparent)
+            valueRange = range.start.toFloat()..range.endInclusive.toFloat(), steps = steps.coerceIn(0, 200), colors = colors,
+            thumb = { Box(Modifier.size(26.dp).shadow(3.dp, CircleShape).clip(CircleShape).background(Color.White)) },
+            track = { state ->
+                SliderDefaults.Track(state, colors = colors, drawStopIndicator = null, drawTick = { _, _ -> }, thumbTrackGapSize = 0.dp,
+                    modifier = Modifier.height(6.dp))
+            }
         )
     }
 }

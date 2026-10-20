@@ -1,6 +1,9 @@
 package com.pulse.android.ui.theme
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.automirrored.outlined.ListAlt
@@ -134,6 +137,9 @@ fun sfIcon(name: String): ImageVector = when (name) {
     "checkmark.seal.fill" -> Icons.Outlined.Verified
     "chevron.left" -> Icons.Outlined.ChevronLeft
     "chevron.right" -> Icons.Outlined.ChevronRight
+    "chevron.up" -> Icons.Outlined.ExpandLess
+    "chevron.down" -> Icons.Outlined.ExpandMore
+    "play.fill" -> Icons.Filled.PlayArrow
     "circle.hexagongrid" -> Icons.Outlined.Hexagon
     "clock" -> Icons.Outlined.AccessTime
     "cloud" -> Icons.Outlined.Cloud

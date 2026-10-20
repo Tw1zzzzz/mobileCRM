@@ -298,3 +298,16 @@ fun SheetScaffold(title: String, onClose: () -> Unit, content: @Composable Colum
         )
     }
 }
+
+/** Tinted icon, title, subtitle and chevron — rows of the hubs («Тесты», «Состояние»). */
+@Composable
+fun HubRow(icon: String, tint: Color, title: String, subtitle: String, onClick: () -> Unit) {
+    Row(Modifier.pressable(onClick = onClick).pulseCard(14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconBadge(sfIcon(icon), tint, 52.dp, 22.dp)
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text(title, color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(subtitle, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1)
+        }
+        Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(16.dp))
+    }
+}
