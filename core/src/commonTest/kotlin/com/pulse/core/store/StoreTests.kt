@@ -39,6 +39,7 @@ import com.pulse.core.model.User
 import com.pulse.core.model.UserRole
 import com.pulse.core.model.Workout
 import com.pulse.core.model.WorkoutKind
+import com.pulse.core.model.at
 import com.pulse.core.model.pinTestZone
 import com.pulse.core.platform.MemorySecretStore
 import com.pulse.core.util.PulseJson
@@ -221,6 +222,27 @@ class NutritionWellbeingCognitiveCalendarTests {
         assertEquals(200, store.week(now).last().minutes)
         assertEquals(2, store.daily(7, now).size)
         assertTrue(store.apps.isEmpty() && store.hourly.isEmpty())
+    }
+
+    @Test fun usageReplacesDemoNumbers() {
+        val store = ScreenTimeStore(null, isDemo = true)
+        val now = at(2026, 10, 21, 18)
+        val usage = com.pulse.core.feature.ScreenUsageMath.build(
+            listOf(com.pulse.core.feature.AppSession("yt", "YouTube", com.pulse.core.model.AppCategory.VIDEO, at(2026, 10, 21, 12), at(2026, 10, 21, 13, 30))),
+            listOf(at(2026, 10, 21, 8, 5)), now
+        )
+        store.applyUsage(usage)
+        assertTrue(store.hasDetailedData)
+        assertEquals(90, store.todayMinutes(now))
+        assertEquals(0, store.yesterdayMinutes(now))
+        assertEquals(1, store.pickups)
+        assertEquals("08:05", store.firstPickup)
+        assertEquals(listOf("YouTube"), store.apps.map { it.name })
+        assertEquals(90, store.hourly.sum())
+        assertEquals(90, store.week(now).last().minutes)
+        assertEquals(90.0, store.daily(7, now).last().value)
+        store.applyUsage(null)
+        assertEquals(263, store.todayMinutes(now)) // back to the demo dashboard
     }
 }
 

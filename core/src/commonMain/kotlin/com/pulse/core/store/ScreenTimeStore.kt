@@ -3,6 +3,7 @@
 package com.pulse.core.store
 
 import com.pulse.core.demo.DemoData
+import com.pulse.core.feature.ScreenUsageSnapshot
 import com.pulse.core.model.AppCategory
 import com.pulse.core.model.AppUsage
 import com.pulse.core.model.DailyValue
@@ -38,7 +39,9 @@ class ScreenTimeStore(
         val dailyLimitMinutes: Int = 300,
         /** Demo: the «access to screen time» switch that shows the Empty State when off. */
         val isAuthorized: Boolean = true,
-        val isDemo: Boolean = true
+        val isDemo: Boolean = true,
+        /** Real numbers read from the phone (Android usage statistics); null = demo or manual entries. */
+        val usage: ScreenUsageSnapshot? = null
     )
 
     init {
@@ -72,19 +75,37 @@ class ScreenTimeStore(
 
     fun minutes(day: Instant): Int? = current.entries.firstOrNull { it.date.isSameDay(day) }?.minutes
 
-    /** Hourly chart, pickups and per-app usage need automatic collection (demo only for now). */
-    val hasDetailedData: Boolean get() = current.isDemo
-    /** Real accounts see a «введи время» prompt instead of the access Empty State. */
-    val showsContent: Boolean get() = if (current.isDemo) current.isAuthorized else true
+    /** Real usage replaces the demo dashboard and manual entries; null switches back. */
+    fun applyUsage(snapshot: ScreenUsageSnapshot?) {
+        current = current.copy(usage = snapshot)
+    }
 
-    fun todayMinutes(now: Instant = Clock.System.now()): Int = if (current.isDemo) 263 else minutes(now) ?: 0
-    fun yesterdayMinutes(now: Instant = Clock.System.now()): Int = if (current.isDemo) 308 else minutes(now.addingDays(-1)) ?: 0
-    val pickups = 87
-    val firstPickup = "07:42"
-    val hourly: List<Int> get() = if (current.isDemo) DemoData.screenTimeHourly else emptyList()
-    val apps: List<AppUsage> get() = if (current.isDemo) DemoData.screenTimeApps else emptyList()
+    private val usage: ScreenUsageSnapshot? get() = current.usage
+
+    private fun usageMinutes(day: Instant): Int? = usage?.days?.firstOrNull { it.date.isSameDay(day) }?.minutes
+
+    /** Hourly chart, pickups and per-app usage need automatic collection (demo only for now). */
+    val hasDetailedData: Boolean get() = usage != null || current.isDemo
+    /** Real accounts see a «введи время» prompt instead of the access Empty State. */
+    val showsContent: Boolean get() = if (current.isDemo && usage == null) current.isAuthorized else true
+
+    fun todayMinutes(now: Instant = Clock.System.now()): Int = when {
+        usage != null -> usageMinutes(now) ?: 0
+        current.isDemo -> 263
+        else -> minutes(now) ?: 0
+    }
+    fun yesterdayMinutes(now: Instant = Clock.System.now()): Int = when {
+        usage != null -> usageMinutes(now.addingDays(-1)) ?: 0
+        current.isDemo -> 308
+        else -> minutes(now.addingDays(-1)) ?: 0
+    }
+    val pickups: Int get() = usage?.pickupsToday ?: 87
+    val firstPickup: String get() = usage?.let { it.firstPickupToday ?: "—" } ?: "07:42"
+    val hourly: List<Int> get() = usage?.hourlyToday ?: if (current.isDemo) DemoData.screenTimeHourly else emptyList()
+    val apps: List<AppUsage> get() = usage?.appsToday ?: if (current.isDemo) DemoData.screenTimeApps else emptyList()
 
     fun week(now: Instant = Clock.System.now()): List<ScreenTimeDay> {
+        usage?.let { return it.days.takeLast(7) }
         if (current.isDemo) return DemoData.screenTimeWeek(now)
         return (0 until 7).map { index ->
             val day = now.startOfDay().addingDays(index - 6)
@@ -99,7 +120,7 @@ class ScreenTimeStore(
         StatisticsMath.percentChange(yesterdayMinutes(now).toDouble(), todayMinutes(now).toDouble()) ?: 0.0
 
     fun weekAverage(now: Instant = Clock.System.now()): Int {
-        val days = week(now).let { if (current.isDemo) it else it.filter { day -> day.minutes > 0 } }
+        val days = week(now).let { if (current.isDemo && usage == null) it else it.filter { day -> day.minutes > 0 } }
         return if (days.isEmpty()) 0 else days.sumOf { it.minutes } / days.size
     }
 
@@ -108,6 +129,7 @@ class ScreenTimeStore(
 
     /** Daily totals for the last `days` days, oldest first (only entered days for real accounts). */
     fun daily(lastDays: Int, now: Instant = Clock.System.now()): List<DailyValue> {
+        usage?.let { snapshot -> return snapshot.days.takeLast(lastDays).map { DailyValue(it.date, it.minutes.toDouble()) } }
         if (current.isDemo) return DemoData.screenTimeSeries(lastDays, now)
         val from = now.startOfDay().addingDays(-(lastDays - 1))
         return current.entries.filter { it.date >= from }.map { DailyValue(it.date, it.minutes.toDouble()) }
