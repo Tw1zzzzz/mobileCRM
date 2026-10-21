@@ -4,7 +4,9 @@ import android.app.Application
 import com.pulse.android.platform.KeystoreSecretStore
 import com.pulse.android.platform.PulseNotifications
 import com.pulse.android.platform.ReminderScheduler
+import com.pulse.android.platform.SleepTrackingNotification
 import com.pulse.core.PulseCore
+import com.pulse.core.model.SleepWindow
 import com.pulse.core.platform.JvmFileSystem
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.okhttp.OkHttp
@@ -36,6 +38,16 @@ class PulseApplication : Application() {
         // Reminders follow the signed-in account (and its role) — replanned on every sign-in, switch and sign-out.
         appScope.launch {
             core.session.user.map { it?.id to it?.role }.distinctUntilChanged().collect { ReminderScheduler.rescheduleAll(this@PulseApplication, core) }
+        }
+        // Whoever starts or stops sleep (app, notification, widget, tile), the shade follows.
+        appScope.launch {
+            var lastWindow: SleepWindow? = null
+            core.sleep.state.map { it.activeStart to it.window }.distinctUntilChanged().collect { (start, window) ->
+                SleepTrackingNotification.sync(this@PulseApplication, start, window)
+                // A new bedtime moves «Скоро отбой».
+                if (lastWindow != null && lastWindow != window) ReminderScheduler.rescheduleAll(this@PulseApplication, core)
+                lastWindow = window
+            }
         }
     }
 }

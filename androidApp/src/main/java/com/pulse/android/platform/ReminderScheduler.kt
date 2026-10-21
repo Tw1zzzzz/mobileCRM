@@ -28,13 +28,17 @@ import kotlin.uuid.Uuid
  */
 object ReminderScheduler {
     private const val TAG = "reminder"
+    /** The morning wake check belongs to the sleep session, not to the reminder plan — `rescheduleAll` leaves it alone. */
+    const val SLEEP_TAG = "sleep"
+    /** Demo pushes are not part of the plan either — turning reminders on must not cancel one already on its way. */
+    private const val DEMO_TAG = "demo"
 
-    fun schedule(context: Context, reminder: ScheduledReminder, now: Instant = Clock.System.now()) {
+    fun schedule(context: Context, reminder: ScheduledReminder, now: Instant = Clock.System.now(), tag: String = TAG) {
         val delay = (reminder.at - now).inWholeMilliseconds.coerceAtLeast(0)
         val request = OneTimeWorkRequestBuilder<ReminderWorker>()
             .setInitialDelay(delay, TimeUnit.MILLISECONDS)
             .setInputData(ReminderWorker.data(reminder))
-            .addTag(TAG)
+            .addTag(tag)
             .build()
         WorkManager.getInstance(context).enqueueUniqueWork(reminder.id, ExistingWorkPolicy.REPLACE, request)
     }
@@ -58,7 +62,7 @@ object ReminderScheduler {
 
     /** Профиль → Демо-режим: show a notification in a few seconds. */
     fun demo(context: Context, reminder: ScheduledReminder, seconds: Long = 5) =
-        schedule(context, reminder.copy(id = "demo-${reminder.id}", at = Clock.System.now() + seconds.seconds))
+        schedule(context, reminder.copy(id = "demo-${reminder.id}", at = Clock.System.now() + seconds.seconds), tag = DEMO_TAG)
 
     fun demoEvent(events: List<CalendarEvent>, now: Instant): ScheduledReminder? {
         val event = events.filter { it.start > now }.minByOrNull { it.start } ?: events.firstOrNull() ?: return null
