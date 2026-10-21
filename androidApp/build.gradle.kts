@@ -53,6 +53,8 @@ dependencies {
     implementation(libs.ktor.client.okhttp)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.health.connect)
+    implementation(libs.androidx.glance.appwidget)
+    implementation(libs.androidx.glance.material3)
     testImplementation(kotlin("test-junit"))
     debugImplementation(libs.androidx.compose.tooling)
 }
