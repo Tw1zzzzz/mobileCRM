@@ -13,7 +13,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.pulse.android.platform.PulseNotifications
+import com.pulse.android.platform.UsageStatsReader
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlin.time.Clock
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.android.ui.auth.AuthScreen
 import com.pulse.android.ui.main.MainScreen
@@ -28,6 +32,11 @@ class MainActivity : ComponentActivity() {
         super.onResume()
         val app = application as PulseApplication
         app.appScope.launch { app.core.fitness.refreshHealth() }
+        // Usage statistics also keep counting in the background; reading 30 days takes a moment, so off the main thread.
+        app.appScope.launch {
+            val usage = withContext(Dispatchers.IO) { UsageStatsReader(app).read(Clock.System.now()) }
+            app.core.screenTime.applyUsage(usage)
+        }
     }
 
     override fun onNewIntent(intent: Intent) {

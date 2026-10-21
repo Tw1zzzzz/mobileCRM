@@ -42,10 +42,12 @@ import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pulse.android.platform.UsageStatsReader
 import com.pulse.android.ui.LocalRouter
 import com.pulse.android.ui.components.Callout
 import com.pulse.android.ui.components.ChipButton
@@ -121,6 +123,7 @@ fun ScreenTimeScreen() {
 
 @Composable
 private fun TodayCard(store: ScreenTimeStore, onEdit: () -> Unit) {
+    observeCore() // subscribe: the store object never changes, its state does
     val remaining = store.remainingMinutes()
     val withinLimit = remaining >= 0
     val progress = store.limitProgress()
@@ -148,6 +151,7 @@ private fun TodayCard(store: ScreenTimeStore, onEdit: () -> Unit) {
 
 @Composable
 private fun TilesRow(store: ScreenTimeStore) {
+    observeCore() // subscribe: the store object never changes, its state does
     val change = store.changeVsYesterday()
     val diff = abs(store.yesterdayMinutes() - store.todayMinutes())
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -244,14 +248,17 @@ private fun ScreenTimeSettingsSheet(onClose: () -> Unit) {
     val core = observeCore()
     val store = core.screenTime
     val state = store.state.value
+    val context = LocalContext.current
+    // Granted or revoked only in system settings; the switch shows the real state and leads there.
+    val hasAccess = state.usage != null || UsageStatsReader(context).hasAccess()
     SheetScaffold("Экранное время", onClose) {
         Row(Modifier.pulseCard(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Доступ к статистике", color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
-                Text("Нужно системное разрешение «Доступ к истории использования»", color = Palette.textSecondary, fontSize = 14.sp)
+                Text("Системное разрешение «Доступ к истории использования» — включается в настройках телефона", color = Palette.textSecondary, fontSize = 14.sp)
             }
             Switch(
-                state.isAuthorized, { store.setAuthorized(it) },
+                hasAccess, { runCatching { context.startActivity(UsageStatsReader.settingsIntent(context)) } },
                 colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White)
             )
         }
@@ -267,15 +274,19 @@ private fun ScreenTimeSettingsSheet(onClose: () -> Unit) {
 /** Where to find the number while automatic collection isn't connected (step 4: usage statistics). */
 @Composable
 private fun ManualScreenTimeInfo() {
-    Row(Modifier.fillMaxWidth().pulseCard(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-        Icon(sfIcon("hourglass"), null, tint = Palette.cyan, modifier = Modifier.size(24.dp))
-        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text("Время берётся из настроек телефона", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(
-                "Открой Настройки → Цифровое благополучие и перенеси сюда время за день. Автоматический сбор, разбивка по часам и приложениям появятся, когда Pulse получит доступ к истории использования.",
-                color = Palette.textSecondary, fontSize = 14.sp
-            )
+    val context = LocalContext.current
+    Column(Modifier.fillMaxWidth().pulseCard(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+        Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
+            Icon(sfIcon("hourglass"), null, tint = Palette.cyan, modifier = Modifier.size(24.dp))
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text("Подключи статистику телефона", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "Дай Pulse «Доступ к истории использования» — время по дням, часам и приложениям будет считаться само. Без доступа время можно вводить вручную.",
+                    color = Palette.textSecondary, fontSize = 14.sp
+                )
+            }
         }
+        GradientButton("Дать доступ", icon = sfIcon("lock.open")) { runCatching { context.startActivity(UsageStatsReader.settingsIntent(context)) } }
     }
 }
 
@@ -386,6 +397,7 @@ fun ScreenTimeAppsScreen() {
 
 @Composable
 private fun WeekCard(store: ScreenTimeStore) {
+    observeCore() // subscribe: the store object never changes, its state does
     val now = Clock.System.now()
     val week = store.week(now)
     val limit = store.state.value.dailyLimitMinutes
@@ -505,6 +517,7 @@ private fun CategoriesCard(totals: List<Pair<AppCategory, Int>>) {
 
 @Composable
 private fun HistoryCard(store: ScreenTimeStore) {
+    observeCore() // subscribe: the store object never changes, its state does
     val week = store.week().reversed()
     val limit = maxOf(store.state.value.dailyLimitMinutes, 1)
     Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 18.dp)) {

@@ -1,6 +1,7 @@
 package com.pulse.android.ui.theme
 
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Work
 import androidx.compose.material.icons.outlined.Download
 import androidx.compose.material.icons.outlined.NorthEast
 import androidx.compose.material.icons.outlined.Share
@@ -148,6 +149,8 @@ fun sfIcon(name: String): ImageVector = when (name) {
     "rectangle.portrait.and.arrow.right" -> Icons.AutoMirrored.Outlined.Logout
     "doc.text" -> Icons.Outlined.Description
     "arrow.down.circle" -> Icons.Outlined.Download
+    "app" -> Icons.Outlined.Apps
+    "briefcase" -> Icons.Outlined.Work
     "arrow.clockwise" -> Icons.Outlined.Refresh
     "square.and.arrow.up" -> Icons.Outlined.Share
     "chevron.down" -> Icons.Outlined.ExpandMore
