@@ -51,5 +51,6 @@ dependencies {
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.ktor.client.okhttp)
+    implementation(libs.androidx.work.runtime)
     debugImplementation(libs.androidx.compose.tooling)
 }

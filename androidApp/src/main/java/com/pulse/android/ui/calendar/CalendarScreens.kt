@@ -39,7 +39,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import com.pulse.android.platform.ReminderScheduler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -238,6 +240,7 @@ fun EventDetailScreen(id: Uuid) {
     val store = core.calendar
     val isStaff = core.session.isStaff
     val event = store.event(id)
+    val context = LocalContext.current
     var edit by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
     var notice by remember { mutableStateOf<String?>(null) }
@@ -290,6 +293,7 @@ fun EventDetailScreen(id: Uuid) {
             TextButton({
                 confirmDelete = false
                 store.delete(id)
+                ReminderScheduler.eventDeleted(context, id)
                 router.pop()
             }) { Text("Удалить", color = Palette.red, fontWeight = FontWeight.SemiBold) }
         },
@@ -310,6 +314,7 @@ private fun TimeRow(title: String, date: Instant, icon: String) {
 @Composable
 private fun EventFormSheet(existing: CalendarEvent?, day: Instant, defaultTag: EventTag, onClose: () -> Unit, onSaved: (CalendarEvent) -> Unit) {
     val core = observeCore()
+    val context = LocalContext.current
     val store = core.calendar
     val isStaff = core.session.isStaff
     val initialStart = remember {
@@ -360,6 +365,7 @@ private fun EventFormSheet(existing: CalendarEvent?, day: Instant, defaultTag: E
             val event = existing?.copy(title = title.trim(), details = details.trim(), start = start, end = end, links = links, tag = tag)
                 ?: CalendarEvent(Uuid.random(), title.trim(), details.trim(), start, end, links, tag, core.session.user.value?.id)
             store.upsert(event)
+            ReminderScheduler.eventChanged(context, core)
             onSaved(event)
             onClose()
         }

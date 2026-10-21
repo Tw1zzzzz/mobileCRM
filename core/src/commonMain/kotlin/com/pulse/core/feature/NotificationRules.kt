@@ -1,8 +1,10 @@
 package com.pulse.core.feature
 
 import com.pulse.core.model.CalendarEvent
+import com.pulse.core.model.EventTag
 import com.pulse.core.model.GameTestPhase
 import com.pulse.core.model.SleepWindow
+import com.pulse.core.model.User
 import com.pulse.core.util.Formatters
 import com.pulse.core.util.addingDays
 import com.pulse.core.util.addingMinutes
@@ -84,6 +86,30 @@ object NotificationRules {
             "sleep-wake-check", wake.addingMinutes(WAKE_CHECK_DELAY_MINUTES), "Доброе утро ☀️",
             "Сон всё ещё отслеживается с ${Formatters.time(start)}. Нажми «Я проснулся», чтобы сохранить ночь.", ReminderKind.WAKE_CHECK
         )
+    }
+
+    /**
+     * Everything to schedule for the signed-in user. Players never get other players' schedules; staff get event
+     * reminders and the weekly report, but no game tests or bedtime reminder.
+     */
+    fun upcoming(events: List<CalendarEvent>, user: User?, window: SleepWindow, now: Instant): List<ScheduledReminder> {
+        user ?: return emptyList()
+        val isStaff = user.role.isStaff
+        val visible = events.filter { event ->
+            when (val tag = event.tag) {
+                is EventTag.Player -> isStaff || tag.name == user.nickname
+                EventTag.Personal -> event.ownerId == null || event.ownerId == user.id
+                EventTag.Team -> true
+            }
+        }
+        return buildList {
+            addAll(visible.mapNotNull { eventReminder(it, now) })
+            if (!isStaff) {
+                addAll(gameTests(visible, now))
+                add(nextBedtime(window, now))
+            }
+            add(nextWeekly(now))
+        }
     }
 
     /** «Итоги недели готовы» — the next Sunday at 19:00. */

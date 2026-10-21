@@ -59,15 +59,32 @@ import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.theme.Gradients
 import com.pulse.android.ui.theme.Palette
 import com.pulse.core.PulseCore
+import com.pulse.core.model.GameTestPhase
 import com.pulse.core.model.User
+import kotlin.uuid.Uuid
 
 /** Signed-in shell: role-specific tabs, a back stack per tab, the custom bottom bar with the «+» hump. */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null) {
+fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null, pendingOpen: String? = null, onOpened: () -> Unit = {}) {
     val router = remember { AppRouter() }
     LaunchedEffect(debugRoute) {
         debugRoute?.let { DebugRoutes.resolve(it, user.role.isStaff) }?.let { (tab, routes) -> router.show(routes, tab) }
+    }
+    var gameTestPhase by remember { mutableStateOf<GameTestPhase?>(null) }
+    // A tapped notification opens its screen (iOS `DeepLinks`).
+    LaunchedEffect(pendingOpen) {
+        val target = pendingOpen ?: return@LaunchedEffect
+        val hub = if (user.role.isStaff) AppTab.TODAY else AppTab.STATE
+        when {
+            target.startsWith("event:") -> runCatching { Uuid.parse(target.removePrefix("event:")) }.getOrNull()
+                ?.let { router.show(listOf(Route.Calendar(), Route.Event(it)), AppTab.TODAY) }
+            target == "sleep" -> router.show(listOf(Route.Sleep), hub)
+            target == "weekly" -> router.show(listOf(Route.WeeklyReport), AppTab.TODAY)
+            target.startsWith("gameTest:") && !user.role.isStaff ->
+                gameTestPhase = GameTestPhase.entries.firstOrNull { it.name == target.removePrefix("gameTest:") }
+        }
+        onOpened()
     }
     val tabs = AppTab.tabs(user.role)
     var showQuickAdd by remember { mutableStateOf(false) }
@@ -103,6 +120,14 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null) {
     if (showNotifications) {
         PulseSheet({ showNotifications = false }) {
             NotificationsSheet { showNotifications = false }
+        }
+    }
+    gameTestPhase?.let { phase ->
+        PulseSheet({ gameTestPhase = null }) {
+            com.pulse.android.ui.tests.GameTestSheet(phase) {
+                gameTestPhase = null
+                router.show(listOf(Route.Tests, Route.GameTests), AppTab.STATE)
+            }
         }
     }
     // First sign-in of a player: questionnaire + «Игровой характер»; later from the reminder cards.

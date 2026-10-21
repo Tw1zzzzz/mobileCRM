@@ -1,4 +1,5 @@
 [versions]
+work = "2.12.0"
 kotlin = "2.4.21"
 serialization = "1.11.0"
 datetime = "0.8.0"
@@ -11,6 +12,7 @@ coreKtx = "1.19.1"
 lifecycle = "2.11.0"
 
 [libraries]
+androidx-work-runtime = { module = "androidx.work:work-runtime-ktx", version.ref = "work" }
 kotlinx-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "serialization" }
 kotlinx-datetime = { module = "org.jetbrains.kotlinx:kotlinx-datetime", version.ref = "datetime" }
 kotlinx-coroutines-core = { module = "org.jetbrains.kotlinx:kotlinx-coroutines-core", version.ref = "coroutines" }

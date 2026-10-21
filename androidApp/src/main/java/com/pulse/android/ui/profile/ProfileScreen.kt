@@ -1,5 +1,9 @@
 package com.pulse.android.ui.profile
 
+import android.Manifest
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -30,6 +34,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -64,7 +69,17 @@ import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.sfIcon
 import com.pulse.android.ui.today.RoleBadge
+import com.pulse.android.platform.PulseNotifications
+import com.pulse.android.platform.ReminderScheduler
 import com.pulse.core.demo.DemoData
+import com.pulse.core.feature.NotificationRules
+import com.pulse.core.feature.ReminderKind
+import com.pulse.core.feature.ScheduledReminder
+import com.pulse.core.model.CalendarEvent
+import com.pulse.core.model.EventTag
+import com.pulse.core.util.addingMinutes
+import kotlin.time.Clock
+import kotlin.uuid.Uuid
 import com.pulse.core.model.User
 import com.pulse.core.model.UserRole
 import com.pulse.core.store.LineupStore
@@ -221,7 +236,25 @@ private fun SettingsCard(user: User) {
     val core = observeCore()
     val router = LocalRouter.current
     val screenTime = core.screenTime.state.value
+    val context = LocalContext.current
+    var remindersOn by remember { mutableStateOf(PulseNotifications.isEnabled(context)) }
+    val requestPermission = rememberNotificationPermission { granted ->
+        PulseNotifications.setEnabled(context, granted)
+        remindersOn = PulseNotifications.isEnabled(context)
+        ReminderScheduler.rescheduleAll(context, core)
+    }
     Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 16.dp)) {
+        Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Box(Modifier.weight(1f)) { SettingLabel("Напоминания о событиях", "bell", Palette.orange) }
+            Switch(remindersOn, { on ->
+                if (on) requestPermission() else {
+                    PulseNotifications.setEnabled(context, false)
+                    remindersOn = false
+                    ReminderScheduler.rescheduleAll(context, core)
+                }
+            }, colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
+        }
+        DividerLine()
         if (!user.role.isStaff && screenTime.isDemo) {
             Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { SettingLabel("Доступ к экранному времени", "hourglass", Palette.cyan) }
@@ -275,7 +308,29 @@ private fun EditProfileSheet(onClose: () -> Unit) {
     }
 }
 
-/** Tools for showing the MVP without a server: role switch and demo data reset (test notifications arrive in step 4). */
+@Composable
+private fun DemoButton(title: String, icon: String, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().pressable(onClick = onClick), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(sfIcon(icon), null, tint = Palette.cyan, modifier = Modifier.width(22.dp))
+        Text(title, color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)
+    }
+}
+
+/** Asks for POST_NOTIFICATIONS on Android 13+ (granted implicitly below), then reports whether posting is allowed. */
+@Composable
+private fun rememberNotificationPermission(onResult: (Boolean) -> Unit): () -> Unit {
+    val context = LocalContext.current
+    val launcher = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) { onResult(it && PulseNotifications.systemAllows(context)) }
+    return {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU && !PulseNotifications.systemAllows(context)) {
+            launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+        } else {
+            onResult(PulseNotifications.systemAllows(context))
+        }
+    }
+}
+
+/** Tools for showing the MVP without a server: role switch, test notifications, demo data reset. */
 @Composable
 private fun DemoModeSection(user: User) {
     val core = observeCore()
@@ -294,6 +349,31 @@ private fun DemoModeSection(user: User) {
                 }
             }
             DividerLine()
+            val context = LocalContext.current
+            // Each demo push asks for the permission first, like iOS `requestAuthorization`.
+            var pendingDemo by remember { mutableStateOf<ScheduledReminder?>(null) }
+            val requestPermission = rememberNotificationPermission { granted ->
+                val demo = pendingDemo
+                pendingDemo = null
+                notice = if (granted && demo != null) {
+                    ReminderScheduler.demo(context, demo)
+                    if (demo.kind == ReminderKind.BEDTIME) "Сверни приложение — пуш придёт через 5 секунд" else "Уведомление придёт через 5 секунд"
+                } else "Разрешите уведомления в настройках телефона"
+            }
+            val now = Clock.System.now()
+            fun demo(reminder: ScheduledReminder?) {
+                if (reminder == null) return
+                pendingDemo = reminder
+                requestPermission()
+            }
+            if (!user.role.isStaff) {
+                DemoButton("Пуш «Игровой тест до тренировки»", "gamecontroller") {
+                    val training = CalendarEvent(Uuid.random(), "Тренировка", "", now.addingMinutes(30), now.addingMinutes(150), emptyList(), EventTag.Team)
+                    demo(NotificationRules.gameTests(listOf(training), now).firstOrNull())
+                }
+                DemoButton("Пуш «Скоро отбой» (начать сон)", "moon.zzz") { demo(NotificationRules.nextBedtime(core.sleep.window, now)) }
+            }
+            DemoButton("Пуш «Напоминание о событии»", "calendar.badge.clock") { demo(ReminderScheduler.demoEvent(core.calendar.events, now)) }
             Row(Modifier.fillMaxWidth().pressable { confirmReset = true }, horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 Icon(sfIcon("arrow.counterclockwise"), null, tint = Palette.red, modifier = Modifier.width(22.dp))
                 Text("Сбросить демо-данные", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium)

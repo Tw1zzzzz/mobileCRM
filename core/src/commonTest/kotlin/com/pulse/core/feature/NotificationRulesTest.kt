@@ -86,4 +86,31 @@ class NotificationRulesTest {
         assertEquals("Сон, нагрузка, настроение и игра — сравнение с прошлой неделей и план на следующую.", fromWednesday.body)
         assertEquals(at(2026, 11, 1, 19), NotificationRules.nextWeekly(at(2026, 10, 25, 20)).at)
     }
+
+    private fun user(role: com.pulse.core.model.UserRole, nickname: String = "Nova") =
+        com.pulse.core.model.User(Uuid.random(), nickname, "x@pulse.test", role, com.pulse.core.model.Tariff.FREE, streakDays = 0)
+
+    @Test fun upcomingForPlayerSkipsOtherPlayersPersonalPlans() {
+        val now = at(2026, 10, 21, 9)
+        val window = SleepWindow()
+        val mine = event("Тренировка", at(2026, 10, 21, 18), at(2026, 10, 21, 20)).copy(tag = EventTag.Player("Nova"))
+        val other = event("Тренировка", at(2026, 10, 21, 18), at(2026, 10, 21, 20)).copy(tag = EventTag.Player("Blitz"))
+        val reminders = NotificationRules.upcoming(listOf(mine, other), user(com.pulse.core.model.UserRole.TEAM_PLAYER), window, now)
+        assertEquals(1, reminders.count { it.kind == ReminderKind.EVENT })
+        assertEquals(2, reminders.count { it.kind == ReminderKind.GAME_TEST })
+        assertEquals(setOf(mine.id), reminders.mapNotNull { it.eventId }.toSet())
+        assertEquals(1, reminders.count { it.kind == ReminderKind.BEDTIME })
+        assertEquals(1, reminders.count { it.kind == ReminderKind.WEEKLY })
+    }
+
+    @Test fun upcomingForStaffHasNoGameTestsOrBedtime() {
+        val now = at(2026, 10, 21, 9)
+        val training = event("Тренировка", at(2026, 10, 21, 18), at(2026, 10, 21, 20))
+        val reminders = NotificationRules.upcoming(listOf(training), user(com.pulse.core.model.UserRole.STAFF, "Coach"), SleepWindow(), now)
+        assertEquals(setOf(ReminderKind.EVENT, ReminderKind.WEEKLY), reminders.map { it.kind }.toSet())
+    }
+
+    @Test fun upcomingEmptyWithoutUser() {
+        assertEquals(emptyList<ScheduledReminder>(), NotificationRules.upcoming(emptyList(), null, SleepWindow(), at(2026, 10, 21, 9)))
+    }
 }

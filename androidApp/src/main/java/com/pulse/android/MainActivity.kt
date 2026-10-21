@@ -1,5 +1,6 @@
 package com.pulse.android
 
+import android.content.Intent
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
@@ -9,12 +10,23 @@ import androidx.compose.animation.Crossfade
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
+import com.pulse.android.platform.PulseNotifications
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.android.ui.auth.AuthScreen
 import com.pulse.android.ui.main.MainScreen
 import com.pulse.android.ui.theme.Palette
 
 class MainActivity : ComponentActivity() {
+    /** Screen requested by a tapped notification (`PulseNotifications.EXTRA_OPEN`), consumed by [MainScreen]. */
+    private var pendingOpen by mutableStateOf<String?>(null)
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        intent.getStringExtra(PulseNotifications.EXTRA_OPEN)?.let { pendingOpen = it }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
@@ -23,6 +35,7 @@ class MainActivity : ComponentActivity() {
         )
         val core = (application as PulseApplication).core
         val debugRoute = if (BuildConfig.DEBUG) intent.getStringExtra("route") else null
+        if (savedInstanceState == null) pendingOpen = intent.getStringExtra(PulseNotifications.EXTRA_OPEN)
         if (BuildConfig.DEBUG) intent.getStringExtra("demo")?.let { role ->
             val target = com.pulse.core.model.UserRole.entries.firstOrNull { it.name.equals(role, ignoreCase = true) || it.badgeTitle.equals(role, ignoreCase = true) }
                 ?: if (role == "player") com.pulse.core.model.UserRole.TEAM_PLAYER else null
@@ -34,7 +47,7 @@ class MainActivity : ComponentActivity() {
             MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
                 val user by core.session.user.collectAsStateWithLifecycle()
                 Crossfade(user, label = "session") { current ->
-                    if (current == null) AuthScreen(core.session) else MainScreen(core, current, debugRoute)
+                    if (current == null) AuthScreen(core.session) else MainScreen(core, current, debugRoute, pendingOpen) { pendingOpen = null }
                 }
             }
         }
