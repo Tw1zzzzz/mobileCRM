@@ -1,6 +1,7 @@
 package com.pulse.android
 
 import android.app.Application
+import com.pulse.android.platform.HealthConnectProvider
 import com.pulse.android.platform.KeystoreSecretStore
 import com.pulse.android.platform.PulseNotifications
 import com.pulse.android.platform.ReminderScheduler
@@ -32,7 +33,7 @@ class PulseApplication : Application() {
             secrets = KeystoreSecretStore(this),
             http = HttpClient(OkHttp),
             background = appScope,
-            health = null // Health Connect arrives in step 4.
+            health = HealthConnectProvider(this)
         )
         PulseNotifications.ensureChannels(this)
         // Reminders follow the signed-in account (and its role) — replanned on every sign-in, switch and sign-out.

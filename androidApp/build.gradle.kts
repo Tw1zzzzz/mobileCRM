@@ -52,5 +52,7 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.ktor.client.okhttp)
     implementation(libs.androidx.work.runtime)
+    implementation(libs.androidx.health.connect)
+    testImplementation(kotlin("test-junit"))
     debugImplementation(libs.androidx.compose.tooling)
 }

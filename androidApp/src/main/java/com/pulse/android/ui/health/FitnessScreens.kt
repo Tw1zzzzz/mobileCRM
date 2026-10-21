@@ -1,5 +1,6 @@
 package com.pulse.android.ui.health
 
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -36,6 +37,11 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.platform.LocalContext
+import androidx.health.connect.client.PermissionController
+import com.pulse.android.platform.HealthCardState
+import com.pulse.android.platform.HealthConnectAvailability
+import com.pulse.android.platform.HealthConnectProvider
 import com.pulse.android.ui.LocalRouter
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.Callout
@@ -351,9 +357,28 @@ fun HealthSourceCard() {
                 }
             }
             state.healthError?.let { ErrorBanner(it) }
-            GradientButton("Подключить", icon = sfIcon("heart.fill"), enabled = store.isHealthAvailable) { scope.launch { store.connectHealth() } }
-            Text(if (store.isHealthAvailable) "Pulse только читает данные и не меняет их. Доступ можно отозвать в настройках Health Connect."
-                else "Подключение Health Connect появится в следующем обновлении (шаг 4).", color = Palette.textTertiary, fontSize = 12.sp)
+            val context = LocalContext.current
+            // The system Health Connect screen grants permissions; then the store checks them and loads data.
+            val requestPermissions = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
+                if (granted.isNotEmpty()) scope.launch { store.connectHealth() }
+            }
+            when (HealthConnectAvailability.state(context)) {
+                HealthCardState.AVAILABLE -> GradientButton("Подключить", icon = sfIcon("heart.fill")) {
+                    requestPermissions.launch(HealthConnectProvider.PERMISSIONS)
+                }
+                HealthCardState.NEEDS_INSTALL -> GradientButton("Установить Health Connect", icon = sfIcon("arrow.down.circle")) {
+                    runCatching { context.startActivity(HealthConnectAvailability.installIntent()) }
+                }
+                HealthCardState.UNAVAILABLE -> Unit
+            }
+            Text(
+                when (HealthConnectAvailability.state(context)) {
+                    HealthCardState.AVAILABLE -> "Pulse только читает данные и не меняет их. Доступ можно отозвать в настройках Health Connect."
+                    HealthCardState.NEEDS_INSTALL -> "Health Connect — бесплатное приложение Google. После установки вернись сюда и нажми «Подключить»."
+                    HealthCardState.UNAVAILABLE -> "Health Connect недоступен на этом устройстве — данные можно вносить вручную."
+                },
+                color = Palette.textTertiary, fontSize = 12.sp
+            )
         }
     }
 }

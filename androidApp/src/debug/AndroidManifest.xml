@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Debug builds only: write access lets the seeder fill Health Connect with test data on the emulator. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-permission android:name="android.permission.health.WRITE_STEPS" />
+    <uses-permission android:name="android.permission.health.WRITE_EXERCISE" />
+    <uses-permission android:name="android.permission.health.WRITE_HEART_RATE" />
+    <uses-permission android:name="android.permission.health.WRITE_SLEEP" />
+    <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" />
+
+    <application>
+        <!-- adb shell am broadcast -n com.pulsecrm.mvp/com.pulse.android.debug.SeedHealthReceiver -->
+        <receiver
+            android:name=".debug.SeedHealthReceiver"
+            android:exported="true" />
+    </application>
+</manifest>

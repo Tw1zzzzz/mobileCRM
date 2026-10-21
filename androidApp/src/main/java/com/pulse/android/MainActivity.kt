@@ -13,6 +13,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.pulse.android.platform.PulseNotifications
+import kotlinx.coroutines.launch
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.android.ui.auth.AuthScreen
 import com.pulse.android.ui.main.MainScreen
@@ -21,6 +22,13 @@ import com.pulse.android.ui.theme.Palette
 class MainActivity : ComponentActivity() {
     /** Screen requested by a tapped notification (`PulseNotifications.EXTRA_OPEN`), consumed by [MainScreen]. */
     private var pendingOpen by mutableStateOf<String?>(null)
+
+    /** Health Connect keeps collecting while Pulse is closed — refresh whenever the app comes back. */
+    override fun onResume() {
+        super.onResume()
+        val app = application as PulseApplication
+        app.appScope.launch { app.core.fitness.refreshHealth() }
+    }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
