@@ -3,6 +3,7 @@ package com.pulse.android.widget
 import android.content.ComponentName
 import android.content.Context
 import android.graphics.drawable.Icon
+import android.os.Build
 import android.service.quicksettings.Tile
 import android.service.quicksettings.TileService
 import com.pulse.android.PulseApplication
@@ -36,7 +37,8 @@ class SleepTileService : TileService() {
             start != null -> Tile.STATE_ACTIVE
             else -> Tile.STATE_INACTIVE
         }
-        tile.subtitle = start?.let { "с ${Formatters.time(it)}" } ?: "Начать"
+        // Android 9 has no subtitle: the active/inactive state alone tells the story there.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) tile.subtitle = start?.let { "с ${Formatters.time(it)}" } ?: "Начать"
         tile.updateTile()
     }
 
