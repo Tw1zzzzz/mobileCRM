@@ -35,13 +35,31 @@ ID приложения пока `com.pulsecrm.mvp` (как на iOS) — мен
 | 3.5 | Экраны: игра и Faceit, цели, профиль, анкета, итоги недели | ✅ анкета при первом входе проверена на новом аккаунте |
 | 3.6 | Экраны: дневник CS2 / база знаний, календарь | ✅ напоминания о событиях — в шаге 4 |
 | 3.7 | Экраны стаффа: игроки, карточка, аналитика, сводка команды | ✅ проверено на эмуляторе |
-| 4 | Платформа: Health Connect, реальное экранное время, уведомления, трекинг сна, виджет, плитка | |
+| 4 | Платформа: Health Connect, реальное экранное время, уведомления, трекинг сна, виджет, плитка | ✅ проверено на эмуляторе; lint-ошибки `StateFlow.value` в composition — в шаге 5 |
 | 5 | Качество: разные экраны и устройства, фон, разрешения, TalkBack (галочки согласий при регистрации — без роли «флажок») | |
 | 6 | Google Play: страница, Data Safety, формы Health Connect и Usage Access, закрытый тест | |
 
 ## Сборка
 
 ```bash
-./gradlew :core:allTests        # тесты ядра
+./gradlew :core:allTests                 # тесты ядра
+./gradlew :androidApp:testDebugUnitTest  # тесты Android-части
 ./gradlew :androidApp:assembleDebug
+./gradlew :androidApp:assembleRelease --no-configuration-cache   # release с R8
+```
+
+Release собирается только без configuration cache: задача Compose-компилятора `produceReleaseComposeMapping`
+не умеет кэшироваться. Для отладочных сборок кэш остаётся включённым.
+
+## Проверка на эмуляторе
+
+```bash
+# эмулятор с окном (AVD PulsePixel, Android 16)
+$ANDROID_HOME/emulator/emulator -avd PulsePixel
+# или без окна
+$ANDROID_HOME/emulator/emulator -avd PulsePixel -no-window -no-audio -no-boot-anim -gpu swiftshader_indirect
+# тестовые данные в Health Connect (только debug-сборка; сначала выдать WRITE_* из src/debug/AndroidManifest.xml через `adb shell pm grant`)
+adb shell am broadcast -n com.pulsecrm.mvp/com.pulse.android.debug.SeedHealthReceiver
+# открыть экран сразу: --es demo player|solo|staff --es route sleep|fitness|screen|calendar|…
+adb shell am start -n com.pulsecrm.mvp/com.pulse.android.MainActivity --es demo player --es route sleep
 ```
