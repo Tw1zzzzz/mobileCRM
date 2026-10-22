@@ -39,6 +39,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
 import androidx.health.connect.client.PermissionController
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.pulse.android.platform.HealthCardState
 import com.pulse.android.platform.HealthConnectAvailability
 import com.pulse.android.platform.HealthConnectProvider
@@ -362,7 +363,13 @@ fun HealthSourceCard() {
             val requestPermissions = rememberLauncherForActivityResult(PermissionController.createRequestPermissionResultContract()) { granted ->
                 if (granted.isNotEmpty()) scope.launch { store.connectHealth() }
             }
-            when (HealthConnectAvailability.state(context)) {
+            // Re-checked on every resume: after installing Health Connect from Play the card must offer «Подключить».
+            var availability by remember { mutableStateOf(HealthConnectAvailability.state(context)) }
+            LifecycleResumeEffect(Unit) {
+                availability = HealthConnectAvailability.state(context)
+                onPauseOrDispose {}
+            }
+            when (availability) {
                 HealthCardState.AVAILABLE -> GradientButton("Подключить", icon = sfIcon("heart.fill")) {
                     requestPermissions.launch(HealthConnectProvider.PERMISSIONS)
                 }
@@ -372,7 +379,7 @@ fun HealthSourceCard() {
                 HealthCardState.UNAVAILABLE -> Unit
             }
             Text(
-                when (HealthConnectAvailability.state(context)) {
+                when (availability) {
                     HealthCardState.AVAILABLE -> "Pulse только читает данные и не меняет их. Доступ можно отозвать в настройках Health Connect."
                     HealthCardState.NEEDS_INSTALL -> "Health Connect — бесплатное приложение Google. После установки вернись сюда и нажми «Подключить»."
                     HealthCardState.UNAVAILABLE -> "Health Connect недоступен на этом устройстве — данные можно вносить вручную."
