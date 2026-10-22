@@ -16,6 +16,13 @@ import com.pulse.core.feature.ScheduledReminder
 import com.pulse.core.model.CalendarEvent
 import com.pulse.core.model.GameTestPhase
 import com.pulse.core.util.Formatters
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
 import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Clock
@@ -23,27 +30,36 @@ import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
 /**
- * Local reminders via WorkManager: one unique work per reminder id (`REPLACE`, so editing an event moves its
- * reminder). No exact alarms — a few minutes of drift is fine for these reminders.
+ * Local reminders via WorkManager. Each reminder is a unique work named by [ReminderSync.workName] and tagged with its
+ * id (`rid:<id>`) and its name (`name:<workName>`); replanning reconciles instead of cancelling everything, so a
+ * reminder whose time has come still fires after a cold start. No exact alarms — a few minutes of drift is fine.
  */
 object ReminderScheduler {
     private const val TAG = "reminder"
-    /** The morning wake check belongs to the sleep session, not to the reminder plan — `rescheduleAll` leaves it alone. */
+    /** The morning wake check belongs to the sleep session, not to the reminder plan — replanning leaves it alone. */
     const val SLEEP_TAG = "sleep"
-    /** Demo pushes are not part of the plan either — turning reminders on must not cancel one already on its way. */
+    /** Demo pushes are not part of the plan either. */
     private const val DEMO_TAG = "demo"
+    private const val NAME_PREFIX = "name:"
+
+    /** Replanning reads WorkManager's database — off the main thread, one at a time. */
+    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val mutex = Mutex()
 
     fun schedule(context: Context, reminder: ScheduledReminder, now: Instant = Clock.System.now(), tag: String = TAG) {
-        val delay = (reminder.at - now).inWholeMilliseconds.coerceAtLeast(0)
+        val name = ReminderSync.workName(reminder)
         val request = OneTimeWorkRequestBuilder<ReminderWorker>()
-            .setInitialDelay(delay, TimeUnit.MILLISECONDS)
+            .setInitialDelay((reminder.at - now).inWholeMilliseconds.coerceAtLeast(0), TimeUnit.MILLISECONDS)
             .setInputData(ReminderWorker.data(reminder))
             .addTag(tag)
+            .addTag("rid:${reminder.id}")
+            .addTag(NAME_PREFIX + name)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(reminder.id, ExistingWorkPolicy.REPLACE, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(name, ExistingWorkPolicy.KEEP, request)
     }
 
-    fun cancel(context: Context, id: String) = WorkManager.getInstance(context).cancelUniqueWork(id)
+    /** Cancels a reminder by id, whatever its time (event deleted, sleep stopped). */
+    fun cancel(context: Context, id: String) = WorkManager.getInstance(context).cancelAllWorkByTag("rid:$id")
 
     /** After saving an event: its reminder and game tests move with it (or disappear when no longer due). */
     fun eventChanged(context: Context, core: PulseCore) = rescheduleAll(context, core)
@@ -53,11 +69,27 @@ object ReminderScheduler {
         listOf("event-$key", "game-beforeTraining-$key", "game-afterTraining-$key").forEach { cancel(context, it) }
     }
 
-    /** Replaces every pending reminder with the current plan; clears them when reminders are off or nobody is signed in. */
-    fun rescheduleAll(context: Context, core: PulseCore, now: Instant = Clock.System.now()) {
-        WorkManager.getInstance(context).cancelAllWorkByTag(TAG)
-        if (!PulseNotifications.isEnabled(context)) return
-        NotificationRules.upcoming(core.calendar.events, core.session.user.value, core.sleep.window, now).forEach { schedule(context, it, now) }
+    fun rescheduleAll(context: Context, core: PulseCore) {
+        val app = context.applicationContext
+        scope.launch { reschedule(app, core) }
+    }
+
+    /** Brings pending reminders in line with the plan; clears them all when reminders are off or nobody is signed in. */
+    suspend fun reschedule(context: Context, core: PulseCore, now: Instant = Clock.System.now()) = mutex.withLock {
+        val manager = WorkManager.getInstance(context)
+        val user = core.session.user.value
+        if (!PulseNotifications.isEnabled(context) || user == null) {
+            manager.cancelAllWorkByTag(TAG)
+            return@withLock
+        }
+        val existing = withContext(Dispatchers.IO) { manager.getWorkInfosByTag(TAG).get() }
+            .filter { !it.state.isFinished }
+            .map { info -> info.tags.firstOrNull { it.startsWith(NAME_PREFIX) }?.removePrefix(NAME_PREFIX) ?: ReminderSync.legacyName(info.id.toString()) }
+        val sync = ReminderSync.diff(existing, NotificationRules.upcoming(core.calendar.events, user, core.sleep.window, now), now)
+        sync.toCancel.forEach { name ->
+            ReminderSync.legacyWorkId(name)?.let { manager.cancelWorkById(java.util.UUID.fromString(it)) } ?: manager.cancelUniqueWork(name)
+        }
+        sync.toEnqueue.forEach { schedule(context, it, now) }
     }
 
     /** Профиль → Демо-режим: show a notification in a few seconds. */
@@ -74,11 +106,14 @@ object ReminderScheduler {
 class ReminderWorker(context: Context, params: WorkerParameters) : CoroutineWorker(context, params) {
     override suspend fun doWork(): Result {
         val reminder = reminder(inputData) ?: return Result.success()
-        PulseNotifications.post(applicationContext, reminder)
+        val core = (applicationContext as PulseApplication).core
+        // A wake check is pointless once sleep was stopped, «Скоро отбой» once it has started.
+        val outdated = (reminder.kind == ReminderKind.WAKE_CHECK && !core.sleep.isSleeping) ||
+            (reminder.kind == ReminderKind.BEDTIME && core.sleep.isSleeping)
+        if (!outdated) PulseNotifications.post(applicationContext, reminder)
         // Repeating ones (bedtime, weekly) plan their next occurrence.
         if (reminder.kind == ReminderKind.BEDTIME || reminder.kind == ReminderKind.WEEKLY) {
-            val core = (applicationContext as PulseApplication).core
-            ReminderScheduler.rescheduleAll(applicationContext, core)
+            ReminderScheduler.reschedule(applicationContext, core)
         }
         return Result.success()
     }
