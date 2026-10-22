@@ -31,9 +31,14 @@ data class RawExercise(
     val averageHeartRate: Double?
 )
 
-/** Platform records already converted to core types (Health Connect on Android); every list may be empty. */
+/**
+ * Platform data already converted to core types (Health Connect on Android); every list may be empty. Steps, distance
+ * and kcal may be raw records or deduplicated daily totals; [stepMinutes] then carries per-minute step buckets for
+ * brisk walking (without it, brisk minutes come from [steps]).
+ */
 data class HealthRawData(
     val steps: List<TimedValue> = emptyList(),
+    val stepMinutes: List<TimedValue>? = null,
     val distanceMeters: List<TimedValue> = emptyList(),
     val activeKcal: List<TimedValue> = emptyList(),
     val exercises: List<RawExercise> = emptyList(),
@@ -64,7 +69,7 @@ object HealthSnapshotBuilder {
         val distance = sums(raw.distanceMeters)
         val energy = sums(raw.activeKcal)
         val exerciseMinutes = raw.exercises.groupBy { dayOf(it.start) }.mapValues { (_, list) -> list.sumOf { minutesBetween(it.start, it.end) } }
-        val brisk = briskMinutesPerDay(raw.steps)
+        val brisk = briskMinutesPerDay(raw.stepMinutes ?: raw.steps)
         val activeMinutes = days.map { DailyValue(it, max(exerciseMinutes[it] ?: 0.0, (brisk[it] ?: 0).toDouble())) }
 
         val todaySteps = (steps[today] ?: 0.0).toInt()

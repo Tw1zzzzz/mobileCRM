@@ -79,6 +79,13 @@ class SeedHealthReceiver : BroadcastReceiver() {
         records += ExerciseSessionRecord(workout, offset, workoutEnd, offset, manual, ExerciseSessionRecord.EXERCISE_TYPE_STRENGTH_TRAINING, "Силовая", null)
         records += ActiveCaloriesBurnedRecord(workout, offset, workoutEnd, offset, Energy.kilocalories(410.0), manual)
         records += HeartRateRecord(workout, offset, workoutEnd, offset, (0 until 12).map { HeartRateRecord.Sample(workout.plus(Duration.ofMinutes(it * 5L)), 118L + it * 3) }, manual)
+        // Today's 30-min HIIT (250 kcal, pulse 140→162, avg 151) — client ids keep it single when seeding again.
+        val hiit = today.atTime(7, 0).atZone(zone).toInstant()
+        val hiitEnd = hiit.plus(Duration.ofMinutes(30))
+        fun once(kind: String) = Metadata.manualEntry(clientRecordId = "seed-hiit-$today-$kind")
+        records += ExerciseSessionRecord(hiit, offset, hiitEnd, offset, once("session"), ExerciseSessionRecord.EXERCISE_TYPE_HIGH_INTENSITY_INTERVAL_TRAINING, "HIIT", null)
+        records += ActiveCaloriesBurnedRecord(hiit, offset, hiitEnd, offset, Energy.kilocalories(250.0), once("kcal"))
+        records += HeartRateRecord(hiit, offset, hiitEnd, offset, (0 until 12).map { HeartRateRecord.Sample(hiit.plus(Duration.ofMinutes(it * 2L)), 140L + it * 2) }, once("pulse"))
         // Today's daytime pulse for the zones.
         val noon = today.atTime(12, 0).atZone(zone).toInstant()
         records += HeartRateRecord(noon, offset, noon.plus(Duration.ofMinutes(55)), offset, (0 until 12).map { HeartRateRecord.Sample(noon.plus(Duration.ofMinutes(it * 5L)), 72L + it * 6) }, manual)

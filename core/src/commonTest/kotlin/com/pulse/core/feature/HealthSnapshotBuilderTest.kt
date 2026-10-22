@@ -46,6 +46,18 @@ class HealthSnapshotBuilderTest {
         assertEquals(60.0, snapshot.weeklyActiveMinutes.last().value)
     }
 
+    @Test fun briskMinutesFromMinuteBucketsWhenTotalsAreDaily() {
+        // Health Connect aggregates: one deduplicated total per day, plus per-minute buckets for brisk walking.
+        val start = at(2026, 10, 21, 7)
+        val raw = HealthRawData(
+            steps = listOf(TimedValue(at(2026, 10, 21, 0), at(2026, 10, 22, 0), 8000.0)),
+            stepMinutes = (0 until 40).map { TimedValue(start.addingMinutes(it), start.addingMinutes(it + 1), 120.0) }
+        )
+        val snapshot = HealthSnapshotBuilder.build(raw, now, "Health Connect")
+        assertEquals(8000, snapshot.today.steps)
+        assertEquals(40, snapshot.today.activeMinutes)
+    }
+
     @Test fun exerciseMinutesWinOverBriskWalking() {
         val raw = HealthRawData(
             exercises = listOf(RawExercise("w1", at(2026, 10, 21, 18), at(2026, 10, 21, 19, 30), WorkoutKind.STRENGTH, 420.0, 128.4))
