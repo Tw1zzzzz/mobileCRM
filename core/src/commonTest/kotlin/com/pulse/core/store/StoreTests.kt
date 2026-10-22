@@ -244,6 +244,19 @@ class NutritionWellbeingCognitiveCalendarTests {
         store.applyUsage(null)
         assertEquals(263, store.todayMinutes(now)) // back to the demo dashboard
     }
+
+    @Test fun usageSurvivesReload() {
+        // Usage is the phone's, not the account's: signing in (reload) must not drop it until the next read.
+        val store = ScreenTimeStore(null, isDemo = true)
+        val now = at(2026, 10, 21, 18)
+        store.applyUsage(com.pulse.core.feature.ScreenUsageMath.build(
+            listOf(com.pulse.core.feature.AppSession("yt", "YouTube", com.pulse.core.model.AppCategory.VIDEO, at(2026, 10, 21, 12), at(2026, 10, 21, 13))),
+            emptyList(), now
+        ))
+        store.reload(isDemo = false)
+        assertEquals(60, store.todayMinutes(now))
+        assertTrue(store.hasDetailedData)
+    }
 }
 
 private class FakeHealth(override val isAvailable: Boolean = true, val snapshot: HealthSnapshot) : HealthDataProvider {

@@ -48,9 +48,10 @@ class ScreenTimeStore(
         storage?.load()?.let { current = current.copy(entries = it.entries, dailyLimitMinutes = it.limitMinutes, isAuthorized = it.accessGranted) }
     }
 
+    /** Usage is the phone's, not the account's — it is kept until the next read replaces it. */
     fun reload(isDemo: Boolean) {
         val saved = storage?.load()
-        current = State(saved?.entries ?: emptyList(), saved?.limitMinutes ?: 300, saved?.accessGranted ?: true, isDemo)
+        current = State(saved?.entries ?: emptyList(), saved?.limitMinutes ?: 300, saved?.accessGranted ?: true, isDemo, current.usage)
     }
 
     private fun persist() {
