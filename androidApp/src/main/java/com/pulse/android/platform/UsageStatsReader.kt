@@ -52,7 +52,7 @@ class UsageStatsReader(private val context: Context) {
                 UsageEvents.Event.KEYGUARD_HIDDEN -> RawUsageEvent.Type.UNLOCKED
                 else -> null
             } ?: continue
-            raw += RawUsageEvent(event.packageName ?: "", type, Instant.fromEpochMilliseconds(event.timeStamp))
+            raw += RawUsageEvent(event.packageName ?: "", type, Instant.fromEpochMilliseconds(event.timeStamp), event.className ?: "")
         }
         val excluded = homePackages() + "com.android.systemui"
         val sessions = UsageEventsParser.sessions(raw, now).filter { it.packageName !in excluded }

@@ -61,4 +61,16 @@ class UsageEventsParserTest {
         // One app at a time: the total never exceeds the wall clock.
         assertEquals(20L, sessions.sumOf { (it.end - it.start).inWholeMinutes })
     }
+
+    @Test fun pauseOfOneActivityKeepsPackageOpen() {
+        // YouTube opens its player activity over the main one, then closes them one by one.
+        val events = listOf(
+            RawUsageEvent("yt", RawUsageEvent.Type.RESUMED, t(0), "Main"),
+            RawUsageEvent("yt", RawUsageEvent.Type.RESUMED, t(10), "Player"),
+            RawUsageEvent("yt", RawUsageEvent.Type.PAUSED, t(15), "Main"),
+            RawUsageEvent("yt", RawUsageEvent.Type.PAUSED, t(40), "Player")
+        )
+        val sessions = UsageEventsParser.sessions(events, now = t(60))
+        assertEquals(listOf(Triple("yt", t(0), t(40))), sessions.map { Triple(it.packageName, it.start, it.end) })
+    }
 }
