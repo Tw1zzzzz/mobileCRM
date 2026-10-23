@@ -40,7 +40,11 @@ class PulseApplication : Application() {
         PulseNotifications.ensureChannels(this)
         // Reminders follow the signed-in account (and its role) — replanned on every sign-in, switch and sign-out.
         appScope.launch {
-            core.session.user.map { it?.id to it?.role }.distinctUntilChanged().collect {
+            var previous: Any? = null
+            core.session.user.map { it?.id to it?.role }.distinctUntilChanged().collect { (id, _) ->
+                // The sleep notification of the new account (if it is tracking) is re-posted by the sleep collector below.
+                if (previous != null && previous != id) PulseNotifications.onAccountChanged(this@PulseApplication)
+                previous = id
                 ReminderScheduler.rescheduleAll(this@PulseApplication, core)
                 SleepWidget.refresh(this@PulseApplication)
                 SleepTileService.refresh(this@PulseApplication)

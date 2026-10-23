@@ -41,6 +41,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import com.pulse.android.BuildConfig
 import com.pulse.android.ui.LocalRouter
 import com.pulse.android.ui.auth.LegalDocument
@@ -239,6 +240,11 @@ private fun SettingsCard(user: User) {
     val screenTime = core.screenTime.state.value
     val context = LocalContext.current
     var remindersOn by remember { mutableStateOf(PulseNotifications.isEnabled(context)) }
+    // Notifications may have been switched off (or back on) in system settings while Pulse was in the background.
+    LifecycleResumeEffect(Unit) {
+        remindersOn = PulseNotifications.isEnabled(context)
+        onPauseOrDispose {}
+    }
     val requestPermission = rememberNotificationPermission { granted ->
         PulseNotifications.setEnabled(context, granted)
         remindersOn = PulseNotifications.isEnabled(context)

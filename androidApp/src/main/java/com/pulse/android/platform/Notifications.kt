@@ -77,6 +77,9 @@ object PulseNotifications {
         return PendingIntent.getActivity(context, requestCode, intent, PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT)
     }
 
+    /** Another account (or nobody) is signed in: what was shown for the previous one goes away. */
+    fun onAccountChanged(context: Context) = NotificationManagerCompat.from(context).cancelAll()
+
     fun post(context: Context, reminder: ScheduledReminder) {
         if (!systemAllows(context)) return
         val code = reminder.id.hashCode()
