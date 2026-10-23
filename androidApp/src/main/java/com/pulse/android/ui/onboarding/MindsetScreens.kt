@@ -260,7 +260,7 @@ fun PlayerPortraitSection() {
             Row(Modifier.pressable(onClick = open).pulseCard(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(sfIcon(archetype.icon), archetype.tint.color, 48.dp, 21.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${archetype.caption}: ${archetype.title.lowercase()}", color = Palette.textPrimary, autoSize = fit(17.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text("${archetype.caption}: ${archetype.title.lowercase()}", color = Palette.textPrimary, autoSize = fit(17.sp), fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                     Text(survey.summary, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 2)
                     Text(
                         if (profile.growthZones.isEmpty()) "Без явных зон роста" else "Зона роста: ${profile.growthZones.joinToString(", ") { it.title.lowercase() }}",

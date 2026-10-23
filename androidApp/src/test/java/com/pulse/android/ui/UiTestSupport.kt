@@ -64,10 +64,11 @@ fun ComposeContentTestRule.setMain(core: PulseCore, route: String? = null, fontS
 }
 
 /**
- * No text is cut off at its edge (clipped, not ellipsized) or broken inside a word — what large fonts on narrow
- * phones do to rows that were laid out for the mockup's sizes. Fails with one line per text.
+ * No text is cut off at its edge (clipped) or broken inside a word — what large fonts on narrow phones do to rows that
+ * were laid out for the mockup's sizes — and no fit() text had to end in «…» ([unfit], collected through FitReport:
+ * semantics re-lays fit() texts out at their base size, so only the hook sees the size actually drawn).
  */
-fun SemanticsNodeInteractionsProvider.assertTextFits() {
+fun SemanticsNodeInteractionsProvider.assertTextFits(unfit: Collection<String> = emptyList()) {
     val texts = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true).fetchSemanticsNodes()
     val problems = texts.flatMap { node ->
         val layouts = mutableListOf<TextLayoutResult>()
@@ -86,7 +87,7 @@ fun SemanticsNodeInteractionsProvider.assertTextFits() {
                 }
             }
         }
-    }.distinct()
+    }.distinct() + unfit.map { "cut even at 70%: «$it»" }
     assertTrue(problems.isEmpty(), "Text problems:\n" + problems.joinToString("\n"))
 }
 

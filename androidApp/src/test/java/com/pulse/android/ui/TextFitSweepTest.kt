@@ -11,6 +11,9 @@ import androidx.compose.ui.unit.Density
 import com.pulse.android.ui.auth.AuthScreen
 import com.pulse.android.ui.theme.Metrics
 import com.pulse.core.model.UserRole
+import com.pulse.android.ui.components.FitReport
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -24,11 +27,15 @@ import org.robolectric.annotation.GraphicsMode
 @Config(application = Application::class, sdk = [34], qualifiers = "w360dp-h640dp")
 class TextFitSweepTest {
     @get:Rule val rule = createComposeRule()
+    private val unfit = mutableSetOf<String>()
+
+    @Before fun listen() { FitReport.onUnfit = { synchronized(unfit) { unfit += it } } }
+    @After fun stop() { FitReport.onUnfit = null }
 
     private fun sweep(route: String, role: UserRole = UserRole.TEAM_PLAYER) {
         rule.setMain(testCore(role), route, fontScale = Metrics.maxFontScale)
         rule.waitForIdle()
-        rule.assertTextFits()
+        rule.assertTextFits(unfit)
     }
 
     @Test fun today() = sweep("today")
@@ -54,9 +61,9 @@ class TextFitSweepTest {
             val density = LocalDensity.current
             CompositionLocalProvider(LocalDensity provides Density(density.density, Metrics.maxFontScale)) { AuthScreen(session) }
         }
-        rule.assertTextFits()
+        rule.assertTextFits(unfit)
         rule.onNodeWithText("Зарегистрироваться").performScrollTo().performClick()
         rule.waitForIdle()
-        rule.assertTextFits()
+        rule.assertTextFits(unfit)
     }
 }

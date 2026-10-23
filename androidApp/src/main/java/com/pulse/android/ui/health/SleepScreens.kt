@@ -145,7 +145,7 @@ private fun ScoreCard(night: SleepNight) {
     Row(Modifier.pulseCard(padding = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         ScoreRing(night.score / 100.0, "${night.score}", "ОЦЕНКА СНА", size = 138.dp, lineWidth = 13.dp, valueSize = 48.sp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(nightTitle, color = Palette.textSecondary, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(nightTitle, color = Palette.textSecondary, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
             DurationText(night.totalMinutes, valueSize = 38.sp, unitSize = 24.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(sfIcon("moon"), null, tint = Palette.purple, modifier = Modifier.size(18.dp))
@@ -243,7 +243,7 @@ private fun StageLegend(night: SleepNight) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.padding(top = 4.dp).size(20.dp).clip(RoundedCornerShape(6.dp)).background(stage.tint.color))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stage.title, color = Palette.textSecondary, autoSize = fit(16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(stage.title, color = Palette.textSecondary, autoSize = fit(16.sp, minScale = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(Formatters.duration(night.minutes(stage)), color = Palette.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -274,10 +274,10 @@ fun MetricTile(icon: String, tint: Color, title: String, value: String, unit: St
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             IconBadge(sfIcon(icon), tint, 34.dp, 15.dp)
-            Text(title, color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, color = Palette.textSecondary, autoSize = fit(14.sp, minScale = 0.6f), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         ValueUnitText(value, unit, valueSize = 34.sp, unitSize = 20.sp)
-        Text(caption, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(caption, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -294,8 +294,8 @@ fun LinkCard(icon: String, title: String, subtitle: String, onClick: () -> Unit)
     Row(Modifier.pressable(onClick = onClick).pulseCard(), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBadge(sfIcon(icon), Palette.cyan, 52.dp, 22.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, color = Palette.cyan, autoSize = fit(14.sp), fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(subtitle, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, color = Palette.cyan, autoSize = fit(14.sp), fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Icon(sfIcon("chevron.right"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp))
     }

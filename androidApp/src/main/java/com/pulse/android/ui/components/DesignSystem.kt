@@ -99,7 +99,7 @@ fun ScoreRing(progress: Double, value: String, caption: String, size: Dp = 150.d
         ProgressRing(progress, Modifier.fillMaxSize(), lineWidth)
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(lineWidth + 6.dp)) {
             Text(value, color = Palette.textPrimary, autoSize = fit(valueSize), fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(caption, color = Palette.textSecondary, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp,
+            Text(caption, color = Palette.textSecondary, autoSize = fit(13.sp, minScale = 0.6f), fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp,
                 maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }
     }
@@ -178,13 +178,13 @@ fun DividerLine(modifier: Modifier = Modifier) {
 
 /** Number + small unit on a shared baseline: "56 уд/мин". One text, so a narrow tile shrinks both together. */
 @Composable
-fun ValueUnitText(value: String, unit: String? = null, valueSize: TextUnit = 34.sp, unitSize: TextUnit = 17.sp, valueColor: Color = Palette.textPrimary) {
+fun ValueUnitText(value: String, unit: String? = null, valueSize: TextUnit = 34.sp, unitSize: TextUnit = 17.sp, valueColor: Color = Palette.textPrimary, maxLines: Int = 1) {
     val text = buildAnnotatedString {
         withStyle(SpanStyle(color = valueColor, fontWeight = FontWeight.Bold)) { append(value) }
         // Relative size, so the unit shrinks with the value when the text has to fit.
         unit?.let { withStyle(SpanStyle(color = Palette.textSecondary, fontSize = (unitSize.value / valueSize.value).em, fontWeight = FontWeight.Medium)) { append(" $it") } }
     }
-    Text(text, autoSize = fit(valueSize), maxLines = 1, overflow = TextOverflow.Ellipsis)
+    Text(text, autoSize = fit(valueSize), maxLines = maxLines, overflow = TextOverflow.Ellipsis)
 }
 
 /** "7ч 42м" with large numbers and small units. */
@@ -208,7 +208,7 @@ fun StatusPill(text: String, tint: Color = Palette.green, showsDot: Boolean = tr
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
     ) {
         if (showsDot) Box(Modifier.size(9.dp).clip(CircleShape).background(tint))
-        Text(text, color = tint, autoSize = fit(15.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(text, color = tint, autoSize = fit(15.sp), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 

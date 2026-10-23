@@ -150,8 +150,8 @@ fun NutritionScreen() {
                 Icon(sfIcon("camera"), null, tint = Color.White, modifier = Modifier.size(28.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Сфотографируй еду", color = Color.White, autoSize = fit(20.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(if (store.canAnalyzePhotos) "AI оценит состав за 5 секунд" else "Фото и калории — в дневник питания", color = Color.White.copy(alpha = 0.85f), autoSize = fit(15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text("Сфотографируй еду", color = Color.White, autoSize = fit(20.sp), fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(if (store.canAnalyzePhotos) "AI оценит состав за 5 секунд" else "Фото и калории — в дневник питания", color = Color.White.copy(alpha = 0.85f), autoSize = fit(15.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
             Icon(sfIcon("arrow.right"), null, tint = Color.White, modifier = Modifier.size(26.dp))
         }

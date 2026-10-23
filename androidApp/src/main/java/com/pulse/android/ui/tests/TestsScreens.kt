@@ -98,7 +98,7 @@ fun TestsScreen() {
                 Row(Modifier.pulseCard(14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
                     IconBadge(sfIcon("calendar.badge.clock"), Palette.textSecondary, 52.dp, 22.dp)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text("Еженедельные тесты", color = Palette.textPrimary, autoSize = fit(18.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("Еженедельные тесты", color = Palette.textPrimary, autoSize = fit(18.sp), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
                         Text("Анкеты из веб-версии — подключим с API", color = Palette.textSecondary, fontSize = 14.sp)
                     }
                     Text("скоро", color = Palette.orange, fontSize = 12.sp, fontWeight = FontWeight.Bold,

@@ -173,8 +173,8 @@ private fun InfoTile(icon: String, tint: Color, value: String, title: String, ca
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(sfIcon(icon), null, tint = tint, modifier = Modifier.size(22.dp).padding(bottom = 2.dp))
         Text(value, color = Palette.textPrimary, autoSize = fit(26.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(title, color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false)
-        Text(caption, color = Palette.textTertiary, autoSize = fit(11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false)
+        Text(title, color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(caption, color = Palette.textTertiary, autoSize = fit(11.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 

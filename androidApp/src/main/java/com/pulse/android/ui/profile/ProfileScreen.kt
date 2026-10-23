@@ -233,7 +233,7 @@ private fun Stat(value: String, title: String, icon: String, tint: Color, modifi
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(sfIcon(icon), null, tint = tint, modifier = Modifier.size(20.dp))
         Text(value, color = Palette.textPrimary, autoSize = fit(26.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(title, color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 

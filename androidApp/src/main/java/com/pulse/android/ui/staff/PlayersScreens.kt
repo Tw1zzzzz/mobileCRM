@@ -118,7 +118,7 @@ fun PlayersListContent() {
                         archetype?.let {
                             Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(sfIcon(it.icon), null, tint = it.tint.color, modifier = Modifier.size(13.dp))
-                                Text("${it.caption}: ${it.title.lowercase()}", color = it.tint.color, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                Text("${it.caption}: ${it.title.lowercase()}", color = it.tint.color, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis)
                             }
                         }
                         Text("Готовность ${Formatters.decimal(snapshot.readiness)} · сон ${Formatters.duration(snapshot.sleepMinutes)}",

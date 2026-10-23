@@ -91,23 +91,26 @@ fun Modifier.pulseTile(padding: Dp = 16.dp, radius: Dp = Metrics.tileRadius): Mo
 /**
  * For `Text(autoSize = fit(13.sp), maxLines = …)`: the text keeps [size] while it fits on its lines with whole words,
  * and shrinks (to at most 70% of [size]) when it would be cut or break a word in half — large font scale, narrow
- * phone. With autoSize set, Text ignores its `fontSize`.
+ * phone. Single long words in narrow tiles may go down to [minScale] (0.6). With autoSize set, Text ignores its `fontSize`.
  */
-fun fit(size: TextUnit): TextAutoSize = WholeWordsFit(size)
+fun fit(size: TextUnit, minScale: Float = MIN_FIT_SCALE): TextAutoSize = WholeWordsFit(size, minScale)
 
-private class WholeWordsFit(private val size: TextUnit) : TextAutoSize {
+private data class WholeWordsFit(private val size: TextUnit, private val minScale: Float) : TextAutoSize {
     override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
-        val smallest = size.value * MIN_FIT_SCALE
+        val smallest = size.value * minScale
         var current = size.value
         while (current > smallest) {
             if (performLayout(constraints, text, current.sp).fitsWholeWords()) return current.sp
             current -= FIT_STEP
         }
+        if (!performLayout(constraints, text, smallest.sp).fitsWholeWords()) FitReport.onUnfit?.invoke(text.text)
         return smallest.sp
     }
+}
 
-    override fun equals(other: Any?): Boolean = other is WholeWordsFit && other.size == size
-    override fun hashCode(): Int = size.hashCode()
+/** Test hook: told about every fit() text that does not fit even at its smallest size (it ends in «…»). */
+internal object FitReport {
+    @Volatile var onUnfit: ((String) -> Unit)? = null
 }
 
 private const val MIN_FIT_SCALE = 0.7f

@@ -141,7 +141,7 @@ private fun HeroCard(store: FitnessStore, now: kotlin.time.Instant) {
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("СЕГОДНЯ", color = Palette.cyan, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
                 Text("$minutes / $goal мин", color = Palette.textPrimary, autoSize = fit(26.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                Text(if (minutes >= goal) "Цель выполнена 🎉" else "Ещё ${goal - minutes} мин до цели", color = Palette.textSecondary, autoSize = fit(16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (minutes >= goal) "Цель выполнена 🎉" else "Ещё ${goal - minutes} мин до цели", color = Palette.textSecondary, autoSize = fit(16.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -159,7 +159,8 @@ private fun MiniTile(icon: String, tint: Color, value: String, unit: String, mod
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
         Icon(sfIcon(icon), null, tint = tint, modifier = Modifier.size(22.dp))
-        ValueUnitText(value, unit, valueSize = 18.sp, unitSize = 12.sp)
+        // Narrow tile: the unit may wrap under the value rather than be cut.
+        ValueUnitText(value, unit, valueSize = 18.sp, unitSize = 12.sp, maxLines = 2)
     }
 }
 
