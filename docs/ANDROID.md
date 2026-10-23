@@ -36,18 +36,21 @@ ID приложения пока `com.pulsecrm.mvp` (как на iOS) — мен
 | 3.6 | Экраны: дневник CS2 / база знаний, календарь | ✅ напоминания о событиях — в шаге 4 |
 | 3.7 | Экраны стаффа: игроки, карточка, аналитика, сводка команды | ✅ проверено на эмуляторе |
 | 4 | Платформа: Health Connect, реальное экранное время, уведомления, трекинг сна, виджет, плитка | ✅ проверено на эмуляторе; lint-ошибки `StateFlow.value` в composition — в шаге 5 |
-| 5 | Качество: разные экраны и устройства, фон, разрешения, TalkBack (галочки согласий при регистрации — без роли «флажок») | |
+| 5 | Качество: разные экраны и устройства, фон, разрешения, TalkBack (галочки согласий при регистрации — без роли «флажок») | ✅ TalkBack-подписи как на iOS, текст проверен на 360dp при шрифте 130% (выше приложение не увеличивает), планшеты — колонка 600dp, экран сохраняется при повороте и выгрузке |
 | 6 | Google Play: страница, Data Safety, формы Health Connect и Usage Access, закрытый тест | |
 
 ## Сборка
 
 ```bash
 ./gradlew :core:allTests                 # тесты ядра
-./gradlew :androidApp:testDebugUnitTest  # тесты Android-части
+./gradlew :androidApp:testDebugUnitTest  # тесты Android-части, включая UI-тесты Compose (Robolectric)
 ./gradlew :androidApp:lintDebug          # lint: 0 ошибок и 0 предупреждений, исключения — в androidApp/lint.xml
 ./gradlew :androidApp:assembleDebug
 ./gradlew :androidApp:assembleRelease --no-configuration-cache   # release с R8
 ```
+
+UI-тесты Compose идут на JVM в Robolectric с песочницей Android 14 (SDK 34): для более новых песочниц нужна Java 21,
+а проект собирается на 17. Первый запуск скачивает песочницу (~10 минут).
 
 Release собирается только без configuration cache: задача Compose-компилятора `produceReleaseComposeMapping`
 не умеет кэшироваться. Для отладочных сборок кэш остаётся включённым.
