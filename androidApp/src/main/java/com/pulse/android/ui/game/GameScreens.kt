@@ -34,6 +34,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
@@ -51,6 +52,7 @@ import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.PulseTextField
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.observeCore
@@ -128,7 +130,7 @@ private fun EloCard(player: PlayerProfile, period: Int) {
     val first = history.firstOrNull()?.value?.toInt() ?: player.elo
     Column(Modifier.pulseCard(padding = 18.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(Formatters.grouped(player.elo), color = Palette.textPrimary, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(Formatters.grouped(player.elo), color = Palette.textPrimary, autoSize = fit(34.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("ELO", color = Palette.textSecondary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(bottom = 5.dp).weight(1f))
             Box(Modifier.padding(bottom = 6.dp)) { DeltaLabel(player.elo - first, "за период") }
         }
@@ -153,8 +155,8 @@ private fun StatTile(title: String, value: String, modifier: Modifier) {
             .padding(12.dp),
         verticalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        Text(value, color = Palette.textPrimary, fontSize = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(title, color = Palette.textSecondary, fontSize = 12.sp, maxLines = 1)
+        Text(value, color = Palette.textPrimary, autoSize = fit(19.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -187,7 +189,7 @@ fun FaceitSourceCard() {
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
                 FaceitLogo()
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                    Text("Faceit · ${state.faceit?.nickname ?: state.nickname ?: ""}", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                    Text("Faceit · ${state.faceit?.nickname ?: state.nickname ?: ""}", color = Palette.textPrimary, autoSize = fit(16.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     val profile = state.faceit
                     Text(
                         when {
@@ -313,13 +315,13 @@ private fun FaceitDetailsSection(profile: FaceitProfile, matches: List<GameMatch
             Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 16.dp)) {
                 profile.maps.forEachIndexed { index, map ->
                     Row(Modifier.padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(12.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Text(map.map.removePrefix("de_").replaceFirstChar { it.uppercase() }, color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
-                            maxLines = 1, modifier = Modifier.width(90.dp))
-                        Text("${map.matches} матчей", color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                        Text(map.map.removePrefix("de_").replaceFirstChar { it.uppercase() }, color = Palette.textPrimary, autoSize = fit(16.sp), fontWeight = FontWeight.SemiBold,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(90.dp))
+                        Text("${map.matches} матчей", color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         Text("${map.winRate.roundToIntSwift()}%", color = if (map.winRate >= 50) Palette.green else Palette.red, fontSize = 15.sp,
                             fontWeight = FontWeight.Bold, textAlign = TextAlign.End, modifier = Modifier.width(48.dp))
-                        Text("K/D ${Formatters.decimal(map.kd, 2)}", color = Palette.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium,
-                            textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.width(70.dp))
+                        Text("K/D ${Formatters.decimal(map.kd, 2)}", color = Palette.textSecondary, autoSize = fit(13.sp), fontWeight = FontWeight.Medium,
+                            textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(70.dp))
                     }
                     if (index < profile.maps.size - 1) DividerLine()
                 }
@@ -376,8 +378,8 @@ fun CellGrid(cells: List<Cell>) {
             Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
                 row.forEach { cell ->
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
-                        Text(cell.value, color = cell.tint, fontSize = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        Text(cell.caption?.let { "${cell.title}, $it" } ?: cell.title, color = Palette.textSecondary, fontSize = 12.sp, maxLines = 2)
+                        Text(cell.value, color = cell.tint, autoSize = fit(19.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text(cell.caption?.let { "${cell.title}, $it" } ?: cell.title, color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 repeat(3 - row.size) { Box(Modifier.weight(1f)) }

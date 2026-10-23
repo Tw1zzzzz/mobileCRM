@@ -12,7 +12,9 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.wrapContentHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -301,7 +303,8 @@ private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> U
 
 @Composable
 private fun Consent(prefix: String, link: String, checked: Boolean, onLink: () -> Unit, onCheck: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    // FlowRow: with large fonts the link wraps under the checkbox instead of breaking its words.
+    FlowRow(itemVerticalAlignment = Alignment.CenterVertically) {
         // Box and prefix are one checkbox for TalkBack; the document link is a separate control.
         Row(
             Modifier.heightIn(min = 44.dp).toggleable(checked, role = Role.Checkbox, onValueChange = onCheck),
@@ -316,13 +319,14 @@ private fun Consent(prefix: String, link: String, checked: Boolean, onLink: () -
             Text(prefix, color = AuthStyle.placeholder, fontSize = 14.sp)
         }
         Text(link, color = Palette.cyan, fontSize = 14.sp, textDecoration = TextDecoration.Underline,
-            modifier = Modifier.clickable(onClickLabel = "Открыть", role = Role.Button, onClick = onLink))
+            modifier = Modifier.heightIn(min = 44.dp).wrapContentHeight().clickable(onClickLabel = "Открыть", role = Role.Button, onClick = onLink))
     }
 }
 
 @Composable
 private fun SwitchLink(prompt: String, action: String, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.Center) {
+    // With large fonts the link moves to its own line instead of breaking «Зарегистрироваться» in half.
+    FlowRow(Modifier.fillMaxWidth().padding(top = 6.dp), horizontalArrangement = Arrangement.Center) {
         Text("$prompt ", color = AuthStyle.placeholder, fontSize = 15.sp)
         Text(action, color = Palette.cyan, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.pressable(onClick = onClick))
     }

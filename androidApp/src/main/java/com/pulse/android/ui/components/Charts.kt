@@ -42,6 +42,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntOffset
 import androidx.compose.ui.unit.dp
@@ -65,8 +66,8 @@ private fun CalloutBubble(callout: Callout, modifier: Modifier = Modifier) {
             .padding(horizontal = 10.dp, vertical = 6.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        callout.lines.forEach { (text, tint) -> Text(text, color = tint, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1) }
-        Text(callout.title, color = Palette.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        callout.lines.forEach { (text, tint) -> Text(text, color = tint, autoSize = fit(15.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
+        Text(callout.title, color = Palette.textSecondary, autoSize = fit(11.sp), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -167,8 +168,8 @@ fun PulseBarChart(
         labelsBelow?.invoke()
         if (labels.isNotEmpty()) Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
             labels.forEachIndexed { i, label ->
-                Text(label, color = if (highlight == i) Palette.textPrimary else Palette.textSecondary, fontSize = 12.sp,
-                    fontWeight = if (highlight == i) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, modifier = Modifier.weight(1f), maxLines = 1)
+                Text(label, color = if (highlight == i) Palette.textPrimary else Palette.textSecondary, autoSize = fit(12.sp),
+                    fontWeight = if (highlight == i) FontWeight.Bold else FontWeight.Normal, textAlign = TextAlign.Center, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
     }
@@ -178,7 +179,7 @@ fun PulseBarChart(
 @Composable
 fun FractionLabels(labels: List<Pair<Float, String>>, modifier: Modifier = Modifier) {
     Layout(
-        content = { labels.forEach { (_, text) -> Text(text, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1) } },
+        content = { labels.forEach { (_, text) -> Text(text, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis) } },
         modifier = modifier.fillMaxWidth().padding(top = 6.dp)
     ) { measurables, constraints ->
         val placeables = measurables.map { it.measure(constraints.copy(minWidth = 0)) }
@@ -263,7 +264,7 @@ fun PulseLineChart(
         }
         if (labels.isNotEmpty()) {
             Row(Modifier.fillMaxWidth().padding(top = 6.dp)) {
-                labels.forEach { Text(it, color = Palette.textSecondary, fontSize = 12.sp, textAlign = TextAlign.Center, modifier = Modifier.weight(1f), maxLines = 1) }
+                labels.forEach { Text(it, color = Palette.textSecondary, autoSize = fit(12.sp), textAlign = TextAlign.Center, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis) }
             }
         }
     }

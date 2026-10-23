@@ -24,6 +24,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
@@ -35,6 +36,7 @@ import com.pulse.android.ui.components.NavHeader
 import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.ScoreRing
 import com.pulse.android.ui.components.ScreenScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
@@ -148,11 +150,11 @@ private fun MetricRow(metric: WeeklyMetric) {
         IconBadge(sfIcon(metric.icon), metric.tint.color, 38.dp, 16.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(metric.title, color = Palette.textSecondary, fontSize = 13.sp)
-            Text(metric.value, color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(metric.detail, color = Palette.textTertiary, fontSize = 12.sp, maxLines = 2)
+            Text(metric.value, color = Palette.textPrimary, autoSize = fit(17.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(metric.detail, color = Palette.textTertiary, autoSize = fit(12.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         metric.change?.let {
-            Text(it, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+            Text(it, color = color, autoSize = fit(13.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 4.dp))
         }
     }
@@ -164,7 +166,7 @@ private fun GoalsCard(goals: List<WeeklyGoalCheck>) {
         goals.forEach { goal ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row {
-                    Text(goal.title, color = Palette.textPrimary, fontSize = 14.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                    Text(goal.title, color = Palette.textPrimary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                     Text("${goal.achieved} из ${goal.total}", color = if (goal.progress >= 0.7) Palette.green else Palette.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
                 }
                 GradientBar(goal.progress, height = 6.dp)
@@ -238,8 +240,8 @@ private fun TeamWeeklyContent(report: TeamWeeklyReport) {
 @Composable
 private fun Kpi(title: String, value: String, delta: String?, good: Boolean, modifier: Modifier) {
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, color = Palette.textSecondary, fontSize = 13.sp)
-        Text(value, color = Palette.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
+        Text(value, color = Palette.textPrimary, autoSize = fit(20.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(delta ?: " ", color = if (good) Palette.green else Palette.orange, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
     }
 }
@@ -253,7 +255,7 @@ private fun PlayerRow(row: TeamWeeklyRow) {
                 if (row.risks.isNotEmpty()) Icon(sfIcon("exclamationmark.triangle.fill"), "Есть риски", tint = Palette.orange, modifier = Modifier.size(13.dp))
             }
             Text(listOfNotNull(row.sleepMinutes?.let { "сон ${Formatters.duration(it)}" }, "${row.matches} матч.", row.kd?.let { "K/D ${Formatters.decimal(it, 2)}" })
-                .joinToString(" · "), color = Palette.textSecondary, fontSize = 12.sp, maxLines = 1)
+                .joinToString(" · "), color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text(row.readiness?.let { Formatters.decimal(it) } ?: "—", color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold)
@@ -262,7 +264,7 @@ private fun PlayerRow(row: TeamWeeklyRow) {
             }
         }
         val status = row.load.status
-        Text(status.title, color = status.tint.color, fontSize = 11.sp, fontWeight = FontWeight.Bold, maxLines = 1, textAlign = TextAlign.Center,
+        Text(status.title, color = status.tint.color, autoSize = fit(11.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center,
             modifier = Modifier.clip(CircleShape).background(status.tint.color.copy(alpha = 0.14f)).padding(horizontal = 7.dp, vertical = 4.dp))
     }
 }

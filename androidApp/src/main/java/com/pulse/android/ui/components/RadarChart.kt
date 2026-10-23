@@ -34,6 +34,7 @@ import androidx.compose.ui.layout.Layout
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -112,12 +113,13 @@ fun RadarChart(labels: List<String>, values: List<Double>, modifier: Modifier = 
                                 .padding(horizontal = 10.dp, vertical = 5.dp),
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            Text("${Formatters.decimal(value, if (value == Math.rint(value)) 0 else 1)} / ${maxValue.toInt()}", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                            Text(label, color = Palette.cyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+                            Text("${Formatters.decimal(value, if (value == Math.rint(value)) 0 else 1)} / ${maxValue.toInt()}", color = Palette.textPrimary, autoSize = fit(15.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                            Text(label, color = Palette.cyan, autoSize = fit(11.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         }
                     } else {
                         Box(Modifier.width(76.dp)) {
-                            Text(label, color = Palette.textSecondary, fontSize = 11.sp, fontWeight = FontWeight.Medium, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+                            Text(label, color = Palette.textSecondary, autoSize = fit(11.sp), fontWeight = FontWeight.Medium, textAlign = TextAlign.Center,
+                                maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.fillMaxWidth())
                         }
                     }
                 }

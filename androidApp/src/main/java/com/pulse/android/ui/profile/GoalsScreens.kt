@@ -21,6 +21,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.components.DividerLine
@@ -31,6 +32,7 @@ import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.PulseSlider
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.components.switchRow
@@ -99,7 +101,7 @@ private fun GoalRow(icon: String, tint: Color, title: String, value: String, onC
         IconBadge(sfIcon(icon), tint, 36.dp, 16.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(title, color = Palette.textPrimary, fontSize = 16.sp)
-            Text(value, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1)
+            Text(value, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(15.dp))
     }

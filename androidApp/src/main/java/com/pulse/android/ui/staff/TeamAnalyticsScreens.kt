@@ -38,6 +38,7 @@ import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
@@ -54,6 +55,7 @@ import com.pulse.android.ui.components.ScatterChart
 import com.pulse.android.ui.components.ScatterDot
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
@@ -148,8 +150,8 @@ fun TeamAnalyticsContent() {
 @Composable
 private fun Kpi(title: String, value: String, tint: Color, modifier: Modifier) {
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1)
-        Text(value, color = tint, fontSize = 19.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+        Text(title, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(value, color = tint, autoSize = fit(19.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -160,7 +162,7 @@ private fun ReadinessBars(snapshots: List<PlayerSnapshot>) {
         snapshots.sortedByDescending { it.readiness }.forEach { snapshot ->
             val color = readinessColor(snapshot.readiness)
             Row(Modifier.pressable { router.open(Route.Player(snapshot.player.id)) }, horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(snapshot.player.nickname, color = Palette.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1, modifier = Modifier.width(58.dp))
+                Text(snapshot.player.nickname, color = Palette.textPrimary, autoSize = fit(14.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(58.dp))
                 // Bar with the 6,0 attention threshold marked in orange.
                 BoxWithConstraints(Modifier.weight(1f).height(18.dp), contentAlignment = Alignment.CenterStart) {
                     val full = maxWidth
@@ -237,12 +239,12 @@ private fun TableRow(snapshot: PlayerSnapshot, onClick: () -> Unit) {
                 Text(snapshot.player.nickname, color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                 if (snapshot.needsAttention) Icon(sfIcon("exclamationmark.triangle.fill"), "Требует внимания", tint = Palette.orange, modifier = Modifier.size(12.dp))
             }
-            Text("${snapshot.player.gameRole} · ELO ${snapshot.player.elo}", color = Palette.textSecondary, fontSize = 12.sp, maxLines = 1)
+            Text("${snapshot.player.gameRole} · ELO ${snapshot.player.elo}", color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Text(Formatters.decimal(snapshot.readiness), color = readinessColor(snapshot.readiness), fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, modifier = Modifier.width(54.dp))
         Text("${snapshot.averageScore}", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, modifier = Modifier.width(50.dp))
-        Text(Formatters.duration(snapshot.sleepMinutes), color = if (snapshot.sleepMinutes < 380) Palette.red else Palette.textPrimary, fontSize = 14.sp,
-            fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, maxLines = 1, modifier = Modifier.width(66.dp))
+        Text(Formatters.duration(snapshot.sleepMinutes), color = if (snapshot.sleepMinutes < 380) Palette.red else Palette.textPrimary, autoSize = fit(14.sp),
+            fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(66.dp))
     }
 }
 
@@ -305,7 +307,7 @@ private fun Heatmap(matrix: List<List<Double?>>) {
         }
         WellbeingFactor.entries.forEachIndexed { row, factor ->
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                Text(factor.title, color = Palette.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.width(96.dp))
+                Text(factor.title, color = Palette.textPrimary, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.width(96.dp))
                 GameMetric.entries.indices.forEach { column ->
                     val value = matrix.getOrNull(row)?.getOrNull(column)
                     Box(Modifier.weight(1f).height(38.dp).clip(RoundedCornerShape(8.dp)).background(heatColor(value)), contentAlignment = Alignment.Center) {
@@ -382,7 +384,7 @@ private fun FoodCard(entry: TeamFood.Entry) {
                 modifier = Modifier.padding(8.dp).clip(CircleShape).background(Color.Black.copy(alpha = 0.55f)).padding(horizontal = 8.dp, vertical = 4.dp))
         }
         Column(Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(entry.meal.name, color = Palette.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+            Text(entry.meal.name, color = Palette.textPrimary, autoSize = fit(14.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("${entry.meal.kcal} ккал · ${Formatters.time(entry.meal.date)}", color = Palette.textSecondary, fontSize = 12.sp)
         }
     }

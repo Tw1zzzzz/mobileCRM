@@ -53,6 +53,11 @@ object Metrics {
     val minTouchTarget = 44.dp
     /** Content column on tablets and unfolded phones (Android 16 ignores the portrait lock there). */
     val maxContentWidth = 600.dp
+    /**
+     * Largest system font scale the app follows. The screens are dense dashboards drawn for fixed sizes (iOS uses fixed
+     * sizes and ignores Dynamic Type); up to 130% every screen is checked on a 360dp phone, beyond that text stays at 130%.
+     */
+    const val maxFontScale = 1.3f
 }
 
 /** Core palette tokens → Compose colors. */

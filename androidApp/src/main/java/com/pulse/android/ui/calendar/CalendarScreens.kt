@@ -41,6 +41,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.text.style.TextOverflow
 import com.pulse.android.platform.ReminderScheduler
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -64,6 +65,7 @@ import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SecondaryButton
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.StatusPill
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
@@ -275,7 +277,7 @@ fun EventDetailScreen(id: Uuid) {
                 links.forEach { link ->
                     Row(Modifier.pressable { runCatching { uri.openUri(link) } }.pulseCard(14.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(sfIcon("link"), null, tint = Palette.cyan, modifier = Modifier.size(18.dp))
-                        Text("  $link", color = Palette.cyan, fontSize = 16.sp, maxLines = 1, modifier = Modifier.weight(1f))
+                        Text("  $link", color = Palette.cyan, autoSize = fit(16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         Icon(sfIcon("arrow.up.right"), null, tint = Palette.cyan, modifier = Modifier.size(16.dp))
                     }
                 }

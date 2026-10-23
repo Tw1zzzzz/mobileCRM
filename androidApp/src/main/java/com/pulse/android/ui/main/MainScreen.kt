@@ -52,6 +52,7 @@ import com.pulse.android.ui.ProvideCore
 import com.pulse.android.ui.components.contentWidth
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.IconBadge
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.state.StateHubScreen
 import com.pulse.android.ui.today.NotificationsSheet
 import com.pulse.android.ui.today.TodayScreen
@@ -247,6 +248,6 @@ private fun androidx.compose.foundation.layout.RowScope.TabItem(tab: AppTab, isS
     val color = if (isSelected) Palette.cyan else Palette.textSecondary
     Column(Modifier.weight(1f).pressable(role = Role.Tab, selected = isSelected) { onSelect(tab) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(tab.icon, null, tint = color, modifier = Modifier.size(26.dp))
-        Text(tab.title, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, textAlign = TextAlign.Center)
+        Text(tab.title, color = color, autoSize = fit(12.sp), fontWeight = FontWeight.Medium, maxLines = 1, textAlign = TextAlign.Center)
     }
 }

@@ -45,6 +45,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.graphics.scale
@@ -67,6 +68,7 @@ import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SecondaryButton
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.ValueUnitText
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
@@ -116,8 +118,8 @@ fun NutritionScreen() {
                 Box(Modifier.size(112.dp), contentAlignment = Alignment.Center) {
                     ProgressRing(totals.kcal.toDouble() / goals.kcal, Modifier.fillMaxSize())
                     Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                        Text(Formatters.grouped(totals.kcal), color = Palette.textPrimary, fontSize = 34.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                        Text("/ ${goals.kcal} ккал", color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1)
+                        Text(Formatters.grouped(totals.kcal), color = Palette.textPrimary, autoSize = fit(34.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        Text("/ ${goals.kcal} ккал", color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
                 Box(Modifier.width(1.dp).height(112.dp).background(Palette.divider))
@@ -148,8 +150,8 @@ fun NutritionScreen() {
                 Icon(sfIcon("camera"), null, tint = Color.White, modifier = Modifier.size(28.dp))
             }
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text("Сфотографируй еду", color = Color.White, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(if (store.canAnalyzePhotos) "AI оценит состав за 5 секунд" else "Фото и калории — в дневник питания", color = Color.White.copy(alpha = 0.85f), fontSize = 15.sp, maxLines = 1)
+                Text("Сфотографируй еду", color = Color.White, autoSize = fit(20.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (store.canAnalyzePhotos) "AI оценит состав за 5 секунд" else "Фото и калории — в дневник питания", color = Color.White.copy(alpha = 0.85f), autoSize = fit(15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             Icon(sfIcon("arrow.right"), null, tint = Color.White, modifier = Modifier.size(26.dp))
         }
@@ -188,8 +190,8 @@ fun NutritionScreen() {
 private fun MacroRow(title: String, value: Int, goal: Int, color: Color) {
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row {
-            Text(title, color = Palette.textPrimary, fontSize = 15.sp, modifier = Modifier.weight(1f), maxLines = 1)
-            Text("$value / $goal г", color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1)
+            Text(title, color = Palette.textPrimary, autoSize = fit(15.sp), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("$value / $goal г", color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         GradientBar(value.toDouble() / goal, height = 10.dp, fill = Brush.horizontalGradient(listOf(color.copy(alpha = 0.8f), color)))
     }
@@ -203,7 +205,7 @@ private fun QuickTile(title: String, icon: String, modifier: Modifier, onClick: 
         horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         Icon(sfIcon(icon), null, tint = Palette.textSecondary, modifier = Modifier.size(28.dp))
-        Text(title, color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+        Text(title, color = Palette.textPrimary, autoSize = fit(15.sp), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -230,8 +232,8 @@ fun MealRow(meal: Meal) {
             }
         }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(meal.name, color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text("Б ${meal.protein} · Ж ${meal.fat} · У ${meal.carbs}  ·  ${Formatters.time(meal.date)}", color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1)
+            Text(meal.name, color = Palette.textPrimary, autoSize = fit(17.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text("Б ${meal.protein} · Ж ${meal.fat} · У ${meal.carbs}  ·  ${Formatters.time(meal.date)}", color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         ValueUnitText("${meal.kcal}", "ккал", valueSize = 18.sp, unitSize = 12.sp)
     }

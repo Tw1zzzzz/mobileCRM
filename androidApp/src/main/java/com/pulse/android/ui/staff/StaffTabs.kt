@@ -22,6 +22,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.edit
@@ -33,6 +34,7 @@ import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.PulseSegmented
 import com.pulse.android.ui.components.ScoreRing
 import com.pulse.android.ui.components.ScreenScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.AppTab
@@ -111,7 +113,7 @@ fun StaffTodayScreen(onNotifications: () -> Unit) {
     ScreenScaffold(header = { TopPanel(onNotifications) }) {
         Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(Formatters.dayMonthWeekday(now).uppercase(), color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
-            Text("Команда ${core.session.user.value?.team ?: ""}", color = Palette.textPrimary, fontSize = 30.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+            Text("Команда ${core.session.user.value?.team ?: ""}", color = Palette.textPrimary, autoSize = fit(30.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Row(Modifier.pulseCard(18.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
             ScoreRing(readiness / 10, Formatters.decimal(readiness), "ГОТОВНОСТЬ", 124.dp, 12.dp, 36.sp)

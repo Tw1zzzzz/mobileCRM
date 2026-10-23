@@ -22,6 +22,8 @@ import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.TextAutoSize
+import androidx.compose.foundation.text.modifiers.TextAutoSizeLayoutScope
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material3.CircularProgressIndicator
@@ -42,8 +44,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.Constraints
 import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.theme.Gradients
@@ -81,6 +87,41 @@ fun Modifier.pulseTile(padding: Dp = 16.dp, radius: Dp = Metrics.tileRadius): Mo
         .background(Palette.tile)
         .border(1.dp, Palette.stroke, RoundedCornerShape(radius))
         .padding(padding)
+
+/**
+ * For `Text(autoSize = fit(13.sp), maxLines = …)`: the text keeps [size] while it fits on its lines with whole words,
+ * and shrinks (to at most 70% of [size]) when it would be cut or break a word in half — large font scale, narrow
+ * phone. With autoSize set, Text ignores its `fontSize`.
+ */
+fun fit(size: TextUnit): TextAutoSize = WholeWordsFit(size)
+
+private class WholeWordsFit(private val size: TextUnit) : TextAutoSize {
+    override fun TextAutoSizeLayoutScope.getFontSize(constraints: Constraints, text: AnnotatedString): TextUnit {
+        val smallest = size.value * MIN_FIT_SCALE
+        var current = size.value
+        while (current > smallest) {
+            if (performLayout(constraints, text, current.sp).fitsWholeWords()) return current.sp
+            current -= FIT_STEP
+        }
+        return smallest.sp
+    }
+
+    override fun equals(other: Any?): Boolean = other is WholeWordsFit && other.size == size
+    override fun hashCode(): Int = size.hashCode()
+}
+
+private const val MIN_FIT_SCALE = 0.7f
+private const val FIT_STEP = 0.5f
+
+/** All lines shown, and no line ends inside a word. */
+internal fun TextLayoutResult.fitsWholeWords(): Boolean {
+    if (multiParagraph.didExceedMaxLines || didOverflowHeight) return false
+    val text = layoutInput.text.text
+    return (0 until lineCount - 1).none { line ->
+        val end = getLineEnd(line)
+        end in 1 until text.length && text[end - 1].isLetterOrDigit() && text[end].isLetterOrDigit()
+    }
+}
 
 /**
  * Slight shrink while pressed (iOS `.pressable`). TalkBack reads [role] («кнопка» by default) and [label] as the

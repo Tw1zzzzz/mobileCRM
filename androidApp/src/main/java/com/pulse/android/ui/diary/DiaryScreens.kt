@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
@@ -62,6 +63,7 @@ import com.pulse.android.ui.components.PulseTextField
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SecondaryButton
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.components.pulseTile
@@ -174,8 +176,8 @@ private fun DiaryContent() {
 @Composable
 private fun SummaryTile(value: String, title: String, tint: Color, modifier: Modifier) {
     Column(modifier.pulseTile(12.dp, 14.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
-        Text(value, color = tint, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        Text(title, color = Palette.textSecondary, fontSize = 12.sp)
+        Text(value, color = tint, autoSize = fit(22.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -186,7 +188,7 @@ private fun QuickAdd(title: String, modifier: Modifier, onClick: () -> Unit) {
         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically
     ) {
         Icon(sfIcon("plus"), "Добавить: $title", tint = Color.White, modifier = Modifier.size(15.dp))
-        Text(" $title", color = Color.White, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(" $title", color = Color.White, autoSize = fit(14.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -205,10 +207,10 @@ fun LineupRow(lineup: Lineup, showsVisibility: Boolean = false, onToggleFavorite
     Row(Modifier.pulseCard(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBadge(sfIcon(lineup.type.icon), lineup.type.tint.color, 48.dp, 20.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(lineup.title, color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold, maxLines = 2)
+            Text(lineup.title, color = Palette.textPrimary, autoSize = fit(16.sp), fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Text(lineup.subtitle, color = Palette.textSecondary, fontSize = 13.sp)
             Text(listOfNotNull(if (showsVisibility) lineup.visibility.title else null, "Автор: ${lineup.author}").joinToString(" · "),
-                color = Palette.textTertiary, fontSize = 12.sp, maxLines = 1)
+                color = Palette.textTertiary, autoSize = fit(12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             if (lineup.variations.size > 1) {
                 Text(Formatters.plural(lineup.variations.size, "вариация", "вариации", "вариаций"), color = Palette.cyan, fontSize = 11.sp, fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.clip(CircleShape).background(Palette.cyan.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 3.dp))
@@ -294,7 +296,7 @@ fun LineupDetailScreen(id: Uuid) {
 
 @Composable
 private fun Tag(text: String, tint: Color) {
-    Text(text, color = tint, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+    Text(text, color = tint, autoSize = fit(13.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
         modifier = Modifier.clip(CircleShape).background(tint.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 5.dp))
 }
 

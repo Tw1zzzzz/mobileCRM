@@ -44,6 +44,7 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.platform.UsageStatsReader
@@ -65,6 +66,7 @@ import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.components.switchRow
@@ -170,9 +172,9 @@ private fun TilesRow(store: ScreenTimeStore) {
 private fun InfoTile(icon: String, tint: Color, value: String, title: String, caption: String, modifier: Modifier) {
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(sfIcon(icon), null, tint = tint, modifier = Modifier.size(22.dp).padding(bottom = 2.dp))
-        Text(value, color = Palette.textPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(title, color = Palette.textSecondary, fontSize = 12.sp, maxLines = 1, softWrap = false)
-        Text(caption, color = Palette.textTertiary, fontSize = 11.sp, maxLines = 1, softWrap = false)
+        Text(value, color = Palette.textPrimary, autoSize = fit(26.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, color = Palette.textSecondary, autoSize = fit(12.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false)
+        Text(caption, color = Palette.textTertiary, autoSize = fit(11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis, softWrap = false)
     }
 }
 
@@ -223,7 +225,7 @@ fun AppUsageList(apps: List<AppUsage>, filled: Boolean = false) {
                 }
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                     Row {
-                        Text(app.name, color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
+                        Text(app.name, color = Palette.textPrimary, autoSize = fit(18.sp), fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         Text(Formatters.duration(app.minutes), color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                     }
                     Text(app.category.title, color = Palette.textSecondary, fontSize = 14.sp)
@@ -418,7 +420,7 @@ private fun WeekCard(store: ScreenTimeStore) {
                         val parts = Formatters.durationParts(day.minutes)
                         Column(Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             Text("${parts.hours} ч ${parts.minutes} м", color = if (isToday) Palette.textPrimary else Palette.textSecondary,
-                                fontSize = 10.sp, fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, maxLines = 1)
+                                autoSize = fit(10.sp), fontWeight = if (isToday) FontWeight.Bold else FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Box(
                                 Modifier.fillMaxWidth().padding(horizontal = 2.dp)
                                     .height(maxOf(barArea * (day.minutes / maxMinutes).toFloat(), 8.dp))
@@ -497,8 +499,8 @@ private fun CategoriesCard(totals: List<Pair<AppCategory, Int>>) {
             val current = selected?.let { category -> totals.firstOrNull { it.first == category } }
             if (current != null) {
                 Column(Modifier.width(70.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(Formatters.duration(current.second), color = Palette.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                    Text(current.first.title, color = Palette.textSecondary, fontSize = 11.sp, maxLines = 1)
+                    Text(Formatters.duration(current.second), color = Palette.textPrimary, autoSize = fit(14.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(current.first.title, color = Palette.textSecondary, autoSize = fit(11.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
             } else {
                 Icon(sfIcon("hand.tap"), null, tint = Palette.textTertiary, modifier = Modifier.size(18.dp))
@@ -508,7 +510,7 @@ private fun CategoriesCard(totals: List<Pair<AppCategory, Int>>) {
             totals.forEach { (category, minutes) ->
                 Row(horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(10.dp).clip(CircleShape).background(category.tint.color))
-                    Text(category.title, color = Palette.textPrimary, fontSize = 15.sp, modifier = Modifier.weight(1f), maxLines = 1)
+                    Text(category.title, color = Palette.textPrimary, autoSize = fit(15.sp), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text("${(minutes * 100.0 / sum).roundToIntSwift()}%", color = Palette.textSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 }
             }

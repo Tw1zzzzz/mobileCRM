@@ -53,12 +53,16 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.em
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.theme.Gradients
 import com.pulse.android.ui.theme.Metrics
@@ -94,9 +98,9 @@ fun ScoreRing(progress: Double, value: String, caption: String, size: Dp = 150.d
     Box(Modifier.size(size), contentAlignment = Alignment.Center) {
         ProgressRing(progress, Modifier.fillMaxSize(), lineWidth)
         Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.padding(lineWidth + 6.dp)) {
-            Text(value, color = Palette.textPrimary, fontSize = valueSize, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(caption, color = Palette.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp,
-                maxLines = 1, textAlign = TextAlign.Center)
+            Text(value, color = Palette.textPrimary, autoSize = fit(valueSize), fontWeight = FontWeight.Bold, maxLines = 1)
+            Text(caption, color = Palette.textSecondary, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp,
+                maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Center)
         }
     }
 }
@@ -172,13 +176,15 @@ fun DividerLine(modifier: Modifier = Modifier) {
     Box(modifier.fillMaxWidth().height(1.dp).background(Palette.divider))
 }
 
-/** Number + small unit on a shared baseline: "56 уд/мин". */
+/** Number + small unit on a shared baseline: "56 уд/мин". One text, so a narrow tile shrinks both together. */
 @Composable
 fun ValueUnitText(value: String, unit: String? = null, valueSize: TextUnit = 34.sp, unitSize: TextUnit = 17.sp, valueColor: Color = Palette.textPrimary) {
-    Row(verticalAlignment = Alignment.Bottom, horizontalArrangement = Arrangement.spacedBy(5.dp)) {
-        Text(value, color = valueColor, fontSize = valueSize, fontWeight = FontWeight.Bold, maxLines = 1, modifier = Modifier.alignByBaseline())
-        unit?.let { Text(it, color = Palette.textSecondary, fontSize = unitSize, fontWeight = FontWeight.Medium, maxLines = 1, modifier = Modifier.alignByBaseline()) }
+    val text = buildAnnotatedString {
+        withStyle(SpanStyle(color = valueColor, fontWeight = FontWeight.Bold)) { append(value) }
+        // Relative size, so the unit shrinks with the value when the text has to fit.
+        unit?.let { withStyle(SpanStyle(color = Palette.textSecondary, fontSize = (unitSize.value / valueSize.value).em, fontWeight = FontWeight.Medium)) { append(" $it") } }
     }
+    Text(text, autoSize = fit(valueSize), maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 /** "7ч 42м" with large numbers and small units. */
@@ -202,7 +208,7 @@ fun StatusPill(text: String, tint: Color = Palette.green, showsDot: Boolean = tr
         horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically
     ) {
         if (showsDot) Box(Modifier.size(9.dp).clip(CircleShape).background(tint))
-        Text(text, color = tint, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+        Text(text, color = tint, autoSize = fit(15.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -285,7 +291,7 @@ fun <T> PulseScrollTabs(options: List<T>, selected: T, title: (T) -> String, onS
                 Modifier.height(38.dp).clip(RoundedCornerShape(10.dp)).then(if (isSelected) Modifier.background(Gradients.accent) else Modifier)
                     .pressable(role = Role.Tab, selected = isSelected) { onSelect(option) }.padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center
-            ) { Text(title(option), color = if (isSelected) Color.White else Palette.textSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
+            ) { Text(title(option), color = if (isSelected) Color.White else Palette.textSecondary, autoSize = fit(15.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
     }
 }
@@ -333,8 +339,8 @@ fun HubRow(icon: String, tint: Color, title: String, subtitle: String, onClick: 
     Row(Modifier.pressable(onClick = onClick).pulseCard(14.dp), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBadge(sfIcon(icon), tint, 52.dp, 22.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
-            Text(subtitle, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 2)
+            Text(title, color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(16.dp))
     }

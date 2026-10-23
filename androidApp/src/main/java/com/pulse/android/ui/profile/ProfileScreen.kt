@@ -39,6 +39,7 @@ import androidx.compose.ui.platform.LocalUriHandler
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.LifecycleResumeEffect
@@ -59,6 +60,7 @@ import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SecondaryButton
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.StatusPill
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.components.switchRow
@@ -169,8 +171,8 @@ private fun Header(user: User) {
             contentAlignment = Alignment.Center
         ) { Text(user.initials, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold) }
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(user.nickname, color = Palette.textPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-            Text(user.email, color = Palette.textSecondary, fontSize = 15.sp, maxLines = 1)
+            Text(user.nickname, color = Palette.textPrimary, autoSize = fit(26.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(user.email, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 RoleBadge(user.role, compact = true)
                 val tint = if (user.tariff.hasSubscription) Palette.green else Palette.textSecondary
@@ -203,8 +205,10 @@ private fun StatusCard(user: User) {
 private fun InfoRow(title: String, value: String, icon: String) {
     Row(Modifier.fillMaxWidth().padding(vertical = 14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         Icon(sfIcon(icon), null, tint = Palette.cyan, modifier = Modifier.size(20.dp))
-        Text(title, color = Palette.textSecondary, fontSize = 15.sp, modifier = Modifier.weight(1f))
-        Text(value, color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, maxLines = 2)
+        // Both sides share the row: a long value can no longer squeeze the title to one letter per line.
+        Text(title, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+        Text(value, color = Palette.textPrimary, autoSize = fit(15.sp), fontWeight = FontWeight.SemiBold, textAlign = TextAlign.End, maxLines = 2,
+            overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
     }
 }
 
@@ -228,8 +232,8 @@ private fun StatsRow(user: User) {
 private fun Stat(value: String, title: String, icon: String, tint: Color, modifier: Modifier) {
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Icon(sfIcon(icon), null, tint = tint, modifier = Modifier.size(20.dp))
-        Text(value, color = Palette.textPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-        Text(title, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1)
+        Text(value, color = Palette.textPrimary, autoSize = fit(26.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(title, color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 

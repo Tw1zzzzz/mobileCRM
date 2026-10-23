@@ -27,6 +27,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
@@ -40,6 +41,7 @@ import com.pulse.android.ui.components.PulseSlider
 import com.pulse.android.ui.components.RadarChart
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.observeCore
@@ -105,7 +107,7 @@ fun MoodScreen() {
                             if (entry == null) Text("Нет данных", color = Palette.textTertiary, fontSize = 14.sp)
                         }
                         Text(
-                            if (entry == null) "Добавить" else "Изменить", color = if (entry == null) Color.White else Palette.cyan, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1,
+                            if (entry == null) "Добавить" else "Изменить", color = if (entry == null) Color.White else Palette.cyan, autoSize = fit(15.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.clip(CircleShape).then(if (entry == null) Modifier.background(Gradients.accent) else Modifier.background(Palette.track))
                                 .pressable { editing = slot }.padding(horizontal = 14.dp, vertical = 9.dp)
                         )
@@ -129,7 +131,7 @@ fun MoodScreen() {
 private fun MoodMetric(title: String, value: Int, tint: Color, modifier: Modifier) {
     Column(modifier, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Row {
-            Text(title, color = Palette.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f), maxLines = 1)
+            Text(title, color = Palette.textSecondary, autoSize = fit(13.sp), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text("$value/10", color = tint, fontSize = 14.sp, fontWeight = FontWeight.SemiBold)
         }
         GradientBar(value / 10.0, height = 6.dp, fill = Brush.horizontalGradient(listOf(tint, tint)))
@@ -220,9 +222,9 @@ fun GameTestsScreen() {
                 val tint = if (result.phase == GameTestPhase.BEFORE_TRAINING) Palette.cyan else Palette.orange
                 Column(Modifier.pressable { editing = result }.pulseCard(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Text(result.phase.title, color = tint, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+                        Text(result.phase.title, color = tint, autoSize = fit(13.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.clip(CircleShape).background(tint.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 5.dp))
-                        Text(Formatters.dayMonthTime(result.date), color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1,
+                        Text(Formatters.dayMonthTime(result.date), color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis,
                             modifier = Modifier.weight(1f), textAlign = androidx.compose.ui.text.style.TextAlign.End)
                     }
                     Row(horizontalArrangement = Arrangement.SpaceBetween, modifier = Modifier.fillMaxWidth()) {

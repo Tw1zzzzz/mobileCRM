@@ -35,6 +35,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.platform.LocalContext
@@ -62,6 +63,7 @@ import com.pulse.android.ui.components.ScoreRing
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.ValueUnitText
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
@@ -138,8 +140,8 @@ private fun HeroCard(store: FitnessStore, now: kotlin.time.Instant) {
             Box(Modifier.width(1.dp).height(80.dp).background(Palette.divider))
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text("СЕГОДНЯ", color = Palette.cyan, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 2.sp)
-                Text("$minutes / $goal мин", color = Palette.textPrimary, fontSize = 26.sp, fontWeight = FontWeight.Bold, maxLines = 1)
-                Text(if (minutes >= goal) "Цель выполнена 🎉" else "Ещё ${goal - minutes} мин до цели", color = Palette.textSecondary, fontSize = 16.sp, maxLines = 1)
+                Text("$minutes / $goal мин", color = Palette.textPrimary, autoSize = fit(26.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(if (minutes >= goal) "Цель выполнена 🎉" else "Ещё ${goal - minutes} мин до цели", color = Palette.textSecondary, autoSize = fit(16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -196,7 +198,7 @@ fun TrainingLoadCard() {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(ratio.status.title, color = ratio.status.tint.color, fontSize = 14.sp, fontWeight = FontWeight.Bold,
                     modifier = Modifier.clip(CircleShape).background(ratio.status.tint.color.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 5.dp))
-                Text("7 дней: ${Formatters.grouped(ratio.acute.toInt())} · обычно ${Formatters.grouped(ratio.chronicWeekly.toInt())}", color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1)
+                Text("7 дней: ${Formatters.grouped(ratio.acute.toInt())} · обычно ${Formatters.grouped(ratio.chronicWeekly.toInt())}", color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
         }
         PulseBarChart(
@@ -288,7 +290,7 @@ private fun HeartRateZonesCard(zones: List<HeartRateZone>, average: Int) {
     Column(Modifier.pulseCard(padding = 20.dp), verticalArrangement = Arrangement.spacedBy(18.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Icon(sfIcon("heart"), null, tint = Palette.red, modifier = Modifier.size(26.dp))
-            Text("Средний пульс", color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1)
+            Text("Средний пульс", color = Palette.textPrimary, autoSize = fit(18.sp), fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
             ValueUnitText("$average", "уд/мин", valueSize = 30.sp, unitSize = 15.sp)
         }
         BoxWithConstraints(Modifier.fillMaxWidth().height(14.dp).clip(CircleShape)) {
@@ -301,7 +303,7 @@ private fun HeartRateZonesCard(zones: List<HeartRateZone>, average: Int) {
             zones.forEach { zone ->
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Box(Modifier.size(14.dp).clip(CircleShape).background(zone.tint.color))
-                    Text(zone.name, color = Palette.textPrimary, fontSize = 17.sp, modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 1)
+                    Text(zone.name, color = Palette.textPrimary, autoSize = fit(17.sp), modifier = Modifier.weight(1f).padding(start = 12.dp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(zone.range, color = Palette.textSecondary, fontSize = 16.sp)
                     Text("${zone.percent}%", color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.width(56.dp),
                         textAlign = androidx.compose.ui.text.style.TextAlign.End)
@@ -457,7 +459,7 @@ private fun GoalRow(icon: String, tint: Color, title: String, current: Int, goal
         IconBadge(sfIcon(icon), tint, 52.dp, 22.dp)
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(title, color = Palette.textPrimary, fontSize = 17.sp, modifier = Modifier.weight(1f).alignByBaseline(), maxLines = 1)
+                Text(title, color = Palette.textPrimary, autoSize = fit(17.sp), modifier = Modifier.weight(1f).alignByBaseline(), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(Formatters.grouped(current), color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.alignByBaseline())
                 Text(" / ${Formatters.grouped(goal)}${unit?.let { " $it" } ?: ""}", color = Palette.textSecondary, fontSize = 16.sp, modifier = Modifier.alignByBaseline())
             }

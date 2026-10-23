@@ -42,6 +42,7 @@ import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.Sparkline
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
@@ -222,7 +223,7 @@ fun MatchRow(match: GameMatch) {
             Text("${match.details?.mapName?.removePrefix("de_")?.replaceFirstChar { it.uppercase() } ?: match.map.title} · ${match.score}",
                 color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
             Text("${Formatters.dayMonthShort(match.date)}, ${Formatters.time(match.date)} · ${match.kills}/${match.deaths}/${match.assists} · ADR ${match.adr.roundToIntSwift()}",
-                color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1)
+                color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Column(horizontalAlignment = Alignment.End) {
             Text("K/D ${Formatters.decimal(match.kd, 2)}", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.Bold)

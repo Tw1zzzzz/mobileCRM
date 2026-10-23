@@ -45,6 +45,7 @@ import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.ScoreRing
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.Sparkline
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.AppTab
@@ -154,7 +155,7 @@ fun FormDayCard(result: FormIndex.Result, onClick: () -> Unit) {
             result.components.take(3).forEach { component ->
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Row {
-                        Text(component.title, color = Palette.textSecondary, fontSize = 13.sp, modifier = Modifier.weight(1f))
+                        Text(component.title, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
                         Text("${component.value.roundToIntSwift()}", color = Palette.textPrimary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
                     }
                     GradientBar(component.value / 100, height = 5.dp)
@@ -178,7 +179,7 @@ fun GameSummaryCard(onClick: () -> Unit) {
         Row(verticalAlignment = Alignment.Top) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("ELO FACEIT", color = Palette.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
-                Text(Formatters.grouped(player.elo), color = Palette.textPrimary, fontSize = 36.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(Formatters.grouped(player.elo), color = Palette.textPrimary, autoSize = fit(36.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 DeltaLabel(delta, "за 7 дн.")
             }
             Sparkline(history, Modifier.width(120.dp).height(52.dp), if (delta >= 0) Palette.cyan else Palette.orange)
@@ -219,7 +220,7 @@ fun DeltaLabel(value: Int, suffix: String) {
         value < 0 -> Palette.orange
         else -> Palette.textSecondary
     }
-    Text("${if (value > 0) "▲" else if (value < 0) "▼" else "•"} ${Formatters.signed(value)} $suffix", color = color, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, maxLines = 1)
+    Text("${if (value > 0) "▲" else if (value < 0) "▼" else "•"} ${Formatters.signed(value)} $suffix", color = color, autoSize = fit(13.sp), fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
 }
 
 @Composable
@@ -258,12 +259,12 @@ private fun TileGrid(tiles: List<Tile>) {
                     ) {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Icon(sfIcon(tile.icon), null, tint = tile.tint, modifier = Modifier.size(18.dp))
-                            Text(" ${tile.title}", color = Palette.textSecondary, fontSize = 15.sp, modifier = Modifier.weight(1f), maxLines = 1)
+                            Text(" ${tile.title}", color = Palette.textSecondary, autoSize = fit(15.sp), modifier = Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(16.dp))
                         }
                         Text(tile.value, color = Palette.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                         GradientBar(tile.progress, height = 6.dp)
-                        Text(tile.caption, color = Palette.textTertiary, fontSize = 13.sp, maxLines = 1)
+                        Text(tile.caption, color = Palette.textTertiary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                 }
             }
@@ -304,7 +305,7 @@ fun WeeklySummaryCard() {
         IconBadge(sfIcon("calendar.badge.checkmark"), Palette.cyan, size = 46.dp, iconSize = 20.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(3.dp)) {
             Text(if (isStaff) "Сводка команды за неделю" else "Итоги недели", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text(subtitle, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 2)
+            Text(subtitle, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 2, overflow = TextOverflow.Ellipsis)
         }
         Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(16.dp))
     }

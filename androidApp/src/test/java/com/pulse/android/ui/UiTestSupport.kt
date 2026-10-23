@@ -1,6 +1,13 @@
 package com.pulse.android.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.unit.Density
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
@@ -44,13 +51,43 @@ fun testCore(role: UserRole?): PulseCore {
 }
 
 /** The signed-in app as `MainActivity` shows it, opened on a debug route (`DebugRoutes`) when given. */
-fun ComposeContentTestRule.setMain(core: PulseCore, route: String? = null) {
+fun ComposeContentTestRule.setMain(core: PulseCore, route: String? = null, fontScale: Float? = null) {
     val user = requireNotNull(core.session.user.value) { "setMain needs a signed-in core" }
     setContent {
-        MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
-            MainScreen(core, user, debugRoute = route)
+        val density = LocalDensity.current
+        CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale ?: density.fontScale)) {
+            MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
+                MainScreen(core, user, debugRoute = route)
+            }
         }
     }
+}
+
+/**
+ * No text is cut off at its edge (clipped, not ellipsized) or broken inside a word — what large fonts on narrow
+ * phones do to rows that were laid out for the mockup's sizes. Fails with one line per text.
+ */
+fun SemanticsNodeInteractionsProvider.assertTextFits() {
+    val texts = onAllNodes(SemanticsMatcher.keyIsDefined(SemanticsActions.GetTextLayoutResult), useUnmergedTree = true).fetchSemanticsNodes()
+    val problems = texts.flatMap { node ->
+        val layouts = mutableListOf<TextLayoutResult>()
+        node.config[SemanticsActions.GetTextLayoutResult].action?.invoke(layouts)
+        val layout = layouts.firstOrNull() ?: return@flatMap emptyList()
+        val text = layout.layoutInput.text.text
+        buildList {
+            // Ellipsis is a deliberate cut; Clip past maxLines hides text without a trace. (didOverflowWidth is not
+            // used: the paragraph is laid out at the full constraint, so it reports overflow for any short text.)
+            val clipped = layout.layoutInput.overflow == TextOverflow.Clip && layout.multiParagraph.didExceedMaxLines
+            if (clipped) add("clipped: «$text»")
+            for (line in 0 until layout.lineCount - 1) {
+                val end = layout.getLineEnd(line)
+                if (end in 1 until text.length && text[end - 1].isLetterOrDigit() && text[end].isLetterOrDigit()) {
+                    add("word broken: «${text.substring(0, end)}|${text.substring(end)}»")
+                }
+            }
+        }
+    }.distinct()
+    assertTrue(problems.isEmpty(), "Text problems:\n" + problems.joinToString("\n"))
 }
 
 /** iOS minimum touch target; applies to controls without visible text. */

@@ -28,6 +28,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
@@ -43,6 +44,7 @@ import com.pulse.android.ui.components.RadarChart
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SecondaryButton
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.AppTab
@@ -119,7 +121,7 @@ fun MindsetProfileCard(profile: MindsetProfile, caption: String? = null) {
             IconBadge(sfIcon(archetype.icon), archetype.tint.color, 50.dp, 22.dp)
             Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
                 Text(archetype.caption.uppercase(), color = Palette.textTertiary, fontSize = 11.sp, fontWeight = FontWeight.Bold, letterSpacing = 1.2.sp)
-                Text(archetype.title, color = Palette.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(archetype.title, color = Palette.textPrimary, autoSize = fit(20.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(archetype.summary, color = Palette.textSecondary, fontSize = 14.sp)
             }
         }
@@ -203,7 +205,7 @@ fun SurveySummaryCard(survey: PlayerSurvey) {
 
 @Composable
 private fun Tag(title: String, tint: Color) {
-    Text(title, color = tint, fontSize = 13.sp, fontWeight = FontWeight.Bold, maxLines = 1,
+    Text(title, color = tint, autoSize = fit(13.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
         modifier = Modifier.clip(CircleShape).background(tint.copy(alpha = 0.14f)).padding(horizontal = 10.dp, vertical = 5.dp))
 }
 
@@ -258,11 +260,11 @@ fun PlayerPortraitSection() {
             Row(Modifier.pressable(onClick = open).pulseCard(14.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 IconBadge(sfIcon(archetype.icon), archetype.tint.color, 48.dp, 21.dp)
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text("${archetype.caption}: ${archetype.title.lowercase()}", color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                    Text("${archetype.caption}: ${archetype.title.lowercase()}", color = Palette.textPrimary, autoSize = fit(17.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     Text(survey.summary, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 2)
                     Text(
                         if (profile.growthZones.isEmpty()) "Без явных зон роста" else "Зона роста: ${profile.growthZones.joinToString(", ") { it.title.lowercase() }}",
-                        color = Palette.orange, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1
+                        color = Palette.orange, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis
                     )
                 }
                 Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(15.dp))

@@ -32,6 +32,7 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
@@ -48,6 +49,7 @@ import com.pulse.android.ui.components.PulseLineChart
 import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.RadarChart
 import com.pulse.android.ui.components.ScreenScaffold
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.components.pulseTile
@@ -112,15 +114,15 @@ fun PlayersListContent() {
                             Text(player.nickname, color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.SemiBold)
                             if (snapshot.needsAttention) Icon(sfIcon("exclamationmark.triangle.fill"), "Требует внимания", tint = Palette.orange, modifier = Modifier.size(12.dp))
                         }
-                        Text("${player.gameRole} · ${Formatters.relative(player.lastActive, now)}", color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1)
+                        Text("${player.gameRole} · ${Formatters.relative(player.lastActive, now)}", color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                         archetype?.let {
                             Row(horizontalArrangement = Arrangement.spacedBy(5.dp), verticalAlignment = Alignment.CenterVertically) {
                                 Icon(sfIcon(it.icon), null, tint = it.tint.color, modifier = Modifier.size(13.dp))
-                                Text("${it.caption}: ${it.title.lowercase()}", color = it.tint.color, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                                Text("${it.caption}: ${it.title.lowercase()}", color = it.tint.color, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             }
                         }
                         Text("Готовность ${Formatters.decimal(snapshot.readiness)} · сон ${Formatters.duration(snapshot.sleepMinutes)}",
-                            color = if (snapshot.needsAttention) Palette.orange else Palette.green, fontSize = 13.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                            color = if (snapshot.needsAttention) Palette.orange else Palette.green, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     }
                     Column(horizontalAlignment = Alignment.End, verticalArrangement = Arrangement.spacedBy(2.dp)) {
                         Text("${player.elo}", color = Palette.cyan, fontSize = 18.sp, fontWeight = FontWeight.Bold)
@@ -236,7 +238,7 @@ private fun FilterMenu(label: String, items: List<String>, onSelect: (String) ->
 @Composable
 private fun SummaryTile(title: String, value: String, tint: Color, modifier: Modifier) {
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(title, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1)
+        Text(title, color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(value, color = tint, fontSize = 26.sp, fontWeight = FontWeight.Bold)
     }
 }

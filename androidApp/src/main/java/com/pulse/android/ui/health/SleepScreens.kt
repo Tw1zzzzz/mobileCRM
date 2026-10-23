@@ -45,6 +45,7 @@ import androidx.compose.ui.semantics.clearAndSetSemantics
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.LocalRouter
@@ -65,6 +66,7 @@ import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.StatusPill
 import com.pulse.android.ui.components.ValueUnitText
+import com.pulse.android.ui.components.fit
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.components.switchRow
@@ -143,7 +145,7 @@ private fun ScoreCard(night: SleepNight) {
     Row(Modifier.pulseCard(padding = 16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         ScoreRing(night.score / 100.0, "${night.score}", "ОЦЕНКА СНА", size = 138.dp, lineWidth = 13.dp, valueSize = 48.sp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-            Text(nightTitle, color = Palette.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1)
+            Text(nightTitle, color = Palette.textSecondary, autoSize = fit(13.sp), fontWeight = FontWeight.Medium, letterSpacing = 1.2.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             DurationText(night.totalMinutes, valueSize = 38.sp, unitSize = 24.sp)
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Icon(sfIcon("moon"), null, tint = Palette.purple, modifier = Modifier.size(18.dp))
@@ -241,7 +243,7 @@ private fun StageLegend(night: SleepNight) {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
             Box(Modifier.padding(top = 4.dp).size(20.dp).clip(RoundedCornerShape(6.dp)).background(stage.tint.color))
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(stage.title, color = Palette.textSecondary, fontSize = 16.sp)
+                Text(stage.title, color = Palette.textSecondary, autoSize = fit(16.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(Formatters.duration(night.minutes(stage)), color = Palette.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.SemiBold)
             }
         }
@@ -272,10 +274,10 @@ fun MetricTile(icon: String, tint: Color, title: String, value: String, unit: St
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             IconBadge(sfIcon(icon), tint, 34.dp, 15.dp)
-            Text(title, color = Palette.textSecondary, fontSize = 14.sp, maxLines = 1)
+            Text(title, color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         ValueUnitText(value, unit, valueSize = 34.sp, unitSize = 20.sp)
-        Text(caption, color = Palette.textSecondary, fontSize = 15.sp, maxLines = 1)
+        Text(caption, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
@@ -292,8 +294,8 @@ fun LinkCard(icon: String, title: String, subtitle: String, onClick: () -> Unit)
     Row(Modifier.pressable(onClick = onClick).pulseCard(), horizontalArrangement = Arrangement.spacedBy(16.dp), verticalAlignment = Alignment.CenterVertically) {
         IconBadge(sfIcon(icon), Palette.cyan, 52.dp, 22.dp)
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
-            Text(title, color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp, maxLines = 1)
-            Text(subtitle, color = Palette.textSecondary, fontSize = 15.sp, maxLines = 1)
+            Text(title, color = Palette.cyan, autoSize = fit(14.sp), fontWeight = FontWeight.SemiBold, letterSpacing = 1.4.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(subtitle, color = Palette.textSecondary, autoSize = fit(15.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         Icon(sfIcon("chevron.right"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp))
     }
@@ -544,15 +546,15 @@ fun RecoveryCard() {
         Row(horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
             ScoreRing(result.score / 100.0, "${result.score}", "ВОССТ.", size = 104.dp, lineWidth = 10.dp, valueSize = 34.sp)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(result.label, color = result.tint.color, fontSize = 20.sp, fontWeight = FontWeight.Bold, maxLines = 1)
+                Text(result.label, color = result.tint.color, autoSize = fit(20.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
                 Text(core.recoveryAdvice(result.score), color = Palette.textSecondary, fontSize = 14.sp)
             }
         }
         result.components.forEach { component ->
             Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 Row {
-                    Text(component.title, color = Palette.textPrimary, fontSize = 14.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
-                    Text(component.detail, color = Palette.textSecondary, fontSize = 13.sp, maxLines = 1)
+                    Text(component.title, color = Palette.textPrimary, autoSize = fit(14.sp), fontWeight = FontWeight.Medium, maxLines = 2, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f))
+                    Text(component.detail, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
                 }
                 GradientBar(component.value / 100, height = 6.dp)
             }
