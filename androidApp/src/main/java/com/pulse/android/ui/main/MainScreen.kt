@@ -34,6 +34,7 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -68,9 +69,13 @@ import kotlin.uuid.Uuid
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null, pendingOpen: String? = null, onOpened: () -> Unit = {}) {
-    val router = remember { AppRouter() }
+    val router = rememberSaveable(saver = AppRouter.Saver) { AppRouter() }
+    // The debug route opens once; after rotation or process death the restored screen wins.
+    var debugRouteShown by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(debugRoute) {
+        if (debugRouteShown) return@LaunchedEffect
         debugRoute?.let { DebugRoutes.resolve(it, user.role.isStaff) }?.let { (tab, routes) -> router.show(routes, tab) }
+        debugRouteShown = true
     }
     var gameTestPhase by remember { mutableStateOf<GameTestPhase?>(null) }
     // A tapped notification opens its screen (iOS `DeepLinks`).

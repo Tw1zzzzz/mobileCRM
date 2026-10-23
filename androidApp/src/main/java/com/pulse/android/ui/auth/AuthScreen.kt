@@ -44,6 +44,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -182,12 +183,25 @@ private fun LoginCard(session: SessionStore, onRegister: () -> Unit) {
     }
 }
 
+/** Keeps the registration form across rotation and process death — without the passwords. */
+private val RegistrationFormSaver: Saver<RegistrationForm, List<String>> = Saver(
+    save = { listOf(it.nickname, it.email, it.faceitURL, it.teamCode, it.teamName, it.accessType.name, it.teamRole.name, "${it.acceptedTerms}", "${it.acceptedPrivacy}") },
+    restore = { saved ->
+        RegistrationForm(
+            nickname = saved[0], email = saved[1], faceitURL = saved[2], teamCode = saved[3], teamName = saved[4],
+            accessType = AccessType.entries.firstOrNull { it.name == saved[5] } ?: AccessType.SOLO,
+            teamRole = TeamRole.entries.firstOrNull { it.name == saved[6] } ?: TeamRole.PLAYER,
+            acceptedTerms = saved[7].toBoolean(), acceptedPrivacy = saved[8].toBoolean()
+        )
+    }
+)
+
 @Composable
 private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> Unit, onLogin: () -> Unit) {
     val scope = rememberCoroutineScope()
     val error by session.errorMessage.collectAsStateWithLifecycle()
     val loading by session.isLoading.collectAsStateWithLifecycle()
-    var form by remember { mutableStateOf(RegistrationForm()) }
+    var form by rememberSaveable(stateSaver = RegistrationFormSaver) { mutableStateOf(RegistrationForm()) }
     LaunchedEffect(Unit) { session.clearError() }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {

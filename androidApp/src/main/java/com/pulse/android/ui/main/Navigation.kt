@@ -1,5 +1,6 @@
 package com.pulse.android.ui.main
 
+import androidx.compose.runtime.saveable.Saver
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.ShowChart
@@ -64,6 +65,38 @@ sealed interface Route {
     data object TeamFood : Route
     data object WeeklyReport : Route
     data object PlayerPortrait : Route
+}
+
+/** Routes as short strings for saved instance state: `Sleep`, `Calendar:true`, `Event:<uuid>`. */
+object RouteCodec {
+    private val objects: List<Route> = listOf(
+        Route.Sleep, Route.SleepRecovery, Route.Fitness, Route.FitnessWeek, Route.ScreenTime, Route.ScreenTimeApps, Route.Tests,
+        Route.Cognitive, Route.Mood, Route.Balance, Route.GameTests, Route.Statistics, Route.Players, Route.Nutrition,
+        Route.NutritionHistory, Route.Lineups, Route.TeamAnalytics, Route.TeamCorrelations, Route.GameStats, Route.TeamFood,
+        Route.WeeklyReport, Route.PlayerPortrait
+    )
+
+    fun encode(route: Route): String = when (route) {
+        is Route.Calendar -> "Calendar:${route.createNew}"
+        is Route.Event -> "Event:${route.id}"
+        is Route.Player -> "Player:${route.id}"
+        is Route.Lineup -> "Lineup:${route.id}"
+        else -> route.toString()
+    }
+
+    /** Null for anything this build does not know (a route removed in an update) — it is dropped from the stack. */
+    fun decode(text: String): Route? {
+        val name = text.substringBefore(':')
+        val argument = text.substringAfter(':', "")
+        fun id() = runCatching { kotlin.uuid.Uuid.parse(argument) }.getOrNull()
+        return when (name) {
+            "Calendar" -> argument.toBooleanStrictOrNull()?.let { Route.Calendar(it) }
+            "Event" -> id()?.let { Route.Event(it) }
+            "Player" -> id()?.let { Route.Player(it) }
+            "Lineup" -> id()?.let { Route.Lineup(it) }
+            else -> objects.firstOrNull { it.toString() == text }
+        }
+    }
 }
 
 /** `adb shell am start … --es route sleep` opens a screen directly (debug builds; used for UI review). */
@@ -139,5 +172,23 @@ class AppRouter {
 
     fun select(tab: AppTab) {
         if (tab == selectedTab) popToRoot(tab) else selectedTab = tab
+    }
+
+    /** Open tab and back stacks for saved instance state; sheets (survey, food capture) are not kept. */
+    fun saved(): List<String> = listOf(selectedTab.name) +
+        stacks.filterValues { it.isNotEmpty() }.map { (tab, path) -> "${tab.name}=" + path.joinToString("|", transform = RouteCodec::encode) }
+
+    companion object {
+        fun restored(saved: List<String>): AppRouter = AppRouter().apply {
+            saved.firstOrNull()?.let { name -> AppTab.entries.firstOrNull { it.name == name } }?.let { selectedTab = it }
+            saved.drop(1).forEach { entry ->
+                val tab = AppTab.entries.firstOrNull { it.name == entry.substringBefore('=') } ?: return@forEach
+                val path = entry.substringAfter('=', "").split('|').filter { it.isNotEmpty() }.mapNotNull(RouteCodec::decode)
+                if (path.isNotEmpty()) stacks[tab] = path
+            }
+        }
+
+        /** Keeps the open screen across rotation, window resizing and process death. */
+        val Saver: Saver<AppRouter, List<String>> = Saver(save = { it.saved() }, restore = { restored(it) })
     }
 }
