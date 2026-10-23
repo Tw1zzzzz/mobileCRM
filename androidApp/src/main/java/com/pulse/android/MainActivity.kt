@@ -2,7 +2,6 @@ package com.pulse.android
 
 import android.content.Intent
 import android.os.Bundle
-import androidx.activity.ComponentActivity
 import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
@@ -21,13 +20,9 @@ import kotlin.time.Clock
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.android.ui.auth.AuthScreen
 import com.pulse.android.ui.main.MainScreen
-import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.unit.Density
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FontCappedActivity() {
     /** Screen requested by a tapped notification (`PulseNotifications.EXTRA_OPEN`), consumed by [MainScreen]. */
     private var pendingOpen by mutableStateOf<String?>(null)
 
@@ -65,19 +60,15 @@ class MainActivity : ComponentActivity() {
             }
         }
         setContent {
-            // System font scale is followed up to Metrics.maxFontScale.
-            val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, density.fontScale.coerceAtMost(Metrics.maxFontScale))) {
-                MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
-                    val user by core.session.user.collectAsStateWithLifecycle()
-                    // Keyed by the account id string, not the User: its hash mixes in enum identity hashes, which can differ
-                    // in a new process, and the saved screen state (open tab, back stacks) is found by this key after process death.
-                    Crossfade(user?.id?.toString(), label = "session") { id ->
-                        val current = user?.takeIf { it.id.toString() == id }
-                        when {
-                            id == null -> AuthScreen(core.session)
-                            current != null -> MainScreen(core, current, debugRoute, pendingOpen) { pendingOpen = null }
-                        }
+            MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
+                val user by core.session.user.collectAsStateWithLifecycle()
+                // Keyed by the account id string, not the User: its hash mixes in enum identity hashes, which can differ
+                // in a new process, and the saved screen state (open tab, back stacks) is found by this key after process death.
+                Crossfade(user?.id?.toString(), label = "session") { id ->
+                    val current = user?.takeIf { it.id.toString() == id }
+                    when {
+                        id == null -> AuthScreen(core.session)
+                        current != null -> MainScreen(core, current, debugRoute, pendingOpen) { pendingOpen = null }
                     }
                 }
             }
