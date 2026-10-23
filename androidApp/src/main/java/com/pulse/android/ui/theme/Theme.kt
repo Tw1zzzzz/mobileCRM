@@ -51,6 +51,8 @@ object Metrics {
     val headerButtonSize = 46.dp
     /** Smallest touch area of an icon-only control (iOS 44 pt). */
     val minTouchTarget = 44.dp
+    /** Content column on tablets and unfolded phones (Android 16 ignores the portrait lock there). */
+    val maxContentWidth = 600.dp
 }
 
 /** Core palette tokens → Compose colors. */

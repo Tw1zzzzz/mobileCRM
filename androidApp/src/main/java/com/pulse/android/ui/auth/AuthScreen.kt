@@ -61,6 +61,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.pulse.android.ui.components.contentWidth
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.ErrorBanner
 import com.pulse.android.ui.components.GradientButton
@@ -101,11 +102,12 @@ fun AuthScreen(session: SessionStore) {
         Column(
             Modifier.fillMaxSize().statusBarsPadding().imePadding().verticalScroll(rememberScrollState())
                 .padding(horizontal = 16.dp).padding(top = 24.dp, bottom = 40.dp),
-            verticalArrangement = Arrangement.spacedBy(26.dp)
+            verticalArrangement = Arrangement.spacedBy(26.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
             Hero()
             Column(
-                Modifier.fillMaxWidth().clip(RoundedCornerShape(24.dp)).background(AuthStyle.card)
+                Modifier.contentWidth().clip(RoundedCornerShape(24.dp)).background(AuthStyle.card)
                     .border(1.dp, Palette.stroke, RoundedCornerShape(24.dp)).padding(horizontal = 22.dp, vertical = 28.dp)
             ) {
                 Crossfade(register, label = "auth") { isRegister ->
@@ -127,7 +129,7 @@ fun AuthScreen(session: SessionStore) {
 
 @Composable
 private fun Hero() {
-    Column(Modifier.padding(horizontal = 8.dp).padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
+    Column(Modifier.contentWidth().padding(horizontal = 8.dp).padding(top = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
             Box(Modifier.size(38.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
                 Icon(Icons.Outlined.MonitorHeart, null, tint = Color.White, modifier = Modifier.size(20.dp))

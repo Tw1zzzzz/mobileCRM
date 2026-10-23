@@ -23,6 +23,7 @@ import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.sizeIn
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -47,6 +48,7 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.heading
@@ -152,14 +154,16 @@ fun ScreenScaffold(
     header: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
-    Column(Modifier.fillMaxSize().statusBarsPadding()) {
-        Box(Modifier.padding(horizontal = Metrics.screenPadding).padding(top = 4.dp, bottom = 10.dp)) { header() }
-        Column(
-            Modifier.fillMaxSize().verticalScroll(scrollState).padding(horizontal = Metrics.screenPadding)
-                .padding(top = 10.dp, bottom = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(spacing),
-            content = content
-        )
+    // The scroll area spans the window; header and content form a centred column no wider than maxContentWidth.
+    Column(Modifier.fillMaxSize().statusBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
+        Box(Modifier.contentWidth().padding(horizontal = Metrics.screenPadding).padding(top = 4.dp, bottom = 10.dp)) { header() }
+        Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
+            Column(
+                Modifier.contentWidth().testTag("screenContent").padding(horizontal = Metrics.screenPadding).padding(top = 10.dp, bottom = 24.dp),
+                verticalArrangement = Arrangement.spacedBy(spacing),
+                content = content
+            )
+        }
     }
 }
 
@@ -298,6 +302,9 @@ fun PulseSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Uni
         content = content
     )
 }
+
+/** Full width on phones, a centred [Metrics.maxContentWidth] column on wide windows. */
+fun Modifier.contentWidth(): Modifier = widthIn(max = Metrics.maxContentWidth).fillMaxWidth()
 
 @Composable
 fun SheetScaffold(title: String, onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {

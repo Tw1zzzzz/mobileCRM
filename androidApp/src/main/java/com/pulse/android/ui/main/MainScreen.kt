@@ -49,6 +49,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.pulse.android.ui.ProvideCore
+import com.pulse.android.ui.components.contentWidth
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.IconBadge
 import com.pulse.android.ui.state.StateHubScreen
@@ -220,7 +221,7 @@ private fun PulseTabBar(tabs: List<AppTab>, selected: AppTab, onSelect: (AppTab)
             drawPath(path, Palette.divider, style = Stroke(1.dp.toPx()))
         }
         Row(
-            Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 6.dp).padding(top = 12.dp, bottom = 4.dp),
+            Modifier.align(Alignment.Center).contentWidth().navigationBarsPadding().padding(horizontal = 6.dp).padding(top = 12.dp, bottom = 4.dp),
             verticalAlignment = Alignment.Bottom
         ) {
             if (onPlus != null) {
