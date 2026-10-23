@@ -7,7 +7,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -60,7 +59,7 @@ fun RadarChart(labels: List<String>, values: List<Double>, modifier: Modifier = 
     }
     fun angle(index: Int) = index.toDouble() / count * 2 * Math.PI - Math.PI / 2
 
-    BoxWithConstraints(modifier.fillMaxWidth().height(height)) {
+    Box(modifier.fillMaxWidth().height(height)) {
         val labelInset = 46.dp
         Canvas(Modifier.fillMaxSize().pointerInput(count) {
             fun axis(offset: Offset): Int {

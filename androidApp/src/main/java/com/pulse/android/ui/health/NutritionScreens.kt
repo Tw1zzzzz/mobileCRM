@@ -47,6 +47,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.graphics.scale
 import com.pulse.android.ui.LocalRouter
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.Callout
@@ -282,7 +283,7 @@ private sealed interface CapturePhase {
 /** Downscales and JPEG-compresses a photo so it can be stored with the meal. */
 private fun compress(bitmap: Bitmap, maxDimension: Int = 640): ByteArray {
     val scale = minOf(1f, maxDimension.toFloat() / maxOf(bitmap.width, bitmap.height))
-    val scaled = if (scale < 1f) Bitmap.createScaledBitmap(bitmap, (bitmap.width * scale).toInt(), (bitmap.height * scale).toInt(), true) else bitmap
+    val scaled = if (scale < 1f) bitmap.scale((bitmap.width * scale).toInt(), (bitmap.height * scale).toInt()) else bitmap
     return ByteArrayOutputStream().also { scaled.compress(Bitmap.CompressFormat.JPEG, 70, it) }.toByteArray()
 }
 

@@ -7,10 +7,10 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
-import android.net.Uri
 import android.os.Build
 import android.os.Process
 import android.provider.Settings
+import androidx.core.net.toUri
 import com.pulse.core.feature.AppSession
 import com.pulse.core.feature.ScreenUsageMath
 import com.pulse.core.feature.ScreenUsageSnapshot
@@ -68,7 +68,7 @@ class UsageStatsReader(private val context: Context) {
         .map { it.activityInfo.packageName }.toSet()
 
     private val browsers: Set<String> by lazy {
-        context.packageManager.queryIntentActivities(Intent(Intent.ACTION_VIEW, Uri.parse("https://example.com")), PackageManager.MATCH_ALL)
+        context.packageManager.queryIntentActivities(Intent(Intent.ACTION_VIEW, "https://example.com".toUri()), PackageManager.MATCH_ALL)
             .map { it.activityInfo.packageName }.toSet()
     }
 
@@ -92,6 +92,6 @@ class UsageStatsReader(private val context: Context) {
     companion object {
         /** System screen where the user grants usage access (opens on Pulse where the system supports it). */
         fun settingsIntent(context: Context): Intent =
-            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, Uri.parse("package:${context.packageName}")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            Intent(Settings.ACTION_USAGE_ACCESS_SETTINGS, "package:${context.packageName}".toUri()).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
     }
 }

@@ -44,6 +44,7 @@ ID приложения пока `com.pulsecrm.mvp` (как на iOS) — мен
 ```bash
 ./gradlew :core:allTests                 # тесты ядра
 ./gradlew :androidApp:testDebugUnitTest  # тесты Android-части
+./gradlew :androidApp:lintDebug          # lint: 0 ошибок и 0 предупреждений, исключения — в androidApp/lint.xml
 ./gradlew :androidApp:assembleDebug
 ./gradlew :androidApp:assembleRelease --no-configuration-cache   # release с R8
 ```

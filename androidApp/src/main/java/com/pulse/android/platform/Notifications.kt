@@ -11,6 +11,7 @@ import android.os.Build
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import androidx.core.content.ContextCompat
+import androidx.core.content.edit
 import com.pulse.android.MainActivity
 import com.pulse.android.R
 import com.pulse.core.feature.ReminderKind
@@ -30,7 +31,6 @@ object PulseNotifications {
     private const val KEY_ENABLED = "notifications.enabled"
 
     fun ensureChannels(context: Context) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return
         val manager = context.getSystemService(NotificationManager::class.java)
         listOf(
             NotificationChannel(CHANNEL_EVENTS, "События", NotificationManager.IMPORTANCE_DEFAULT),
@@ -52,7 +52,7 @@ object PulseNotifications {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_ENABLED, false) && systemAllows(context)
 
     fun setEnabled(context: Context, enabled: Boolean) {
-        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_ENABLED, enabled).apply()
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit { putBoolean(KEY_ENABLED, enabled) }
     }
 
     fun channelFor(kind: ReminderKind): String = when (kind) {

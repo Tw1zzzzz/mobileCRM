@@ -32,6 +32,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.edit
 import com.pulse.android.ui.LocalRouter
 import com.pulse.android.ui.components.DividerLine
 import com.pulse.android.ui.components.IconBadge
@@ -68,7 +69,7 @@ enum class StateSection(val title: String) {
             entries.firstOrNull { it.name == context.getSharedPreferences("pulse.settings", Context.MODE_PRIVATE).getString(KEY, null) } ?: BODY
 
         fun save(context: Context, section: StateSection) {
-            context.getSharedPreferences("pulse.settings", Context.MODE_PRIVATE).edit().putString(KEY, section.name).apply()
+            context.getSharedPreferences("pulse.settings", Context.MODE_PRIVATE).edit { putString(KEY, section.name) }
         }
     }
 }

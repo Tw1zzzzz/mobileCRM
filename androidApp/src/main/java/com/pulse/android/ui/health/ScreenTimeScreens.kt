@@ -6,7 +6,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -459,7 +458,7 @@ private fun CategoriesCard(totals: List<Pair<AppCategory, Int>>) {
     var selected by remember { mutableStateOf<AppCategory?>(null) }
     val haptics = LocalHapticFeedback.current
     Row(Modifier.pulseCard(padding = 20.dp), horizontalArrangement = Arrangement.spacedBy(20.dp), verticalAlignment = Alignment.CenterVertically) {
-        BoxWithConstraints(Modifier.size(140.dp), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(140.dp), contentAlignment = Alignment.Center) {
             fun categoryAt(offset: Offset, side: Float): AppCategory? {
                 val angle = atan2((offset.y - side / 2).toDouble(), (offset.x - side / 2).toDouble()) + Math.PI / 2
                 val fraction = (if (angle < 0) angle + 2 * Math.PI else angle) / (2 * Math.PI)

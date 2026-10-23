@@ -32,6 +32,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.edit
 import com.pulse.android.ui.components.EmptyStateView
 import com.pulse.android.ui.components.IconBadge
 import com.pulse.android.ui.components.SecondaryButton
@@ -57,7 +58,7 @@ private object DismissedInbox {
 
     fun save(context: Context, value: String) {
         state(context).value = value
-        context.getSharedPreferences("pulse.settings", Context.MODE_PRIVATE).edit().putString(KEY, value).apply()
+        context.getSharedPreferences("pulse.settings", Context.MODE_PRIVATE).edit { putString(KEY, value) }
     }
 }
 

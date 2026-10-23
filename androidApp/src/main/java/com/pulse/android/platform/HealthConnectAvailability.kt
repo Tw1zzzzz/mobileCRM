@@ -2,7 +2,7 @@ package com.pulse.android.platform
 
 import android.content.Context
 import android.content.Intent
-import android.net.Uri
+import androidx.core.net.toUri
 import androidx.health.connect.client.HealthConnectClient
 
 enum class HealthCardState { AVAILABLE, NEEDS_INSTALL, UNAVAILABLE }
@@ -20,7 +20,7 @@ object HealthConnectAvailability {
     fun state(context: Context): HealthCardState = cardState(HealthConnectClient.getSdkStatus(context, PROVIDER_PACKAGE))
 
     /** Google Play page of the provider, opened on its onboarding after install. */
-    fun installIntent(): Intent = Intent(Intent.ACTION_VIEW, Uri.parse("market://details?id=$PROVIDER_PACKAGE&url=healthconnect%3A%2F%2Fonboarding"))
+    fun installIntent(): Intent = Intent(Intent.ACTION_VIEW, "market://details?id=$PROVIDER_PACKAGE&url=healthconnect%3A%2F%2Fonboarding".toUri())
         .setPackage("com.android.vending")
         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
 }

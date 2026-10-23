@@ -8,9 +8,11 @@
     <uses-permission android:name="android.permission.health.WRITE_ACTIVE_CALORIES_BURNED" />
 
     <application>
-        <!-- adb shell am broadcast -n com.pulsecrm.mvp/com.pulse.android.debug.SeedHealthReceiver -->
+        <!-- adb shell am broadcast -n com.pulsecrm.mvp/com.pulse.android.debug.SeedHealthReceiver
+             DUMP is held by adb shell, not by apps: nothing else on the device can trigger the seeder. -->
         <receiver
             android:name=".debug.SeedHealthReceiver"
-            android:exported="true" />
+            android:exported="true"
+            android:permission="android.permission.DUMP" />
     </application>
 </manifest>

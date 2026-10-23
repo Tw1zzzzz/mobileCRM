@@ -24,6 +24,7 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.content.edit
 import com.pulse.android.ui.LocalRouter
 import com.pulse.android.ui.calendar.EventRow
 import com.pulse.android.ui.components.DividerLine
@@ -53,7 +54,7 @@ import kotlin.time.Clock
 private fun <T : Enum<T>> rememberSection(key: String, values: Array<T>, default: T): Pair<T, (T) -> Unit> {
     val prefs = LocalContext.current.getSharedPreferences("pulse.settings", Context.MODE_PRIVATE)
     var section by remember { mutableStateOf(values.firstOrNull { it.name == prefs.getString(key, null) } ?: default) }
-    return section to { value: T -> section = value; prefs.edit().putString(key, value.name).apply() }
+    return section to { value: T -> section = value; prefs.edit { putString(key, value.name) } }
 }
 
 private enum class PlayersSection(val title: String) { ROSTER("Состав"), FOOD("Питание") }

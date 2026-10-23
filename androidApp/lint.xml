@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!-- Screens call observeCore() first: it subscribes to every store flow, so `.value` reads after it recompose
+         correctly (ui/AppScope.kt). -->
+    <issue id="StateFlowValueCalledInComposition" severity="ignore" />
+    <!-- Portrait on phones, as on iOS. On large screens Android 16 ignores the lock and the layout adapts. -->
+    <issue id="LockedOrientationActivity" severity="ignore" />
+    <issue id="DiscouragedApi" severity="ignore" />
+    <!-- Raising targetSdk to 37 is a Google Play (step 6) decision. -->
+    <issue id="OldTargetApi" severity="ignore" />
+    <!-- Widget targetCellWidth/Height are read on API 31+ and harmlessly ignored below. -->
+    <issue id="UnusedAttribute" severity="ignore" />
+    <!-- RussianLocale only formats date and time pickers; no language is downloaded or switched. -->
+    <issue id="AppBundleLocaleChanges" severity="ignore" />
+    <!-- allowBackup="false": nothing is backed up, so there are no full-backup rules to write. -->
+    <issue id="DataExtractionRules" severity="ignore" />
+</lint>

@@ -4,6 +4,7 @@ import android.content.Context
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
+import androidx.core.content.edit
 import com.pulse.core.platform.SecretStore
 import java.security.KeyStore
 import javax.crypto.Cipher
@@ -30,13 +31,13 @@ class KeystoreSecretStore(context: Context) : SecretStore {
 
     override fun write(key: String, value: String?) {
         if (value == null) {
-            prefs.edit().remove(key).apply()
+            prefs.edit { remove(key) }
             return
         }
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, key())
         val encrypted = cipher.iv + cipher.doFinal(value.toByteArray(Charsets.UTF_8))
-        prefs.edit().putString(key, Base64.encodeToString(encrypted, Base64.NO_WRAP)).apply()
+        prefs.edit { putString(key, Base64.encodeToString(encrypted, Base64.NO_WRAP)) }
     }
 
     private fun key(): SecretKey {
