@@ -12,6 +12,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.pulse.android.platform.PulseNotifications
+import com.pulse.android.platform.ReminderScheduler
 import com.pulse.android.platform.UsageStatsReader
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -31,6 +32,8 @@ class MainActivity : FontCappedActivity() {
         super.onResume()
         val app = application as PulseApplication
         app.appScope.launch { app.core.fitness.refreshHealth() }
+        // Notifications may have been allowed again in system settings: bring the plan back (reconciliation is idempotent).
+        ReminderScheduler.rescheduleAll(app, app.core)
         // Usage statistics also keep counting in the background; reading 30 days takes a moment, so off the main thread.
         app.appScope.launch {
             val usage = withContext(Dispatchers.IO) { UsageStatsReader(app).read(Clock.System.now()) }
