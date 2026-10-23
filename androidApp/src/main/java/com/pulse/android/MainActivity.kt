@@ -63,8 +63,14 @@ class MainActivity : ComponentActivity() {
         setContent {
             MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
                 val user by core.session.user.collectAsStateWithLifecycle()
-                Crossfade(user, label = "session") { current ->
-                    if (current == null) AuthScreen(core.session) else MainScreen(core, current, debugRoute, pendingOpen) { pendingOpen = null }
+                // Keyed by the account id string, not the User: its hash mixes in enum identity hashes, which can differ
+                // in a new process, and the saved screen state (open tab, back stacks) is found by this key after process death.
+                Crossfade(user?.id?.toString(), label = "session") { id ->
+                    val current = user?.takeIf { it.id.toString() == id }
+                    when {
+                        id == null -> AuthScreen(core.session)
+                        current != null -> MainScreen(core, current, debugRoute, pendingOpen) { pendingOpen = null }
+                    }
                 }
             }
         }
