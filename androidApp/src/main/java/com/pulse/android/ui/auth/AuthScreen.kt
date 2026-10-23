@@ -4,6 +4,10 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.clickable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -278,16 +282,22 @@ private fun Segmented(options: List<String>, selected: Int, onSelect: (Int) -> U
 
 @Composable
 private fun Consent(prefix: String, link: String, checked: Boolean, onLink: () -> Unit, onCheck: (Boolean) -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-        Box(
-            Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(if (checked) Palette.cyan else Color.Transparent)
-                .border(1.5.dp, if (checked) Palette.cyan else AuthStyle.placeholder, RoundedCornerShape(4.dp)).pressable { onCheck(!checked) },
-            contentAlignment = Alignment.Center
-        ) { if (checked) Icon(Icons.Default.Check, "Принято", tint = Color.Black, modifier = Modifier.size(16.dp)) }
-        Row {
-            Text(prefix, color = AuthStyle.placeholder, fontSize = 14.sp, modifier = Modifier.pressable { onCheck(!checked) })
-            Text(link, color = Palette.cyan, fontSize = 14.sp, textDecoration = TextDecoration.Underline, modifier = Modifier.pressable(onClick = onLink))
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        // Box and prefix are one checkbox for TalkBack; the document link is a separate control.
+        Row(
+            Modifier.heightIn(min = 44.dp).toggleable(checked, role = Role.Checkbox, onValueChange = onCheck),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            Box(
+                Modifier.size(22.dp).clip(RoundedCornerShape(4.dp)).background(if (checked) Palette.cyan else Color.Transparent)
+                    .border(1.5.dp, if (checked) Palette.cyan else AuthStyle.placeholder, RoundedCornerShape(4.dp)),
+                contentAlignment = Alignment.Center
+            ) { if (checked) Icon(Icons.Default.Check, null, tint = Color.Black, modifier = Modifier.size(16.dp)) }
+            Text(prefix, color = AuthStyle.placeholder, fontSize = 14.sp)
         }
+        Text(link, color = Palette.cyan, fontSize = 14.sp, textDecoration = TextDecoration.Underline,
+            modifier = Modifier.clickable(onClickLabel = "Открыть", role = Role.Button, onClick = onLink))
     }
 }
 

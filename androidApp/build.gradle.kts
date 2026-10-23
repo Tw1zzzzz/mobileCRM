@@ -34,6 +34,9 @@ android {
         targetCompatibility = JavaVersion.VERSION_17
     }
 
+    // Compose UI tests run on the JVM (Robolectric) and need the merged resources.
+    testOptions { unitTests.isIncludeAndroidResources = true }
+
     lint {
         lintConfig = file("lint.xml")
         abortOnError = true
@@ -62,5 +65,9 @@ dependencies {
     implementation(libs.androidx.glance.appwidget)
     implementation(libs.androidx.glance.material3)
     testImplementation(kotlin("test-junit"))
+    testImplementation(libs.robolectric)
+    testImplementation(platform(libs.androidx.compose.bom))
+    testImplementation(libs.androidx.compose.ui.test.junit4)
+    debugImplementation(libs.androidx.compose.ui.test.manifest)
     debugImplementation(libs.androidx.compose.tooling)
 }
