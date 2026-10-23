@@ -105,7 +105,7 @@ fun FitnessScreen() {
                 val workouts = store.todayWorkouts(now)
                 if (workouts.isEmpty()) Text("Сегодня тренировок ещё не было", color = Palette.textSecondary, fontSize = 16.sp, modifier = Modifier.padding(vertical = 18.dp))
                 workouts.forEachIndexed { index, workout ->
-                    Box(Modifier.pressable { rating = workout }) { WorkoutRow(workout, store.effort(workout)) }
+                    Box(Modifier.pressable(label = "Оценить тяжесть тренировки") { rating = workout }) { WorkoutRow(workout, store.effort(workout)) }
                     if (index < workouts.size - 1) DividerLine()
                 }
                 GradientButton("Записать тренировку", Modifier.padding(top = 16.dp), icon = sfIcon("plus")) { logWorkout = true }
@@ -232,7 +232,7 @@ fun EffortPicker(value: Double, onChange: (Double) -> Unit) {
             Text("Насколько было тяжело?", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Medium, modifier = Modifier.weight(1f))
             Text("$level/10", color = tint, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         }
-        PulseSlider("", value, 1.0..10.0, tint, onChange = onChange)
+        PulseSlider("", value, 1.0..10.0, tint, label = "Тяжесть", onChange = onChange)
         Text(description, color = Palette.textSecondary, fontSize = 14.sp)
     }
 }

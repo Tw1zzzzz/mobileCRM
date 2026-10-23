@@ -49,6 +49,8 @@ object Metrics {
     val cardPadding = 18.dp
     val sectionSpacing = 26.dp
     val headerButtonSize = 46.dp
+    /** Smallest touch area of an icon-only control (iOS 44 pt). */
+    val minTouchTarget = 44.dp
 }
 
 /** Core palette tokens → Compose colors. */

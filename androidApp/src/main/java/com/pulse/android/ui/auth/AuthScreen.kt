@@ -64,6 +64,7 @@ import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.ErrorBanner
 import com.pulse.android.ui.components.GradientButton
 import com.pulse.android.ui.components.pressable
+import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.core.auth.SessionStore
 import com.pulse.core.model.AccessType
@@ -252,8 +253,10 @@ private fun AuthField(placeholder: String, value: String, onChange: (String) -> 
         keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else keyboard),
         trailingIcon = if (isPassword) {
             {
-                Icon(if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (visible) "Скрыть пароль" else "Показать пароль",
-                    tint = AuthStyle.placeholder, modifier = Modifier.pressable { visible = !visible })
+                Box(Modifier.size(Metrics.minTouchTarget).pressable { visible = !visible }, contentAlignment = Alignment.Center) {
+                    Icon(if (visible) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, if (visible) "Скрыть пароль" else "Показать пароль",
+                        tint = AuthStyle.placeholder)
+                }
             }
         } else null,
         shape = RoundedCornerShape(12.dp),

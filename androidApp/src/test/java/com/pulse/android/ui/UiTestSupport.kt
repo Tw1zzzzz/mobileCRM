@@ -67,10 +67,11 @@ fun SemanticsNodeInteractionsProvider.assertAccessible() {
             node.config.getOrNull(SemanticsProperties.EditableText)?.text.orEmpty()
         val description = node.config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString(" ").orEmpty()
         val density = node.layoutInfo.density.density
-        val width = node.touchBoundsInRoot.width / density
-        val height = node.touchBoundsInRoot.height / density
+        // Layout size, not on-screen bounds: those are clipped to zero for controls scrolled out of view.
+        val width = node.size.width / density
+        val height = node.size.height / density
         when {
-            text.isBlank() && description.isBlank() -> "unlabeled control at ${node.boundsInRoot} near «${nearbyText(node)}»"
+            text.isBlank() && description.isBlank() -> "unlabeled control (${node.config.getOrNull(SemanticsProperties.Role) ?: "no role"}) near «${nearbyText(node)}»"
             text.isBlank() && (width < MIN_ICON_TARGET_DP || height < MIN_ICON_TARGET_DP) ->
                 "«$description»: touch area ${width.toInt()}×${height.toInt()}dp < ${MIN_ICON_TARGET_DP.toInt()}dp"
             else -> null

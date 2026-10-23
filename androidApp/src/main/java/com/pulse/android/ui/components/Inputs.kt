@@ -6,6 +6,9 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.material3.Icon
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.shadow
 import androidx.compose.foundation.layout.Column
@@ -21,7 +24,13 @@ import androidx.compose.material3.TextFieldDefaults
 import android.content.res.Configuration
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.unit.Dp
+import com.pulse.android.ui.theme.sfIcon
 import java.util.Locale
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -39,7 +48,7 @@ import kotlin.math.roundToInt
 @Composable
 fun PulseSlider(
     title: String, value: Double, range: ClosedFloatingPointRange<Double> = 1.0..10.0, tint: Color = Palette.cyan, step: Double = 1.0,
-    valueText: String? = null, onChange: (Double) -> Unit
+    valueText: String? = null, label: String = title, onChange: (Double) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row {
@@ -53,6 +62,7 @@ fun PulseSlider(
         Slider(
             value.toFloat(), { onChange((it / step).roundToInt() * step) },
             valueRange = range.start.toFloat()..range.endInclusive.toFloat(), steps = steps.coerceIn(0, 200), colors = colors,
+            modifier = Modifier.semantics { contentDescription = label },
             thumb = { Box(Modifier.size(26.dp).shadow(3.dp, CircleShape).clip(CircleShape).background(Color.White)) },
             track = { state ->
                 SliderDefaults.Track(state, colors = colors, drawStopIndicator = null, drawTick = { _, _ -> }, thumbTrackGapSize = 0.dp,
@@ -60,6 +70,30 @@ fun PulseSlider(
             }
         )
     }
+}
+
+/**
+ * Search tile: magnifier, placeholder, clear button. The whole tile is the text field, so a tap anywhere on it
+ * focuses the input and TalkBack reads [placeholder] as its name.
+ */
+@Composable
+fun SearchField(query: String, placeholder: String, padding: Dp = 12.dp, onChange: (String) -> Unit) {
+    BasicTextField(
+        query, onChange, singleLine = true, textStyle = TextStyle(color = Palette.textPrimary, fontSize = 16.sp),
+        cursorBrush = SolidColor(Palette.cyan), modifier = Modifier.fillMaxWidth().semantics { contentDescription = placeholder },
+        decorationBox = { input ->
+            Row(Modifier.pulseTile(padding), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Icon(sfIcon("magnifyingglass"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp))
+                Box(Modifier.weight(1f)) {
+                    if (query.isEmpty()) Text(placeholder, color = Palette.textTertiary, fontSize = 16.sp)
+                    input()
+                }
+                if (query.isNotEmpty()) {
+                    Icon(sfIcon("xmark.circle.fill"), "Очистить", tint = Palette.textTertiary, modifier = Modifier.size(18.dp).pressable { onChange("") })
+                }
+            }
+        }
+    )
 }
 
 /** Text field styled for the dark cards (iOS `PulseTextField`). */

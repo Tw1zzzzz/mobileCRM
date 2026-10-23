@@ -27,6 +27,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.runtime.LaunchedEffect
@@ -238,7 +239,7 @@ private fun PulseTabBar(tabs: List<AppTab>, selected: AppTab, onSelect: (AppTab)
 @Composable
 private fun androidx.compose.foundation.layout.RowScope.TabItem(tab: AppTab, isSelected: Boolean, onSelect: (AppTab) -> Unit) {
     val color = if (isSelected) Palette.cyan else Palette.textSecondary
-    Column(Modifier.weight(1f).pressable { onSelect(tab) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
+    Column(Modifier.weight(1f).pressable(role = Role.Tab, selected = isSelected) { onSelect(tab) }, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Icon(tab.icon, null, tint = color, modifier = Modifier.size(26.dp))
         Text(tab.title, color = color, fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, textAlign = TextAlign.Center)
     }

@@ -22,6 +22,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.sizeIn
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -46,7 +47,9 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.graphics.drawscope.rotate
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.heading
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -110,12 +113,18 @@ fun GradientBar(progress: Double, modifier: Modifier = Modifier, height: Dp = 10
 /** Rounded-square header button (back, share, settings, calendar, plus). */
 @Composable
 fun HeaderIconButton(icon: String, description: String, size: Dp = Metrics.headerButtonSize, onClick: () -> Unit) {
+    // The touch area never drops below 44dp, even when the drawn button is smaller.
     Box(
-        Modifier.size(size).clip(RoundedCornerShape(Metrics.buttonRadius)).background(Palette.card)
-            .border(1.dp, Palette.stroke, RoundedCornerShape(Metrics.buttonRadius)).pressable(onClick = onClick)
+        Modifier.sizeIn(minWidth = Metrics.minTouchTarget, minHeight = Metrics.minTouchTarget).pressable(onClick = onClick)
             .semantics { contentDescription = description },
         contentAlignment = Alignment.Center
-    ) { Icon(sfIcon(icon), null, tint = Palette.textPrimary, modifier = Modifier.size(size * 0.45f)) }
+    ) {
+        Box(
+            Modifier.size(size).clip(RoundedCornerShape(Metrics.buttonRadius)).background(Palette.card)
+                .border(1.dp, Palette.stroke, RoundedCornerShape(Metrics.buttonRadius)),
+            contentAlignment = Alignment.Center
+        ) { Icon(sfIcon(icon), null, tint = Palette.textPrimary, modifier = Modifier.size(size * 0.45f)) }
+    }
 }
 
 /** Top bar: square back button, centered title + optional subtitle, trailing buttons. */
@@ -123,7 +132,8 @@ fun HeaderIconButton(icon: String, description: String, size: Dp = Metrics.heade
 fun NavHeader(title: String, subtitle: String? = null, onBack: (() -> Unit)? = null, trailing: @Composable RowScope.() -> Unit = {}) {
     Box(Modifier.fillMaxWidth().heightIn(min = Metrics.headerButtonSize)) {
         Column(Modifier.align(Alignment.Center).padding(horizontal = Metrics.headerButtonSize + 8.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Text(title, color = Palette.textPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(title, color = Palette.textPrimary, fontSize = 24.sp, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.semantics { heading() })
             subtitle?.let { Text(it, color = Palette.textSecondary, fontSize = 15.sp, maxLines = 1, overflow = TextOverflow.Ellipsis) }
         }
         Row(Modifier.fillMaxWidth().align(Alignment.Center), verticalAlignment = Alignment.CenterVertically) {
@@ -247,7 +257,8 @@ fun <T> PulseSegmented(options: List<T>, selected: T, title: (T) -> String, heig
             val isSelected = option == selected
             Box(
                 Modifier.weight(1f).height(height).clip(RoundedCornerShape(10.dp))
-                    .then(if (isSelected) Modifier.background(Gradients.accent) else Modifier).pressable { onSelect(option) },
+                    .then(if (isSelected) Modifier.background(Gradients.accent) else Modifier)
+                    .pressable(role = Role.Tab, selected = isSelected) { onSelect(option) },
                 contentAlignment = Alignment.Center
             ) {
                 Text(title(option), color = if (isSelected) Color.White else Palette.textSecondary, fontSize = fontSize,
@@ -268,7 +279,7 @@ fun <T> PulseScrollTabs(options: List<T>, selected: T, title: (T) -> String, onS
             val isSelected = option == selected
             Box(
                 Modifier.height(38.dp).clip(RoundedCornerShape(10.dp)).then(if (isSelected) Modifier.background(Gradients.accent) else Modifier)
-                    .pressable { onSelect(option) }.padding(horizontal = 16.dp),
+                    .pressable(role = Role.Tab, selected = isSelected) { onSelect(option) }.padding(horizontal = 16.dp),
                 contentAlignment = Alignment.Center
             ) { Text(title(option), color = if (isSelected) Color.White else Palette.textSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, maxLines = 1) }
         }
@@ -292,11 +303,15 @@ fun PulseSheet(onDismiss: () -> Unit, content: @Composable ColumnScope.() -> Uni
 fun SheetScaffold(title: String, onClose: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(top = 6.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(title, color = Palette.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Text(title, color = Palette.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f).semantics { heading() })
             Box(
-                Modifier.size(34.dp).clip(CircleShape).background(Palette.track).pressable(onClick = onClose).semantics { contentDescription = "Закрыть" },
+                Modifier.size(Metrics.minTouchTarget).pressable(onClick = onClose).semantics { contentDescription = "Закрыть" },
                 contentAlignment = Alignment.Center
-            ) { Icon(sfIcon("xmark"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp)) }
+            ) {
+                Box(Modifier.size(34.dp).clip(CircleShape).background(Palette.track), contentAlignment = Alignment.Center) {
+                    Icon(sfIcon("xmark"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp))
+                }
+            }
         }
         Column(
             Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).padding(horizontal = 20.dp).padding(bottom = 30.dp),

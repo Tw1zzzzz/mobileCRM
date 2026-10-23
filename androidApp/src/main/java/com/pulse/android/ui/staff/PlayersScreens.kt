@@ -28,12 +28,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.pulse.android.ui.components.SearchField
 import com.pulse.android.ui.LocalRouter
 import com.pulse.android.ui.components.Callout
 import com.pulse.android.ui.components.ChipButton
@@ -96,14 +99,7 @@ fun PlayersListContent() {
     else DemoData.players.filter { trimmed in it.nickname.lowercase() || trimmed in it.realName.lowercase() }
     val now = Clock.System.now()
     Column(verticalArrangement = Arrangement.spacedBy(26.dp)) {
-        Row(Modifier.pulseTile(14.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-            Icon(sfIcon("magnifyingglass"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp))
-            Box(Modifier.weight(1f)) {
-                if (query.isEmpty()) Text("Поиск игрока", color = Palette.textTertiary, fontSize = 16.sp)
-                BasicTextField(query, { query = it }, singleLine = true, textStyle = TextStyle(color = Palette.textPrimary, fontSize = 16.sp),
-                    cursorBrush = SolidColor(Palette.cyan), modifier = Modifier.fillMaxWidth())
-            }
-        }
+        SearchField(query, "Поиск игрока", padding = 14.dp) { query = it }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (players.isEmpty()) EmptyStateView("person.3", "Никого не нашли", "Проверь ник или имя")
             players.forEach { player ->

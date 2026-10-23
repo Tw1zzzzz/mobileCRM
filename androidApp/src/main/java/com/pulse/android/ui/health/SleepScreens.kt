@@ -41,6 +41,8 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -65,6 +67,7 @@ import com.pulse.android.ui.components.StatusPill
 import com.pulse.android.ui.components.ValueUnitText
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
+import com.pulse.android.ui.components.switchRow
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
 import com.pulse.android.ui.theme.Gradients
@@ -174,6 +177,7 @@ private fun PhasesCard(night: SleepNight, healthName: String) {
 /** Sleep phases: stage blocks on four levels with dashed hour guides. */
 @Composable
 fun Hypnogram(night: SleepNight, chartHeight: Int = 175) {
+    val description = "Фазы сна с ${Formatters.time(night.start)} до ${Formatters.time(night.end)}"
     val ticks = remember(night) {
         val result = mutableListOf(night.start)
         val startLocal = night.start.localDateTime()
@@ -186,7 +190,7 @@ fun Hypnogram(night: SleepNight, chartHeight: Int = 175) {
     }
     val total = secondsBetween(night.start, night.end)
     fun fraction(date: Instant) = if (total > 0) (secondsBetween(night.start, date) / total).toFloat() else 0f
-    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+    Column(Modifier.clearAndSetSemantics { contentDescription = description }, verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Canvas(Modifier.fillMaxWidth().height(chartHeight.dp)) {
             ticks.forEach { tick ->
                 val x = size.width * fraction(tick)
@@ -408,13 +412,16 @@ fun SleepRecoveryScreen() {
                     Text("Править", color = Palette.cyan, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.pressable { editWindow = true })
                 }
                 DividerLine()
-                Row(Modifier.padding(vertical = 18.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
+                Row(
+                    Modifier.switchRow(window.smartAlarmEnabled) { store.updateWindow(window.copy(smartAlarmEnabled = it)) }.padding(vertical = 18.dp),
+                    horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconBadge(sfIcon("bell"), Palette.orange, 54.dp, 22.dp)
                     Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                         Text("Умный будильник", color = Palette.textPrimary, fontSize = 18.sp, fontWeight = FontWeight.Medium)
                         Text("В лёгкой фазе ±20 мин", color = Palette.textSecondary, fontSize = 15.sp)
                     }
-                    Switch(window.smartAlarmEnabled, { store.updateWindow(window.copy(smartAlarmEnabled = it)) },
+                    Switch(window.smartAlarmEnabled, onCheckedChange = null,
                         colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue))
                 }
             }

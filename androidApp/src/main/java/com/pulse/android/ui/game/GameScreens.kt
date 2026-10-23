@@ -30,6 +30,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -263,7 +265,10 @@ private fun FaceitDetailsSection(profile: FaceitProfile, matches: List<GameMatch
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Row(Modifier.pulseCard(16.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
             profile.skillLevel?.let { level ->
-                Box(Modifier.size(48.dp).clip(CircleShape).background(levelColor(level)), contentAlignment = Alignment.Center) {
+                Box(
+                    Modifier.size(48.dp).clip(CircleShape).background(levelColor(level)).clearAndSetSemantics { contentDescription = "Уровень $level" },
+                    contentAlignment = Alignment.Center
+                ) {
                     Text("$level", color = Color.White, fontSize = 22.sp, fontWeight = FontWeight.Black)
                 }
             }

@@ -95,7 +95,7 @@ private fun WeekNavigator(week: WeekRange, earliest: WeekRange?, onChange: (Week
 
 @Composable
 private fun Arrow(icon: String, description: String, enabled: Boolean, onClick: () -> Unit) {
-    Box(Modifier.size(40.dp).pressable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
+    Box(Modifier.size(Metrics.minTouchTarget).pressable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
         Icon(sfIcon(icon), description, tint = if (enabled) Palette.cyan else Palette.textTertiary, modifier = Modifier.size(20.dp))
     }
 }

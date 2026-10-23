@@ -18,6 +18,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -37,6 +39,9 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.heading
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -77,12 +82,17 @@ fun Modifier.pulseTile(padding: Dp = 16.dp, radius: Dp = Metrics.tileRadius): Mo
         .border(1.dp, Palette.stroke, RoundedCornerShape(radius))
         .padding(padding)
 
-/** Slight shrink while pressed (iOS `.pressable`). */
+/**
+ * Slight shrink while pressed (iOS `.pressable`). TalkBack reads [role] («кнопка» by default) and [label] as the
+ * action; with [selected] the control is selectable (tabs, chips, segments) and announces its state.
+ */
 @Composable
-fun Modifier.pressable(enabled: Boolean = true, onClick: () -> Unit): Modifier {
+fun Modifier.pressable(enabled: Boolean = true, role: Role? = Role.Button, label: String? = null, selected: Boolean? = null, onClick: () -> Unit): Modifier {
     val interaction = remember { MutableInteractionSource() }
     val pressed by interaction.collectIsPressedAsState()
-    return scale(if (pressed) 0.97f else 1f).clickable(interaction, indication = null, enabled = enabled, onClick = onClick)
+    val scaled = scale(if (pressed) 0.97f else 1f)
+    return if (selected != null) scaled.selectable(selected, interaction, indication = null, enabled = enabled, role = role, onClick = onClick)
+    else scaled.clickable(interaction, indication = null, enabled = enabled, onClickLabel = label, role = role, onClick = onClick)
 }
 
 @Composable
@@ -103,7 +113,7 @@ fun GradientButton(
             .alpha(if (enabled) 1f else 0.45f)
             .clip(RoundedCornerShape(Metrics.buttonRadius))
             .background(brush)
-            .pressable(enabled && !isLoading, onClick),
+            .pressable(enabled && !isLoading, onClick = onClick),
         horizontalArrangement = Arrangement.Center,
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -140,6 +150,13 @@ fun SecondaryButton(title: String, modifier: Modifier = Modifier, icon: ImageVec
     }
 }
 
+/**
+ * A row with a trailing `Switch(checked, onCheckedChange = null)`: the whole row toggles, and TalkBack reads its text
+ * together with the switch state.
+ */
+fun Modifier.switchRow(checked: Boolean, onChange: (Boolean) -> Unit): Modifier =
+    toggleable(checked, interactionSource = null, indication = null, role = Role.Switch, onValueChange = onChange)
+
 /** Selectable chip used for filters and tags. */
 @Composable
 fun ChipButton(title: String, isSelected: Boolean, tint: Color? = null, onClick: () -> Unit) {
@@ -147,7 +164,7 @@ fun ChipButton(title: String, isSelected: Boolean, tint: Color? = null, onClick:
         Modifier
             .clip(CircleShape)
             .then(if (isSelected) Modifier.background(tint?.let { Brush.horizontalGradient(listOf(it, it)) } ?: Gradients.accent) else Modifier.background(Palette.tile).border(1.dp, Palette.stroke, CircleShape))
-            .pressable(onClick = onClick)
+            .pressable(role = Role.Tab, selected = isSelected, onClick = onClick)
             .padding(horizontal = 14.dp, vertical = 9.dp)
     ) {
         Text(title, color = if (isSelected) Color.White else Palette.textSecondary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
@@ -171,7 +188,7 @@ fun ErrorBanner(message: String) {
 fun SectionHeader(title: String, actionTitle: String? = null, onAction: (() -> Unit)? = null) {
     Row(Modifier.fillMaxWidth().padding(horizontal = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         Text(title.uppercase(), color = Palette.section, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.8.sp,
-            modifier = Modifier.weight(1f))
+            modifier = Modifier.weight(1f).semantics { heading() })
         if (actionTitle != null && onAction != null) {
             Text("$actionTitle →", color = Palette.cyan, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.pressable(onClick = onAction))
         }

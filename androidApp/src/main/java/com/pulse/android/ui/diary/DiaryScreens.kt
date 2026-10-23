@@ -40,6 +40,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalUriHandler
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -63,9 +65,12 @@ import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.components.pulseTile
+import com.pulse.android.ui.components.SearchField
+import com.pulse.android.ui.components.switchRow
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
 import com.pulse.android.ui.theme.Gradients
+import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.color
 import com.pulse.android.ui.theme.sfIcon
@@ -130,7 +135,7 @@ private fun DiaryContent() {
             if (role?.isStaff != true) QuickAdd("Заметка", Modifier.weight(1f)) { newEntry = LineupType.NOTE }
         }
         PulseSegmented(DiaryScope.options(role), scope, { if (it == DiaryScope.FAVORITES) "★ ${it.title}" else it.title }, height = 38.dp, fontSize = 13.sp) { scope = it }
-        SearchField(query) { query = it }
+        SearchField(query, "Поиск по дневнику") { query = it }
         Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
             ChipRow(map == null, { map = null }) {
                 CSMap.entries.forEach { item -> ChipButton(item.title, map == item) { map = if (map == item) null else item } }
@@ -186,21 +191,6 @@ private fun QuickAdd(title: String, modifier: Modifier, onClick: () -> Unit) {
 }
 
 @Composable
-private fun SearchField(query: String, onChange: (String) -> Unit) {
-    Row(Modifier.pulseTile(12.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(sfIcon("magnifyingglass"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp))
-        Box(Modifier.weight(1f)) {
-            if (query.isEmpty()) Text("Поиск по дневнику", color = Palette.textTertiary, fontSize = 16.sp)
-            BasicTextField(query, onChange, singleLine = true, textStyle = TextStyle(color = Palette.textPrimary, fontSize = 16.sp),
-                cursorBrush = SolidColor(Palette.cyan), modifier = Modifier.fillMaxWidth())
-        }
-        if (query.isNotEmpty()) {
-            Icon(sfIcon("xmark.circle.fill"), "Очистить", tint = Palette.textTertiary, modifier = Modifier.size(18.dp).pressable { onChange("") })
-        }
-    }
-}
-
-@Composable
 private fun ChipRow(isAll: Boolean, onAll: () -> Unit, content: @Composable () -> Unit) {
     Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         ChipButton("Все", isAll, onClick = onAll)
@@ -227,7 +217,7 @@ fun LineupRow(lineup: Lineup, showsVisibility: Boolean = false, onToggleFavorite
         if (lineup.videoURL != null) Icon(sfIcon("play.rectangle"), "Есть видео", tint = Palette.cyan, modifier = Modifier.size(20.dp))
         if (onToggleFavorite != null) {
             Box(
-                Modifier.size(36.dp, 44.dp).pressable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onToggleFavorite() },
+                Modifier.size(Metrics.minTouchTarget).pressable { haptics.performHapticFeedback(HapticFeedbackType.LongPress); onToggleFavorite() },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(sfIcon(if (lineup.isFavorite) "star.fill" else "star"), if (lineup.isFavorite) "Убрать из избранного" else "В избранное",
@@ -457,12 +447,12 @@ private fun LineupFormSheet(existing: Lineup?, defaultMap: CSMap, defaultType: L
             }
         }
         if (role == UserRole.TEAM_PLAYER) {
-            Row(Modifier.pulseCard(14.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.switchRow(sharedWithTeam) { sharedWithTeam = it }.pulseCard(14.dp), verticalAlignment = Alignment.CenterVertically) {
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text("Показать команде", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
                     Text("Иначе запись видна только тебе", color = Palette.textSecondary, fontSize = 13.sp)
                 }
-                Switch(sharedWithTeam, { sharedWithTeam = it }, colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
+                Switch(sharedWithTeam, onCheckedChange = null, colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
             }
         }
         error?.let { ErrorBanner(it) }

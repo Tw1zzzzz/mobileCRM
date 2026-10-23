@@ -60,6 +60,7 @@ import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.StatusPill
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
+import com.pulse.android.ui.components.switchRow
 import com.pulse.android.ui.main.AppTab
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
@@ -244,21 +245,22 @@ private fun SettingsCard(user: User) {
         ReminderScheduler.rescheduleAll(context, core)
     }
     Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 16.dp)) {
-        Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        val onReminders: (Boolean) -> Unit = { on ->
+            if (on) requestPermission() else {
+                PulseNotifications.setEnabled(context, false)
+                remindersOn = false
+                ReminderScheduler.rescheduleAll(context, core)
+            }
+        }
+        Row(Modifier.switchRow(remindersOn, onReminders).padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
             Box(Modifier.weight(1f)) { SettingLabel("Напоминания о событиях", "bell", Palette.orange) }
-            Switch(remindersOn, { on ->
-                if (on) requestPermission() else {
-                    PulseNotifications.setEnabled(context, false)
-                    remindersOn = false
-                    ReminderScheduler.rescheduleAll(context, core)
-                }
-            }, colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
+            Switch(remindersOn, onCheckedChange = null, colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
         }
         DividerLine()
         if (!user.role.isStaff && screenTime.isDemo) {
-            Row(Modifier.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(Modifier.switchRow(screenTime.isAuthorized) { core.screenTime.setAuthorized(it) }.padding(vertical = 10.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.weight(1f)) { SettingLabel("Доступ к экранному времени", "hourglass", Palette.cyan) }
-                Switch(screenTime.isAuthorized, { core.screenTime.setAuthorized(it) },
+                Switch(screenTime.isAuthorized, onCheckedChange = null,
                     colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
             }
             DividerLine()

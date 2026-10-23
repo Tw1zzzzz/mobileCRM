@@ -69,6 +69,7 @@ import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
 import com.pulse.android.ui.theme.Gradients
+import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.color
 import com.pulse.android.ui.theme.sfIcon
@@ -226,8 +227,10 @@ private fun DayCell(number: Int, isSelected: Boolean, isToday: Boolean, hasEvent
 
 @Composable
 private fun MonthButton(icon: String, description: String, onClick: () -> Unit) {
-    Box(Modifier.size(36.dp).clip(CircleShape).background(Palette.track).pressable(onClick = onClick), contentAlignment = Alignment.Center) {
-        Icon(sfIcon(icon), description, tint = Palette.textPrimary, modifier = Modifier.size(18.dp))
+    Box(Modifier.size(Metrics.minTouchTarget).pressable(onClick = onClick), contentAlignment = Alignment.Center) {
+        Box(Modifier.size(36.dp).clip(CircleShape).background(Palette.track), contentAlignment = Alignment.Center) {
+            Icon(sfIcon(icon), description, tint = Palette.textPrimary, modifier = Modifier.size(18.dp))
+        }
     }
 }
 

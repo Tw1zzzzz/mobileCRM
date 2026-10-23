@@ -67,6 +67,7 @@ import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
+import com.pulse.android.ui.components.switchRow
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
 import com.pulse.android.ui.theme.Metrics
@@ -251,13 +252,14 @@ private fun ScreenTimeSettingsSheet(onClose: () -> Unit) {
     // Granted or revoked only in system settings; the switch shows the real state and leads there.
     val hasAccess = state.usage != null || UsageStatsReader(context).hasAccess()
     SheetScaffold("Экранное время", onClose) {
-        Row(Modifier.pulseCard(), verticalAlignment = Alignment.CenterVertically) {
+        val openSettings: (Boolean) -> Unit = { runCatching { context.startActivity(UsageStatsReader.settingsIntent(context)) } }
+        Row(Modifier.switchRow(hasAccess, openSettings).pulseCard(), verticalAlignment = Alignment.CenterVertically) {
             Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text("Доступ к статистике", color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
                 Text("Системное разрешение «Доступ к истории использования» — включается в настройках телефона", color = Palette.textSecondary, fontSize = 14.sp)
             }
             Switch(
-                hasAccess, { runCatching { context.startActivity(UsageStatsReader.settingsIntent(context)) } },
+                hasAccess, onCheckedChange = null,
                 colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White)
             )
         }

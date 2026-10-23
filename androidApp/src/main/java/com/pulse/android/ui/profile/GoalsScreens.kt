@@ -33,6 +33,7 @@ import com.pulse.android.ui.components.PulseSlider
 import com.pulse.android.ui.components.SheetScaffold
 import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
+import com.pulse.android.ui.components.switchRow
 import com.pulse.android.ui.health.SleepWindowSheet
 import com.pulse.android.ui.observeCore
 import com.pulse.android.ui.theme.Gradients
@@ -206,9 +207,9 @@ fun GameGoalsSheet(onClose: () -> Unit) {
 @Composable
 private fun GoalToggleCard(title: String, isOn: Boolean, onToggle: (Boolean) -> Unit, content: @Composable () -> Unit) {
     Column(Modifier.pulseCard(padding = 16.dp).animateContentSize(), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(Modifier.switchRow(isOn, onToggle), verticalAlignment = Alignment.CenterVertically) {
             Text(title, color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Switch(isOn, onToggle, colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
+            Switch(isOn, onCheckedChange = null, colors = SwitchDefaults.colors(checkedTrackColor = Palette.blue, checkedThumbColor = Color.White))
         }
         if (isOn) content()
     }
