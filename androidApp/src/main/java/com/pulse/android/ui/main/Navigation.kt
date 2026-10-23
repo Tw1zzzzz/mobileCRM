@@ -174,9 +174,15 @@ class AppRouter {
         if (tab == selectedTab) popToRoot(tab) else selectedTab = tab
     }
 
-    /** Open tab and back stacks for saved instance state; sheets (survey, food capture) are not kept. */
+    /**
+     * Open tab and back stacks for saved instance state. Sheets are not kept (survey, food capture, and the calendar's
+     * «create event» sheet, which would otherwise reopen after it was closed).
+     */
     fun saved(): List<String> = listOf(selectedTab.name) +
-        stacks.filterValues { it.isNotEmpty() }.map { (tab, path) -> "${tab.name}=" + path.joinToString("|", transform = RouteCodec::encode) }
+        stacks.filterValues { it.isNotEmpty() }.map { (tab, path) ->
+            "${tab.name}=" + path.map { if (it is Route.Calendar) Route.Calendar(createNew = false) else it }
+                .joinToString("|", transform = RouteCodec::encode)
+        }
 
     companion object {
         fun restored(saved: List<String>): AppRouter = AppRouter().apply {

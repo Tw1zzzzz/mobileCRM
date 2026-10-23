@@ -35,4 +35,11 @@ class AppRouterSavingTest {
         assertEquals(listOf<Route>(Route.PlayerPortrait), restored.path(AppTab.PROFILE))
         assertEquals(emptyList(), restored.path(AppTab.TODAY))
     }
+
+    @Test fun createSheetIsNotRestored() {
+        // «+» → Событие opens the calendar with its create sheet; after recreation only the calendar comes back.
+        val router = AppRouter()
+        router.show(listOf(Route.Calendar(createNew = true)), AppTab.STATE)
+        assertEquals(listOf<Route>(Route.Calendar(createNew = false)), AppRouter.restored(router.saved()).path(AppTab.STATE))
+    }
 }
