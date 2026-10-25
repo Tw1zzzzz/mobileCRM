@@ -84,6 +84,27 @@ final class SleepStore {
         onTrackingChange?(nil, window)
     }
 
+    /// Why `night` cannot be saved, or nil when it can.
+    func nightError(_ night: ManualNight, now: Date = .now) -> String? {
+        let (start, end) = night.interval(now: now)
+        let minutes = Int(end.timeIntervalSince(start) / 60)
+        if end > now { return "Подъём ещё не наступил" }
+        if !ManualNight.durationMinutes.contains(minutes) { return "Сон — от 1 до 16 часов" }
+        let overlapsSaved = sessions.contains { $0.start < end && start < $0.end }
+        let overlapsRunning = activeStart.map { $0 < end } ?? false
+        return overlapsSaved || overlapsRunning ? "Эта ночь пересекается с уже записанной" : nil
+    }
+
+    /// Saves `night` in the history; returns the reason instead when it cannot be saved.
+    @discardableResult
+    func addNight(_ night: ManualNight, now: Date = .now) -> String? {
+        if let error = nightError(night, now: now) { return error }
+        let (start, end) = night.interval(now: now)
+        sessions = (sessions + [SleepSession(id: UUID(), start: start, end: end)]).sorted { $0.start > $1.start }
+        persist()
+        return nil
+    }
+
     func deleteSession(id: UUID) {
         sessions = sessions.filter { $0.id != id }
         persist()

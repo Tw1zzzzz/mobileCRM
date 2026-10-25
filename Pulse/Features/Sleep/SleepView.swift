@@ -198,7 +198,7 @@ struct NoSleepDataCard: View {
                 Text("Данных о сне пока нет")
                     .font(.system(size: 16, weight: .semibold))
                     .foregroundStyle(Theme.Palette.textPrimary)
-                Text("Нажми «Начать сон», когда ложишься, или подключи Apple Health в «Фитнесе» — ночи с часов подтянутся сами.")
+                Text("Нажми «Начать сон», когда ложишься, добавь прошлую ночь вручную или подключи Apple Health в «Фитнесе» — ночи с часов подтянутся сами.")
                     .font(.system(size: 14))
                     .foregroundStyle(Theme.Palette.textSecondary)
             }

@@ -137,3 +137,30 @@ struct SleepWeekDay: Identifiable {
 
     var total: Int { deep + rem + light }
 }
+
+/// «Добавить ночь»: a night entered by hand when «Начать сон» was forgotten (Kotlin `ManualNight`). `wakeDaysAgo`
+/// picks the wake day (0 = «Сегодня»); a bedtime at or after the wake time belongs to the evening before.
+struct ManualNight: Equatable {
+    var wakeDaysAgo: Int
+    var bedHour: Int
+    var bedMinute: Int
+    var wakeHour: Int
+    var wakeMinute: Int
+
+    static let days = ["Сегодня", "Вчера", "Позавчера"]
+    static let durationMinutes = 60...16 * 60
+
+    func interval(now: Date) -> (start: Date, end: Date) {
+        let wakeDay = now.adding(days: -wakeDaysAgo)
+        let end = wakeDay.setting(hour: wakeHour, minute: wakeMinute)
+        let bedDay = bedHour * 60 + bedMinute >= wakeHour * 60 + wakeMinute ? wakeDay.adding(days: -1) : wakeDay
+        return (bedDay.setting(hour: bedHour, minute: bedMinute), end)
+    }
+
+    /// The planned window, waking today once this morning's wake time has passed, yesterday before that.
+    static func suggested(window: SleepWindow, now: Date) -> ManualNight {
+        let woke = now >= now.setting(hour: window.wakeHour, minute: window.wakeMinute)
+        return ManualNight(wakeDaysAgo: woke ? 0 : 1, bedHour: window.bedtimeHour, bedMinute: window.bedtimeMinute,
+                           wakeHour: window.wakeHour, wakeMinute: window.wakeMinute)
+    }
+}
