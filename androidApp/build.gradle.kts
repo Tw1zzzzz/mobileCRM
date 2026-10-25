@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
 }
+
+// Release signing key lives outside the repository: ~/.pulse-signing/keystore.properties, or the file named by
+// PULSE_SIGNING_PROPERTIES (storeFile, storePassword, keyAlias, keyPassword). Without it the release APK is unsigned.
+val releaseSigning: Properties? =
+    (System.getenv("PULSE_SIGNING_PROPERTIES")?.let(::File) ?: File(System.getProperty("user.home"), ".pulse-signing/keystore.properties"))
+        .takeIf { it.isFile }
+        ?.let { file -> Properties().apply { file.inputStream().use { load(it) } } }
 
 android {
     namespace = "com.pulse.android"
@@ -16,8 +25,20 @@ android {
         versionName = "1.0.0"
     }
 
+    signingConfigs {
+        releaseSigning?.let { props ->
+            create("release") {
+                storeFile = file(props.getProperty("storeFile"))
+                storePassword = props.getProperty("storePassword")
+                keyAlias = props.getProperty("keyAlias")
+                keyPassword = props.getProperty("keyPassword")
+            }
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.findByName("release")
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
