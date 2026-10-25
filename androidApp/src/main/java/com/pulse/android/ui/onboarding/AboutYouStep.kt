@@ -132,7 +132,7 @@ fun AboutYouFields(draft: AboutYouDraft, onChange: (AboutYouDraft) -> Unit, sche
             }
             PulseSlider("Шаги в день", form.steps.toDouble(), range(AboutYou.STEPS), Palette.green, AboutYou.STEPS_STEP.toDouble(),
                 valueText = Formatters.grouped(form.steps)) { onChange(draft.copy(form = form.copy(steps = it.toInt()))) }
-            PulseSlider("Активные ккал в день", form.activeKcal.toDouble(), range(AboutYou.ACTIVE_KCAL), Palette.orange, 10.0) {
+            PulseSlider("Активные ккал в день", form.activeKcal.toDouble(), range(AboutYou.ACTIVE_KCAL), Palette.orange, 50.0) {
                 onChange(draft.copy(form = form.copy(activeKcal = it.toInt())))
             }
             PulseSlider("Калории в день", form.foodKcal.toDouble(), range(AboutYou.FOOD_KCAL), Palette.cyan, 50.0,

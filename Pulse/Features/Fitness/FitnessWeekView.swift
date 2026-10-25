@@ -111,8 +111,9 @@ struct FitnessWeekView: View {
         .pulseCard(padding: 0)
     }
 
+    /// Three tiles per row: «О тебе» plus Apple Health can make five.
     private var bodyRow: some View {
-        HStack(spacing: 12) {
+        LazyVGrid(columns: Array(repeating: GridItem(.flexible(), spacing: 12), count: store.bodyMetrics.isEmpty ? 1 : 3), spacing: 12) {
             if store.bodyMetrics.isEmpty {
                 Text("Вес и состав тела появятся, когда их запишут в Apple Health (умные весы или вручную).")
                     .font(.system(size: 14))
@@ -123,7 +124,7 @@ struct FitnessWeekView: View {
             ForEach(store.bodyMetrics) { metric in
                 VStack(alignment: .leading, spacing: 10) {
                     Text(metric.title).font(.system(size: 17)).foregroundStyle(Theme.Palette.textSecondary)
-                    ValueUnitText(value: Formatters.decimal(metric.value), unit: metric.unit,
+                    ValueUnitText(value: Formatters.measure(metric.value), unit: metric.unit,
                                   valueSize: 30, unitSize: 16, monospaced: true)
                     if let delta = metric.delta {
                         Text(Formatters.signedDecimal(delta))
@@ -131,6 +132,7 @@ struct FitnessWeekView: View {
                             .foregroundStyle(Theme.Palette.green)
                     }
                 }
+                .frame(maxWidth: .infinity, alignment: .leading)
                 .pulseCard(padding: 16, radius: Theme.Metrics.tileRadius)
             }
         }

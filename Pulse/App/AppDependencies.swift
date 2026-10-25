@@ -113,6 +113,7 @@ extension View {
             .environment(deps.gameGoals)
             .environment(deps.game)
             .environment(deps.survey)
+            .environment(deps.body)
             .environment(deps.deepLinks)
     }
 }

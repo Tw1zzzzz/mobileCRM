@@ -11,11 +11,12 @@ struct MainTabView: View {
     @Environment(FitnessStore.self) private var fitness
     @Environment(GameStore.self) private var game
     @Environment(PlayerSurveyStore.self) private var survey
+    @Environment(BodyProfileStore.self) private var bodyProfile
     @Environment(\.scenePhase) private var scenePhase
     @State private var showScreenTimeReminder = false
-    /// Questionnaire cover; `surveyTestOnly` is fixed when it opens (saving the survey must not change the flow).
+    /// Questionnaire cover; its mode is fixed when it opens (saving the survey must not change the flow).
     @State private var showSurvey = false
-    @State private var surveyTestOnly = false
+    @State private var surveyMode: OnboardingFlowView.Mode = .full
 
     private var tabs: [AppTab] { AppTab.tabs(for: session.user?.role) }
 
@@ -57,10 +58,17 @@ struct MainTabView: View {
         .fullScreenCover(isPresented: $showSurvey, onDismiss: {
             if survey.needsOnboarding { survey.dismissOnboarding() }
         }) {
-            OnboardingFlowView(testOnly: surveyTestOnly)
+            OnboardingFlowView(mode: surveyMode)
         }
         .onChange(of: survey.needsOnboarding, initial: true) { _, needs in
             if needs { presentSurvey() }
+        }
+        // Players who answered the questionnaire before «О тебе» existed get that step alone, once.
+        .onChange(of: AboutYou.needsStep(user: session.user, profile: bodyProfile.profile), initial: true) { _, needs in
+            if needs && !survey.needsOnboarding { presentAboutYou() }
+        }
+        .onChange(of: showSurvey) { _, shown in
+            if !shown && AboutYou.needsStep(user: session.user, profile: bodyProfile.profile) { presentAboutYou() }
         }
         .onChange(of: router.showsSurvey) { _, requested in
             guard requested else { return }
@@ -105,7 +113,13 @@ struct MainTabView: View {
 
     private func presentSurvey() {
         guard session.user?.role.isStaff == false, !showSurvey else { return }
-        surveyTestOnly = survey.survey != nil && survey.latestResult == nil
+        surveyMode = survey.survey != nil && survey.latestResult == nil ? .testOnly : .full
+        showSurvey = true
+    }
+
+    private func presentAboutYou() {
+        guard session.user?.role.isStaff == false, !showSurvey else { return }
+        surveyMode = .aboutOnly
         showSurvey = true
     }
 

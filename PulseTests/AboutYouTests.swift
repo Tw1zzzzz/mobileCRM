@@ -208,4 +208,10 @@ struct AboutYouTests {
         _ = AboutYou.apply(filled(), now: now, body: body, sleep: sleep, fitness: fitness, nutrition: nutrition, screenTime: screenTime)
         #expect(fitness.bodyMetrics.map(\.title) == ["Вес", "Рост", "ИМТ"])
     }
+
+    @Test func bodyValuesDropTrailingZero() {
+        #expect(Formatters.measure(182) == "182")
+        #expect(Formatters.measure(74.5) == "74,5")
+        #expect(Formatters.measure(22.34) == "22,3")
+    }
 }

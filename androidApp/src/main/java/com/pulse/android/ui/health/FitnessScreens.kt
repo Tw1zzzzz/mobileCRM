@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -438,12 +439,18 @@ fun FitnessWeekScreen() {
                 Text("Вес и состав тела появятся, когда их запишут в ${store.healthName} (умные весы или вручную).", color = Palette.textSecondary, fontSize = 14.sp,
                     modifier = Modifier.pulseCard(padding = 16.dp))
             } else {
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                    metrics.forEach { metric ->
-                        Column(Modifier.weight(1f).pulseCard(16.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-                            Text(metric.title, color = Palette.textSecondary, fontSize = 16.sp)
-                            ValueUnitText(Formatters.decimal(metric.value), metric.unit, valueSize = 26.sp, unitSize = 14.sp)
-                            metric.delta?.let { Text(Formatters.signedDecimal(it), color = Palette.green, fontSize = 16.sp, fontFamily = FontFamily.Monospace) }
+                // Three tiles per row: «О тебе» plus Health Connect can make five.
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    metrics.chunked(3).forEach { row ->
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            row.forEach { metric ->
+                                Column(Modifier.weight(1f).pulseCard(16.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                                    Text(metric.title, color = Palette.textSecondary, fontSize = 16.sp)
+                                    ValueUnitText(Formatters.measure(metric.value), metric.unit, valueSize = 26.sp, unitSize = 14.sp)
+                                    metric.delta?.let { Text(Formatters.signedDecimal(it), color = Palette.green, fontSize = 16.sp, fontFamily = FontFamily.Monospace) }
+                                }
+                            }
+                            repeat(3 - row.size) { Spacer(Modifier.weight(1f)) }
                         }
                     }
                 }
@@ -460,7 +467,7 @@ private fun GoalRow(icon: String, tint: Color, title: String, current: Int, goal
         IconBadge(sfIcon(icon), tint, 52.dp, 22.dp)
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             Row(verticalAlignment = Alignment.Bottom) {
-                Text(title, color = Palette.textPrimary, autoSize = fit(17.sp), modifier = Modifier.weight(1f).alignByBaseline(), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(title, color = Palette.textPrimary, autoSize = fit(17.sp), modifier = Modifier.weight(1f).alignByBaseline(), maxLines = 2, overflow = TextOverflow.Ellipsis)
                 Text(Formatters.grouped(current), color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.Bold, modifier = Modifier.alignByBaseline())
                 Text(" / ${Formatters.grouped(goal)}${unit?.let { " $it" } ?: ""}", color = Palette.textSecondary, fontSize = 16.sp, modifier = Modifier.alignByBaseline())
             }

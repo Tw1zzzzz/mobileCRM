@@ -1,25 +1,34 @@
 import SwiftUI
 
-/// First-login questionnaire: goals → player type → «Игровой характер» test → result.
-/// `testOnly` re-runs just the test (Профиль → Игровой профиль → «Пройти заново»).
+/// First-login questionnaire: goals → player type → «О тебе» → «Игровой характер» test → result. «О тебе» is mandatory:
+/// no close button on it, and in `.aboutOnly` no way out but saving or signing out.
 struct OnboardingFlowView: View {
     enum Step: Int, CaseIterable {
-        case welcome, goals, player, testIntro, test, result
+        case welcome, goals, player, about, testIntro, test, result
     }
 
-    var testOnly = false
+    /// `.full` — first login; `.testOnly` — «Пройти заново»; `.aboutOnly` — «О тебе» once for players who answered the rest earlier.
+    enum Mode { case full, testOnly, aboutOnly }
+
+    var mode: Mode = .full
+    private var testOnly: Bool { mode == .testOnly }
 
     @Environment(SessionStore.self) private var session
     @Environment(PlayerSurveyStore.self) private var store
     @Environment(GameGoalsStore.self) private var gameGoals
     @Environment(GameStore.self) private var game
     @Environment(SleepStore.self) private var sleep
+    @Environment(BodyProfileStore.self) private var bodyProfile
+    @Environment(FitnessStore.self) private var fitness
+    @Environment(NutritionStore.self) private var nutrition
+    @Environment(ScreenTimeStore.self) private var screenTime
     @Environment(\.dismiss) private var dismiss
 
     @State private var step: Step = .welcome
     @State private var draft = PlayerSurvey()
     @State private var eloTarget = ""
-    @State private var sleepHours = 8.0
+    @State private var about: AboutYouForm?
+    @State private var aboutOnly = false
     @State private var answers: [String: Int] = [:]
     @State private var result: MindsetProfile?
 
@@ -54,6 +63,7 @@ struct OnboardingFlowView: View {
         }
         .background(ScreenBackground())
         .animation(.easeInOut(duration: 0.25), value: step)
+        .interactiveDismissDisabled(step == .about)
         .onAppear(perform: prepare)
     }
 
@@ -74,8 +84,12 @@ struct OnboardingFlowView: View {
                     .foregroundStyle(Theme.Palette.textSecondary)
             }
             Spacer()
-            HeaderIconButton(systemName: "xmark") { close() }
-                .accessibilityLabel("Закрыть")
+            if step == .about {
+                Color.clear.frame(width: 44, height: 44)
+            } else {
+                HeaderIconButton(systemName: "xmark") { close() }
+                    .accessibilityLabel("Закрыть")
+            }
         }
         .padding(.horizontal, 20)
         .padding(.top, 12)
@@ -91,12 +105,14 @@ struct OnboardingFlowView: View {
             if draft.goals.contains(.rankUp) {
                 PulseTextField(title: "Цель по ELO (необязательно)", text: $eloTarget, placeholder: "Например, 2500", keyboard: .numberPad)
             }
-            if draft.goals.contains(.sleep) {
-                sleepGoal
-            }
         case .player:
             title("Что ты за игрок", "Роль, уровень и режим игры — тренер и Pulse будут учитывать это в нагрузке и рекомендациях.")
             SurveyPlayerForm(survey: $draft)
+        case .about:
+            title(AboutYouCopy.title, AboutYouCopy.subtitle)
+            if let current = about {
+                AboutYouFields(form: Binding(get: { about ?? current }, set: { about = $0 }))
+            }
         case .testIntro: testIntro
         case .test:
             MindsetTestRunner(answers: $answers) { finishTest() }
@@ -114,10 +130,11 @@ struct OnboardingFlowView: View {
     private var welcome: some View {
         VStack(alignment: .leading, spacing: 20) {
             IconBadge(systemName: "person.text.rectangle", tint: Theme.Palette.cyan, size: 64, iconSize: 28)
-            title("Давай познакомимся", "Три коротких шага — около 5 минут. Ответы можно поменять в профиле.")
+            title("Давай познакомимся", "Четыре коротких шага — около 6 минут. Ответы можно поменять в профиле.")
             VStack(alignment: .leading, spacing: 14) {
                 bullet("target", "Цели", "Что хочешь улучшить: игру, сон, тильт, форму")
                 bullet("gamecontroller", "Ты как игрок", "Роль, уровень, сколько и когда играешь")
+                bullet("person.text.rectangle", "О тебе", "Возраст, рост, вес, режим сна и цели на день")
                 bullet("brain.head.profile", "Игровой характер", "24 утверждения: хладнокровие, тильт, фокус, командность, лидерство, дисциплина")
             }
             .pulseCard(padding: 16)
@@ -141,25 +158,6 @@ struct OnboardingFlowView: View {
             .pulseCard(padding: 16)
             Text(MindsetCopy.disclaimer).font(.system(size: 12)).foregroundStyle(Theme.Palette.textTertiary)
         }
-    }
-
-    private var sleepGoal: some View {
-        VStack(alignment: .leading, spacing: 8) {
-            HStack {
-                Text("Хочу спать").font(.system(size: 16, weight: .medium)).foregroundStyle(Theme.Palette.textPrimary)
-                Spacer()
-                Text(sleepHoursText).font(.system(size: 18, weight: .bold)).foregroundStyle(Theme.Palette.purple)
-            }
-            Slider(value: $sleepHours, in: 6...10, step: 0.5).tint(Theme.Palette.purple)
-            Text("Отбой в \(sleep.window.bedtimeText) — подъём сдвинется под эту цель.")
-                .font(.system(size: 12)).foregroundStyle(Theme.Palette.textTertiary)
-        }
-        .pulseCard(padding: 16)
-    }
-
-    private var sleepHoursText: String {
-        let minutes = Int(sleepHours * 60)
-        return minutes % 60 == 0 ? "\(minutes / 60) ч" : "\(minutes / 60) ч \(minutes % 60) мин"
     }
 
     private func title(_ text: String, _ subtitle: String?) -> some View {
@@ -199,9 +197,10 @@ struct OnboardingFlowView: View {
 
     private var stepTitle: String? {
         switch step {
-        case .goals: "Шаг 1 из 3"
-        case .player: "Шаг 2 из 3"
-        case .testIntro, .test: testOnly ? nil : "Шаг 3 из 3"
+        case .goals: "Шаг 1 из 4"
+        case .player: "Шаг 2 из 4"
+        case .about: aboutOnly ? nil : "Шаг 3 из 4"
+        case .testIntro, .test: testOnly || aboutOnly ? nil : "Шаг 4 из 4"
         default: nil
         }
     }
@@ -209,7 +208,8 @@ struct OnboardingFlowView: View {
     private var canGoBack: Bool {
         switch step {
         case .goals, .player: true
-        case .testIntro: !testOnly
+        case .about: !aboutOnly
+        case .testIntro: !testOnly && !aboutOnly
         default: false
         }
     }
@@ -218,7 +218,12 @@ struct OnboardingFlowView: View {
         switch step {
         case .welcome: Action(title: "Начать") { step = .goals }
         case .goals: Action(title: "Дальше", enabled: !draft.goals.isEmpty) { step = .player }
-        case .player: Action(title: "Дальше") { saveSurvey(); step = .testIntro }
+        case .player: Action(title: "Дальше") { saveSurvey(); step = .about }
+        case .about:
+            Action(title: aboutOnly ? "Сохранить" : "Дальше", enabled: about.map { AboutYou.errors($0, now: .now).isEmpty } ?? false) {
+                guard saveAbout() else { return }
+                if aboutOnly { dismiss() } else { step = .testIntro }
+            }
         case .testIntro: Action(title: "Начать тест") { step = .test }
         case .test: nil
         case .result: Action(title: "Готово") { dismiss() }
@@ -228,6 +233,7 @@ struct OnboardingFlowView: View {
     private var secondaryAction: Action? {
         switch step {
         case .welcome: Action(title: "Позже") { close() }
+        case .about where aboutOnly: Action(title: "Выйти из аккаунта") { session.logout(); dismiss() }
         case .testIntro where !testOnly: Action(title: "Пройти позже") { dismiss() }
         default: nil
         }
@@ -236,21 +242,42 @@ struct OnboardingFlowView: View {
     private func goBack() {
         switch step {
         case .player: step = .goals
-        case .testIntro: step = .player
+        case .about: step = .player
+        case .testIntro: step = .about
         default: step = .welcome
         }
     }
 
     private func close() {
         if store.needsOnboarding { store.dismissOnboarding() }
-        dismiss()
+        // «Позже» postpones the questionnaire, not «О тебе».
+        if step == .welcome && AboutYou.needsStep(user: session.user, profile: bodyProfile.profile) {
+            aboutOnly = true
+            step = .about
+        } else {
+            dismiss()
+        }
+    }
+
+    /// Spreads «О тебе» over the metrics; Apple Health data is rebuilt with the new age and weight.
+    private func saveAbout() -> Bool {
+        guard let about, AboutYou.apply(about, body: bodyProfile, sleep: sleep, fitness: fitness, nutrition: nutrition,
+                                        screenTime: screenTime) else { return false }
+        Task { await fitness.refreshHealth() }
+        return true
     }
 
     private func prepare() {
         if let saved = store.survey { draft = saved }
         if let elo = gameGoals.goals.elo { eloTarget = String(elo) }
-        sleepHours = Double(sleep.window.durationMinutes) / 60
-        if testOnly { step = .testIntro }
+        about = AboutYou.initial(window: sleep.window, fitness: fitness.goals, nutrition: nutrition.goals,
+                                 screenLimitMinutes: screenTime.dailyLimitMinutes, profile: bodyProfile.profile,
+                                 isNewPlayer: store.survey == nil)
+        switch mode {
+        case .testOnly: step = .testIntro
+        case .aboutOnly: aboutOnly = true; step = .about
+        case .full: break
+        }
     }
 
     private func saveSurvey() {
@@ -259,16 +286,6 @@ struct OnboardingFlowView: View {
             var goals = gameGoals.goals
             goals.elo = elo
             gameGoals.update(goals, currentElo: game.profile(for: session.user).elo)
-        }
-        if draft.goals.contains(.sleep) {
-            let minutes = Int(sleepHours * 60)
-            if minutes != sleep.window.durationMinutes {
-                var window = sleep.window
-                let wake = (window.bedtimeHour * 60 + window.bedtimeMinute + minutes) % (24 * 60)
-                window.wakeHour = wake / 60
-                window.wakeMinute = wake % 60
-                sleep.updateWindow(window)
-            }
         }
     }
 

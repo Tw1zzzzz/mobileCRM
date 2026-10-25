@@ -66,6 +66,11 @@ enum Formatters {
         integerFormatter.string(from: NSNumber(value: value)) ?? "\(value)"
     }
 
+    /// Body measurements: «182» (whole), «74,5».
+    static func measure(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0 ? String(Int(value)) : decimal(value)
+    }
+
     static func decimal(_ value: Double, fractionDigits: Int = 1) -> String {
         String(format: "%.\(fractionDigits)f", value).replacingOccurrences(of: ".", with: ",")
     }

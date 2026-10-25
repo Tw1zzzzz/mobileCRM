@@ -14,6 +14,7 @@ struct ProfileView: View {
     @State private var confirmLogout = false
     @State private var showEdit = false
     @State private var showGameGoals = false
+    @State private var showsAboutYou = false
     @State private var confirmDelete = false
     var streak = StreakSource()
     @State private var legalDocument: LegalDocument?
@@ -55,6 +56,7 @@ struct ProfileView: View {
         }
         .sheet(isPresented: $showEdit) { EditProfileSheet().presentationDetents([.large]) }
         .sheet(isPresented: $showGameGoals) { GameGoalsSheet().presentationDetents([.large]) }
+        .sheet(isPresented: $showsAboutYou) { AboutYouSheet().presentationDetents([.large]) }
         .task {
             let settings = await UNUserNotificationCenter.current().notificationSettings()
             notificationsEnabled = settings.authorizationStatus == .authorized
@@ -177,12 +179,26 @@ struct ProfileView: View {
                     .padding(.vertical, 12)
                 DividerLine()
             }
+            if !session.isStaff {
+                Button { showsAboutYou = true } label: {
+                    HStack {
+                        settingLabel(AboutYouCopy.title, icon: "person.text.rectangle", tint: Theme.Palette.cyan)
+                        Spacer()
+                        Image(systemName: "chevron.right").foregroundStyle(Theme.Palette.textTertiary)
+                    }
+                    .contentShape(Rectangle()) // the whole row is tappable, not only its text
+                }
+                .buttonStyle(.plain)
+                .padding(.vertical, 14)
+                DividerLine()
+            }
             Button { router.open(.calendar(createNew: false), in: .profile) } label: {
                 HStack {
                     settingLabel("Календарь", icon: "calendar", tint: Theme.Palette.purple)
                     Spacer()
                     Image(systemName: "chevron.right").foregroundStyle(Theme.Palette.textTertiary)
                 }
+                .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
             .padding(.vertical, 14)

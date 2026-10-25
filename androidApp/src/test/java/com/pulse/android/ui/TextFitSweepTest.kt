@@ -55,6 +55,16 @@ class TextFitSweepTest {
     @Test fun staffPlayers() = sweep("players", UserRole.STAFF)
     @Test fun staffAnalytics() = sweep("analytics", UserRole.STAFF)
 
+    @Test fun bodyMetricsFromProfile() {
+        val core = registeredCore()
+        val form = com.pulse.core.model.AboutYou.initial(core.sleep.window, core.fitness.goals, core.nutrition.goals, 300, null, isNewPlayer = true)
+            .copy(birthDate = kotlinx.datetime.LocalDate(2004, 3, 12), heightText = "182").withWeightText("74,5")
+        core.applyAboutYou(form)
+        rule.setMain(core, "fitnessWeek", fontScale = Metrics.maxFontScale)
+        rule.waitForIdle()
+        rule.assertTextFits(unfit)
+    }
+
     @Test fun aboutOnly() {
         val core = registeredCore().also { it.survey.dismissOnboarding() }
         rule.setMain(core, fontScale = Metrics.maxFontScale)

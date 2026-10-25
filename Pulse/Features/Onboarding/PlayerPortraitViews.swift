@@ -36,7 +36,7 @@ struct PlayerPortraitView: View {
             Text(MindsetCopy.disclaimer).font(.system(size: 12)).foregroundStyle(Theme.Palette.textTertiary)
         }
         .sheet(isPresented: $showEdit) { SurveyEditSheet().presentationDetents([.large]) }
-        .fullScreenCover(isPresented: $showTest) { OnboardingFlowView(testOnly: true) }
+        .fullScreenCover(isPresented: $showTest) { OnboardingFlowView(mode: .testOnly) }
     }
 }
 

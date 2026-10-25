@@ -111,4 +111,10 @@ class AboutYouTest {
         assertNull(AboutYou.parseBirthDate(""))
         assertEquals("12.03.2004", AboutYou.birthDateText(LocalDate(2004, 3, 12)))
     }
+
+    @Test fun bodyValuesDropTrailingZero() {
+        assertEquals("182", com.pulse.core.util.Formatters.measure(182.0))
+        assertEquals("74,5", com.pulse.core.util.Formatters.measure(74.5))
+        assertEquals("22,3", com.pulse.core.util.Formatters.measure(22.34))
+    }
 }

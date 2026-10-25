@@ -145,7 +145,7 @@ struct GoalProgressRow: View {
 // MARK: - Editors
 
 /// Slider for fractional targets (K/D) with a formatted value.
-private struct DecimalSlider: View {
+struct DecimalSlider: View {
     let title: String
     @Binding var value: Double
     let range: ClosedRange<Double>
