@@ -64,6 +64,8 @@ import com.pulse.android.ui.components.PulseSection
 import com.pulse.android.ui.components.ScoreRing
 import com.pulse.android.ui.components.ScreenScaffold
 import com.pulse.android.ui.components.SheetScaffold
+import com.pulse.android.ui.components.SecondaryButton
+import com.pulse.android.ui.components.ChipButton
 import com.pulse.android.ui.components.StatusPill
 import com.pulse.android.ui.components.ValueUnitText
 import com.pulse.android.ui.components.fit
@@ -79,10 +81,12 @@ import com.pulse.android.ui.theme.color
 import com.pulse.android.ui.theme.sfIcon
 import com.pulse.core.model.RecoveryMath
 import com.pulse.core.model.SleepNight
+import com.pulse.core.model.ManualNight
 import com.pulse.core.model.SleepSession
 import com.pulse.core.model.SleepStage
 import com.pulse.core.model.SleepWeekDay
 import com.pulse.core.util.Formatters
+import com.pulse.core.util.minutesBetween
 import com.pulse.core.util.addingMinutes
 import com.pulse.core.util.isSameDay
 import com.pulse.core.util.localDate
@@ -307,7 +311,8 @@ fun NoSleepDataCard(healthName: String) {
         Icon(sfIcon("moon.zzz"), null, tint = Palette.purple, modifier = Modifier.size(26.dp))
         Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
             Text("Данных о сне пока нет", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
-            Text("Нажми «Начать сон», когда ложишься, или подключи $healthName в «Фитнесе» — ночи с часов подтянутся сами.", color = Palette.textSecondary, fontSize = 14.sp)
+            Text("Нажми «Начать сон», когда ложишься, добавь прошлую ночь вручную или подключи $healthName в «Фитнесе» — ночи с часов подтянутся сами.",
+                color = Palette.textSecondary, fontSize = 14.sp)
         }
     }
 }
@@ -318,6 +323,7 @@ fun SleepTrackingCard() {
     val core = observeCore()
     val store = core.sleep
     var lastSaved by remember { mutableStateOf<SleepSession?>(null) }
+    var addingNight by remember { mutableStateOf(false) }
     var tick by remember { mutableStateOf(Clock.System.now()) }
     val start = store.activeStart
     LaunchedEffect(start) {
@@ -351,6 +357,8 @@ fun SleepTrackingCard() {
                 store.startSleep()
             }
         }
+        // Forgot to press «Начать сон»: the night can still go into the history.
+        if (!store.isSleeping) SecondaryButton("Добавить ночь вручную", icon = sfIcon("pencil")) { addingNight = true }
         lastSaved?.let { StatusPill("Сохранено · ${Formatters.duration(it.durationMinutes)}", if (it.isValid) Palette.green else Palette.orange) }
         Text(
             if (store.isSleeping) "Таймер сна виден в уведомлении — там же кнопка «Проснулся»."
@@ -358,13 +366,50 @@ fun SleepTrackingCard() {
             color = Palette.textTertiary, fontSize = 13.sp
         )
     }
+    if (addingNight) PulseSheet({ addingNight = false }) { AddNightSheet { addingNight = false } }
+}
+
+/** «Добавить ночь»: wake day, bedtime and wake time of a night tracked without «Начать сон». */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun AddNightSheet(onClose: () -> Unit) {
+    val store = observeCore().sleep
+    val now = remember { Clock.System.now() }
+    val suggested = remember { ManualNight.suggested(store.window, now) }
+    var daysAgo by remember { mutableStateOf(suggested.wakeDaysAgo) }
+    val bed = rememberTimePickerState(suggested.bedHour, suggested.bedMinute, is24Hour = true)
+    val wake = rememberTimePickerState(suggested.wakeHour, suggested.wakeMinute, is24Hour = true)
+    var error by remember { mutableStateOf<String?>(null) }
+    val night = ManualNight(daysAgo, bed.hour, bed.minute, wake.hour, wake.minute)
+    val (start, end) = night.interval(now)
+    val colors = TimePickerDefaults.colors(
+        timeSelectorSelectedContainerColor = Palette.blue, timeSelectorUnselectedContainerColor = Palette.tile,
+        timeSelectorSelectedContentColor = Color.White, timeSelectorUnselectedContentColor = Palette.textPrimary
+    )
+    SheetScaffold("Добавить ночь", onClose) {
+        Text("Проснулся", color = Palette.textSecondary, fontSize = 15.sp)
+        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            ManualNight.DAYS.forEachIndexed { index, title -> ChipButton(title, daysAgo == index) { daysAgo = index; error = null } }
+        }
+        Text("Отбой", color = Palette.textSecondary, fontSize = 15.sp)
+        TimeInput(bed, colors = colors)
+        Text("Подъём", color = Palette.textSecondary, fontSize = 15.sp)
+        TimeInput(wake, colors = colors)
+        Text("Сон: ${Formatters.duration(minutesBetween(start, end).toInt().coerceAtLeast(0))}", color = Palette.textPrimary, fontSize = 16.sp,
+            fontWeight = FontWeight.SemiBold)
+        error?.let { Text(it, color = Palette.red, fontSize = 13.sp) }
+        GradientButton("Сохранить") {
+            error = store.addNight(night)
+            if (error == null) onClose()
+        }
+    }
 }
 
 /** Date, start, end, duration and status of each session. */
 @Composable
 fun SleepHistoryList(sessions: List<SleepSession>) {
     if (sessions.isEmpty()) {
-        EmptyStateView("moon.zzz", "Записей пока нет", "Начни первую сессию сна, чтобы увидеть историю.")
+        EmptyStateView("moon.zzz", "Записей пока нет", "Начни первую сессию сна или добавь прошлую ночь вручную.")
         return
     }
     Column(Modifier.pulseCard(padding = 4.dp)) {
