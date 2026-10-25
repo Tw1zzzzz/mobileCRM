@@ -101,4 +101,14 @@ class AboutYouTest {
         val json = Json.encodeToString(BodyProfile.serializer(), BodyProfile(LocalDate(2004, 3, 12), 182, 74.0, Instant.parse("2026-10-25T10:00:00Z")))
         assertEquals("""{"birthDate":"2004-03-12","heightCm":182,"weightKg":74.0,"updatedAt":"2026-10-25T10:00:00Z"}""", json)
     }
+
+    @Test fun parsesBirthDateText() {
+        assertEquals(LocalDate(2004, 3, 12), AboutYou.parseBirthDate("12.03.2004"))
+        assertEquals(LocalDate(2004, 3, 12), AboutYou.parseBirthDate("12032004"))
+        assertEquals(LocalDate(2004, 3, 1), AboutYou.parseBirthDate(" 1.3.2004 "))
+        assertNull(AboutYou.parseBirthDate("31.02.2004"))
+        assertNull(AboutYou.parseBirthDate("12.03.04"))
+        assertNull(AboutYou.parseBirthDate(""))
+        assertEquals("12.03.2004", AboutYou.birthDateText(LocalDate(2004, 3, 12)))
+    }
 }

@@ -29,6 +29,8 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -54,6 +56,7 @@ import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.color
 import com.pulse.android.ui.theme.sfIcon
+import com.pulse.core.model.AboutYou
 import com.pulse.core.model.FocusGoal
 import com.pulse.core.model.MindsetProfile
 import com.pulse.core.model.MindsetTrait
@@ -64,24 +67,34 @@ import com.pulse.core.model.PlayerSurvey
 import com.pulse.core.model.SkillLevel
 import com.pulse.core.model.UserRole
 import com.pulse.core.util.Formatters
+import kotlin.time.Clock
+import kotlinx.coroutines.launch
 
-private enum class Step { WELCOME, GOALS, PLAYER, TEST_INTRO, TEST, RESULT }
+private enum class Step { WELCOME, GOALS, PLAYER, ABOUT, TEST_INTRO, TEST, RESULT }
+
+/** FULL — first login; TEST_ONLY — «Пройти заново»; ABOUT_ONLY — «О тебе» once for players who answered the rest earlier. */
+enum class OnboardingMode { FULL, TEST_ONLY, ABOUT_ONLY }
 
 const val MINDSET_DISCLAIMER = "Это самооценка игровых качеств, а не психологическая или медицинская диагностика. Результат меняется — проходи тест раз в месяц."
 
 /**
- * First-login questionnaire: goals → player type → «Игровой характер» test → result.
- * `testOnly` re-runs just the test (Профиль → Игровой профиль → «Пройти заново»).
+ * First-login questionnaire: goals → player type → «О тебе» → «Игровой характер» test → result. «О тебе» is mandatory:
+ * no close button on it, and in [OnboardingMode.ABOUT_ONLY] no way out but saving or signing out. The «О тебе» answers
+ * ([about]) are held by the caller: state saved inside the dialog window is not restored after recreation.
  */
 @Composable
-fun OnboardingFlow(testOnly: Boolean, onClose: () -> Unit) {
+fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYouDraft) -> Unit, onClose: () -> Unit) {
     val core = observeCore()
     val store = core.survey
     val user = core.session.user.value
-    var step by remember { mutableStateOf(if (testOnly) Step.TEST_INTRO else Step.WELCOME) }
+    val scope = rememberCoroutineScope()
+    val testOnly = mode == OnboardingMode.TEST_ONLY
+    var aboutOnly by rememberSaveable { mutableStateOf(mode == OnboardingMode.ABOUT_ONLY) }
+    var step by rememberSaveable {
+        mutableStateOf(when (mode) { OnboardingMode.TEST_ONLY -> Step.TEST_INTRO; OnboardingMode.ABOUT_ONLY -> Step.ABOUT; else -> Step.WELCOME })
+    }
     var draft by remember { mutableStateOf(store.survey ?: PlayerSurvey()) }
     var eloTarget by remember { mutableStateOf(core.gameGoals.goals.elo?.toString() ?: "") }
-    var sleepHours by remember { mutableDoubleStateOf(core.sleep.window.durationMinutes / 60.0) }
     var answers by remember { mutableStateOf(emptyMap<String, Int>()) }
     var result by remember { mutableStateOf<MindsetProfile?>(null) }
     val scroll = rememberScrollState()
@@ -91,7 +104,20 @@ fun OnboardingFlow(testOnly: Boolean, onClose: () -> Unit) {
 
     fun close() {
         if (store.needsOnboarding) store.dismissOnboarding()
-        onClose()
+        // «Позже» postpones the questionnaire, not «О тебе».
+        if (step == Step.WELCOME && core.needsAboutYou) {
+            aboutOnly = true
+            step = Step.ABOUT
+        } else {
+            onClose()
+        }
+    }
+
+    /** Spreads «О тебе» over the metrics; Health data is rebuilt with the new age and weight. */
+    fun saveAbout(): Boolean {
+        if (!core.applyAboutYou(about.form)) return false
+        scope.launch { core.fitness.refreshHealth() }
+        return true
     }
 
     fun saveSurvey() {
@@ -100,36 +126,34 @@ fun OnboardingFlow(testOnly: Boolean, onClose: () -> Unit) {
         if (FocusGoal.RANK_UP in draft.goals && elo != null && elo > 0) {
             core.gameGoals.update(core.gameGoals.goals.copy(elo = elo), core.game.profile(user).elo)
         }
-        val minutes = (sleepHours * 60).toInt()
-        val window = core.sleep.window
-        if (FocusGoal.SLEEP in draft.goals && minutes != window.durationMinutes) {
-            val wake = (window.bedtimeHour * 60 + window.bedtimeMinute + minutes) % (24 * 60)
-            core.sleep.updateWindow(window.copy(wakeHour = wake / 60, wakeMinute = wake % 60))
-        }
     }
 
-    val canGoBack = step == Step.GOALS || step == Step.PLAYER || (step == Step.TEST_INTRO && !testOnly)
+    val canGoBack = step == Step.GOALS || step == Step.PLAYER || (step == Step.ABOUT && !aboutOnly) ||
+        (step == Step.TEST_INTRO && !testOnly && !aboutOnly)
+    val canClose = step != Step.ABOUT
     fun goBack() {
         step = when (step) {
             Step.PLAYER -> Step.GOALS
-            Step.TEST_INTRO -> Step.PLAYER
+            Step.ABOUT -> Step.PLAYER
+            Step.TEST_INTRO -> Step.ABOUT
             else -> Step.WELCOME
         }
     }
-    BackHandler { if (canGoBack) goBack() else close() }
+    BackHandler { if (canGoBack) goBack() else if (canClose) close() }
 
     ScreenBackground {
         Column(Modifier.fillMaxSize().systemBarsPadding().imePadding()) {
             Row(Modifier.padding(horizontal = 20.dp).padding(top = 12.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
                 Box(Modifier.size(Metrics.headerButtonSize)) { if (canGoBack) HeaderIconButton("chevron.left", "Назад") { goBack() } }
                 val progress = when (step) {
-                    Step.GOALS -> "Шаг 1 из 3"
-                    Step.PLAYER -> "Шаг 2 из 3"
-                    Step.TEST_INTRO, Step.TEST -> if (testOnly) null else "Шаг 3 из 3"
+                    Step.GOALS -> "Шаг 1 из 4"
+                    Step.PLAYER -> "Шаг 2 из 4"
+                    Step.ABOUT -> if (aboutOnly) null else "Шаг 3 из 4"
+                    Step.TEST_INTRO, Step.TEST -> if (testOnly || aboutOnly) null else "Шаг 4 из 4"
                     else -> null
                 }
                 Text(progress ?: "", color = Palette.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, textAlign = TextAlign.Center, modifier = Modifier.weight(1f))
-                HeaderIconButton("xmark", "Закрыть") { close() }
+                Box(Modifier.size(Metrics.headerButtonSize)) { if (canClose) HeaderIconButton("xmark", "Закрыть") { close() } }
             }
             Column(
                 Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(horizontal = 20.dp).padding(top = 8.dp, bottom = 24.dp),
@@ -138,10 +162,11 @@ fun OnboardingFlow(testOnly: Boolean, onClose: () -> Unit) {
                 when (step) {
                     Step.WELCOME -> {
                         IconBadge(sfIcon("person.text.rectangle"), Palette.cyan, 64.dp, 28.dp)
-                        StepTitle("Давай познакомимся", "Три коротких шага — около 5 минут. Ответы можно поменять в профиле.")
+                        StepTitle("Давай познакомимся", "Четыре коротких шага — около 6 минут. Ответы можно поменять в профиле.")
                         Column(Modifier.pulseCard(16.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
                             Bullet("target", "Цели", "Что хочешь улучшить: игру, сон, тильт, форму")
                             Bullet("gamecontroller", "Ты как игрок", "Роль, уровень, сколько и когда играешь")
+                            Bullet("person.text.rectangle", "О тебе", "Возраст, рост, вес, режим сна и цели на день")
                             Bullet("brain.head.profile", "Игровой характер", "24 утверждения: хладнокровие, тильт, фокус, командность, лидерство, дисциплина")
                         }
                         Text(sharingNote, color = Palette.textSecondary, fontSize = 13.sp)
@@ -152,18 +177,14 @@ fun OnboardingFlow(testOnly: Boolean, onClose: () -> Unit) {
                         if (FocusGoal.RANK_UP in draft.goals) {
                             PulseTextField("Цель по ELO (необязательно)", eloTarget, "Например, 2500", KeyboardType.Number) { eloTarget = it.filter(Char::isDigit).take(5) }
                         }
-                        if (FocusGoal.SLEEP in draft.goals) {
-                            Column(Modifier.pulseCard(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                                val minutes = (sleepHours * 60).toInt()
-                                PulseSlider("Хочу спать", sleepHours, 6.0..10.0, Palette.purple, 0.5,
-                                    valueText = if (minutes % 60 == 0) "${minutes / 60} ч" else "${minutes / 60} ч ${minutes % 60} мин") { sleepHours = it }
-                                Text("Отбой в ${core.sleep.window.bedtimeText} — подъём сдвинется под эту цель.", color = Palette.textTertiary, fontSize = 12.sp)
-                            }
-                        }
                     }
                     Step.PLAYER -> {
                         StepTitle("Что ты за игрок", "Роль, уровень и режим игры — тренер и Pulse будут учитывать это в нагрузке и рекомендациях.")
                         SurveyPlayerForm(draft) { draft = it }
+                    }
+                    Step.ABOUT -> {
+                        StepTitle(ABOUT_YOU_TITLE, ABOUT_YOU_SUBTITLE)
+                        AboutYouFields(about, onAbout)
                     }
                     Step.TEST_INTRO -> {
                         IconBadge(sfIcon("brain.head.profile"), Palette.purple, 64.dp, 28.dp)
@@ -196,19 +217,26 @@ fun OnboardingFlow(testOnly: Boolean, onClose: () -> Unit) {
             val primary: Pair<String, () -> Unit>? = when (step) {
                 Step.WELCOME -> "Начать" to { step = Step.GOALS }
                 Step.GOALS -> "Дальше" to { step = Step.PLAYER }
-                Step.PLAYER -> "Дальше" to { saveSurvey(); step = Step.TEST_INTRO }
+                Step.PLAYER -> "Дальше" to { saveSurvey(); step = Step.ABOUT }
+                Step.ABOUT -> if (aboutOnly) "Сохранить" to { if (saveAbout()) onClose() } else "Дальше" to { if (saveAbout()) step = Step.TEST_INTRO }
                 Step.TEST_INTRO -> "Начать тест" to { step = Step.TEST }
                 Step.TEST -> null
                 Step.RESULT -> "Готово" to onClose
             }
             val secondary: Pair<String, () -> Unit>? = when {
                 step == Step.WELCOME -> "Позже" to { close() }
+                step == Step.ABOUT && aboutOnly -> "Выйти из аккаунта" to { core.session.logout(); onClose() }
                 step == Step.TEST_INTRO && !testOnly -> "Пройти позже" to onClose
                 else -> null
             }
             primary?.let { (title, action) ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    GradientButton(title, enabled = step != Step.GOALS || draft.goals.isNotEmpty(), onClick = action)
+                    val enabled = when (step) {
+                        Step.GOALS -> draft.goals.isNotEmpty()
+                        Step.ABOUT -> AboutYou.errors(about.form, Clock.System.now()).isEmpty()
+                        else -> true
+                    }
+                    GradientButton(title, enabled = enabled, onClick = action)
                     secondary?.let { (label, run) ->
                         Text(label, color = Palette.textSecondary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.pressable(onClick = run).padding(horizontal = 16.dp, vertical = 8.dp))

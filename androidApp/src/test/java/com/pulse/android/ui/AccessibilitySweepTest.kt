@@ -42,6 +42,13 @@ class AccessibilitySweepTest {
     @Test fun portrait() = sweep("portrait")
     @Test fun staffPlayers() = sweep("players", UserRole.STAFF)
     @Test fun staffAnalytics() = sweep("analytics", UserRole.STAFF)
+
+    @Test fun aboutOnly() {
+        val core = registeredCore().also { it.survey.dismissOnboarding() }
+        rule.setMain(core)
+        rule.waitForIdle()
+        rule.assertAccessible()
+    }
     @Test fun staffPlayer() = sweep("player", UserRole.STAFF)
 
     @Test fun tabsReportSelection() {

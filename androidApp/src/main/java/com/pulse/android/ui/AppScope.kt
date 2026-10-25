@@ -22,7 +22,7 @@ private val LocalCoreVersion = compositionLocalOf { 0 }
 private fun PulseCore.changes(): Flow<Int> {
     val flows: List<Flow<Any?>> = listOf(
         session.user, sleep.state, nutrition.state, wellbeing.state, cognitive.state, calendar.state, fitness.state,
-        screenTime.state, lineups.state, gameGoals.state, game.state, survey.state
+        screenTime.state, lineups.state, gameGoals.state, game.state, survey.state, body.state
     )
     var version = 0
     return combine(flows) { ++version }

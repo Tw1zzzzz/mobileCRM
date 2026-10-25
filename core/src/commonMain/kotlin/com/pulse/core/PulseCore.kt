@@ -143,6 +143,14 @@ class PulseCore(
         return true
     }
 
+    /** Профиль → «О тебе»: only birth date, height and weight change; goals and the sleep window stay as they are. */
+    fun updateBody(form: AboutYouForm, now: Instant = Clock.System.now()): Boolean {
+        val profile = AboutYou.profile(form, now) ?: return false
+        body.save(profile)
+        fitness.bodyProfile = profile
+        return true
+    }
+
     /** Personal weekly report inputs from every store (iOS `WeeklySource`); 70 days cover two compared weeks. */
     fun weeklyInputs(now: Instant = Clock.System.now(), days: Int = 70): WeeklyInputs {
         val user = session.user.value

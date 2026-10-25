@@ -53,6 +53,10 @@ import com.pulse.android.ui.components.contentWidth
 import com.pulse.android.ui.components.PulseSheet
 import com.pulse.android.ui.components.IconBadge
 import com.pulse.android.ui.components.fit
+import com.pulse.android.ui.onboarding.AboutYouDraft
+import com.pulse.android.ui.onboarding.AboutYouDraftSaver
+import com.pulse.android.ui.onboarding.OnboardingFlow
+import com.pulse.android.ui.onboarding.OnboardingMode
 import com.pulse.android.ui.state.StateHubScreen
 import com.pulse.android.ui.today.NotificationsSheet
 import com.pulse.android.ui.today.TodayScreen
@@ -138,23 +142,33 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null, pendingO
             }
         }
     }
-    // First sign-in of a player: questionnaire + «Игровой характер»; later from the reminder cards.
-    var showSurvey by remember { mutableStateOf(false) }
-    var surveyTestOnly by remember { mutableStateOf(false) }
+    // First sign-in of a player: questionnaire + «Игровой характер»; later from the reminder cards. A player who answered
+    // the questionnaire before «О тебе» existed gets that step alone, once, at the next launch.
+    var showSurvey by rememberSaveable { mutableStateOf(false) }
+    var surveyMode by rememberSaveable { mutableStateOf(OnboardingMode.FULL) }
+    // Kept here, outside the dialog, so typed answers survive rotation and process death.
+    var aboutDraft by rememberSaveable(stateSaver = AboutYouDraftSaver) { mutableStateOf(AboutYouDraft.start(core, isNewPlayer = true)) }
     val needsOnboarding = core.survey.needsOnboarding
-    LaunchedEffect(needsOnboarding, router.showsSurvey, user.role) {
+    val needsAboutYou = core.needsAboutYou
+    LaunchedEffect(needsOnboarding, needsAboutYou, router.showsSurvey, user.role) {
         if (user.role.isStaff || showSurvey) return@LaunchedEffect
-        if (needsOnboarding || router.showsSurvey) {
+        surveyMode = when {
             // Fixed when the cover opens: saving the survey on step 2 must not switch the flow.
-            surveyTestOnly = router.surveyTestOnly || (core.survey.survey != null && core.survey.latestResult == null)
-            router.showsSurvey = false
-            router.surveyTestOnly = false
-            showSurvey = true
+            needsOnboarding || router.showsSurvey ->
+                if (router.surveyTestOnly || (core.survey.survey != null && core.survey.latestResult == null)) OnboardingMode.TEST_ONLY
+                else OnboardingMode.FULL
+            needsAboutYou -> OnboardingMode.ABOUT_ONLY
+            else -> return@LaunchedEffect
         }
+        router.showsSurvey = false
+        router.surveyTestOnly = false
+        aboutDraft = AboutYouDraft.start(core, isNewPlayer = core.survey.survey == null)
+        showSurvey = true
     }
     if (showSurvey) {
-        Dialog({ showSurvey = false }, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnBackPress = false)) {
-            com.pulse.android.ui.onboarding.OnboardingFlow(surveyTestOnly) {
+        Dialog({ if (surveyMode != OnboardingMode.ABOUT_ONLY) showSurvey = false },
+            DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false, dismissOnBackPress = false)) {
+            OnboardingFlow(surveyMode, aboutDraft, { aboutDraft = it }) {
                 if (core.survey.needsOnboarding) core.survey.dismissOnboarding()
                 showSurvey = false
             }

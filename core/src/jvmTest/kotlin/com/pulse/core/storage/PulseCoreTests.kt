@@ -120,4 +120,19 @@ class PulseCoreTests {
         core.applyAboutYou(filled(core))
         assertEquals(listOf("Вес", "Рост", "ИМТ"), core.fitness.bodyMetrics.map { it.title })
     }
+
+    @Test fun updateBodyKeepsGoalsAndWindow() = runTest {
+        val core = registered(Files.createTempDirectory("pulse-core").toFile())
+        core.applyAboutYou(filled(core))
+        core.screenTime.setLimit(330)
+        val before = listOf(core.sleep.window, core.fitness.goals, core.nutrition.goals, core.screenTime.state.value.dailyLimitMinutes)
+        val edited = AboutYou.initial(core.sleep.window, core.fitness.goals, core.nutrition.goals, 330, core.body.profile, isNewPlayer = false)
+            .copy(heightText = "185").withWeightText("80")
+        assertTrue(core.updateBody(edited))
+        assertEquals(185, core.body.profile?.heightCm)
+        assertEquals(80.0, core.body.profile?.weightKg)
+        assertEquals(before, listOf(core.sleep.window, core.fitness.goals, core.nutrition.goals, core.screenTime.state.value.dailyLimitMinutes))
+        assertFalse(core.updateBody(edited.copy(heightText = "")))
+        assertEquals(185, core.body.profile?.heightCm)
+    }
 }

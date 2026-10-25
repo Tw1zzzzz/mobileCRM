@@ -100,7 +100,7 @@ fun SearchField(query: String, placeholder: String, padding: Dp = 12.dp, onChang
 @Composable
 fun PulseTextField(
     title: String, value: String, placeholder: String = "", keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true,
-    secure: Boolean = false, onChange: (String) -> Unit
+    secure: Boolean = false, error: String? = null, onChange: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, color = Palette.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
@@ -116,6 +116,7 @@ fun PulseTextField(
             ),
             modifier = Modifier.fillMaxWidth()
         )
+        error?.let { Text(it, color = Palette.red, fontSize = 13.sp) }
     }
 }
 

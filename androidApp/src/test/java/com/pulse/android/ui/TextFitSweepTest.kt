@@ -55,6 +55,13 @@ class TextFitSweepTest {
     @Test fun staffPlayers() = sweep("players", UserRole.STAFF)
     @Test fun staffAnalytics() = sweep("analytics", UserRole.STAFF)
 
+    @Test fun aboutOnly() {
+        val core = registeredCore().also { it.survey.dismissOnboarding() }
+        rule.setMain(core, fontScale = Metrics.maxFontScale)
+        rule.waitForIdle()
+        rule.assertTextFits(unfit)
+    }
+
     @Test fun signInAndRegistration() {
         val session = testCore(null).session
         rule.setContent {

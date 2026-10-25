@@ -1,6 +1,7 @@
 package com.pulse.android.ui
 
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.test.SemanticsMatcher
@@ -19,6 +20,7 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import com.pulse.android.ui.main.MainScreen
 import com.pulse.android.ui.theme.Palette
 import com.pulse.core.PulseCore
+import com.pulse.core.model.RegistrationForm
 import com.pulse.core.model.UserRole
 import com.pulse.core.platform.JvmFileSystem
 import com.pulse.core.platform.MemorySecretStore
@@ -50,15 +52,25 @@ fun testCore(role: UserRole?): PulseCore {
     return core
 }
 
+/** A freshly registered (not demo) solo player: no questionnaire answers, no «О тебе». */
+fun registeredCore(): PulseCore = testCore(null).also { core ->
+    runBlocking {
+        core.session.register(RegistrationForm(nickname = "Тестер", email = "tester@example.com", password = "test-pass-1",
+            confirmPassword = "test-pass-1", acceptedTerms = true, acceptedPrivacy = true))
+    }
+}
+
 /** The signed-in app as `MainActivity` shows it, opened on a debug route (`DebugRoutes`) when given. */
-fun ComposeContentTestRule.setMain(core: PulseCore, route: String? = null, fontScale: Float? = null) {
-    val user = requireNotNull(core.session.user.value) { "setMain needs a signed-in core" }
-    setContent {
-        val density = LocalDensity.current
-        CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale ?: density.fontScale)) {
-            MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
-                MainScreen(core, user, debugRoute = route)
-            }
+fun ComposeContentTestRule.setMain(core: PulseCore, route: String? = null, fontScale: Float? = null) =
+    setContent { MainContent(core, route, fontScale) }
+
+@Composable
+fun MainContent(core: PulseCore, route: String? = null, fontScale: Float? = null) {
+    val user = requireNotNull(core.session.user.value) { "MainContent needs a signed-in core" }
+    val density = LocalDensity.current
+    CompositionLocalProvider(LocalDensity provides Density(density.density, fontScale ?: density.fontScale)) {
+        MaterialTheme(colorScheme = darkColorScheme(primary = Palette.cyan, background = Palette.background, surface = Palette.card)) {
+            MainScreen(core, user, debugRoute = route)
         }
     }
 }

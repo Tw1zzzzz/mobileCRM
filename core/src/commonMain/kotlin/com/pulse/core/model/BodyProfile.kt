@@ -7,6 +7,7 @@ import com.pulse.core.util.localDate
 import com.pulse.core.util.roundToIntSwift
 import com.pulse.core.util.roundedSwift
 import kotlinx.datetime.LocalDate
+import kotlinx.datetime.number
 import kotlinx.datetime.yearsUntil
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
@@ -152,6 +153,17 @@ object AboutYou {
         if (errors(form, now).isNotEmpty()) return null
         return BodyProfile(form.birthDate ?: return null, form.heightCm ?: return null, form.weightKg ?: return null, now)
     }
+
+    private val BIRTH_DATE = Regex("""(\d{1,2})[.\-/ ]?(\d{1,2})[.\-/ ]?(\d{4})""")
+
+    /** «12.03.2004», «1.3.2004» or «12032004» (Android's text field); null when it is not a real date. */
+    fun parseBirthDate(text: String): LocalDate? {
+        val (day, month, year) = BIRTH_DATE.matchEntire(text.trim())?.destructured ?: return null
+        return runCatching { LocalDate(year.toInt(), month.toInt(), day.toInt()) }.getOrNull()
+    }
+
+    fun birthDateText(date: LocalDate): String =
+        "${date.day.toString().padStart(2, '0')}.${date.month.number.toString().padStart(2, '0')}.${date.year}"
 
     /** «74» or «74,5». */
     private fun weightText(kg: Double): String =

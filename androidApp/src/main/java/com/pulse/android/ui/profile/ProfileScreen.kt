@@ -67,6 +67,8 @@ import com.pulse.android.ui.components.switchRow
 import com.pulse.android.ui.main.AppTab
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
+import com.pulse.android.ui.onboarding.ABOUT_YOU_TITLE
+import com.pulse.android.ui.onboarding.AboutYouSheet
 import com.pulse.android.ui.onboarding.PlayerPortraitSection
 import com.pulse.android.ui.theme.Gradients
 import com.pulse.android.ui.theme.Metrics
@@ -243,6 +245,7 @@ private fun SettingsCard(user: User) {
     val router = LocalRouter.current
     val screenTime = core.screenTime.state.value
     val context = LocalContext.current
+    var editAbout by remember { mutableStateOf(false) }
     var remindersOn by remember { mutableStateOf(PulseNotifications.isEnabled(context)) }
     // Notifications may have been switched off (or back on) in system settings while Pulse was in the background.
     LifecycleResumeEffect(Unit) {
@@ -275,8 +278,13 @@ private fun SettingsCard(user: User) {
             }
             DividerLine()
         }
+        if (!user.role.isStaff) {
+            SettingRow(ABOUT_YOU_TITLE, "person.text.rectangle", Palette.cyan, chevron = true) { editAbout = true }
+            DividerLine()
+        }
         SettingRow("Календарь", "calendar", Palette.purple, chevron = true) { router.open(Route.Calendar(createNew = false), AppTab.PROFILE) }
     }
+    if (editAbout) PulseSheet({ editAbout = false }) { AboutYouSheet { editAbout = false } }
 }
 
 @Composable
