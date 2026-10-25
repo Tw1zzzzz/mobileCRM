@@ -1,7 +1,9 @@
 package com.pulse.core.store
 
 import com.pulse.core.demo.DemoData
+import com.pulse.core.model.BodyMath
 import com.pulse.core.model.BodyMetric
+import com.pulse.core.model.BodyProfile
 import com.pulse.core.model.DailyValue
 import com.pulse.core.model.FitnessGoals
 import com.pulse.core.model.FitnessMath
@@ -101,6 +103,9 @@ class FitnessStore(
     }
 
     val goals get() = current.goals
+
+    /** «О тебе» (set by PulseCore): age for heart-rate estimates, height and weight for «Тело». */
+    var bodyProfile: BodyProfile? = null
     val workouts get() = current.workouts
     val isHealthAvailable: Boolean get() = healthService?.isAvailable ?: false
     val healthName: String get() = healthService?.name ?: "Health Connect"
@@ -133,7 +138,7 @@ class FitnessStore(
     fun effort(workout: Workout): Effort {
         (workout.rpe ?: current.healthRatings[workout.id])?.let { return Effort(it, false) }
         return Effort(
-            TrainingLoadMath.estimatedRPE(workout.kind, workout.averageHeartRate, FitnessMath.maxHeartRate(FitnessMath.DEFAULT_AGE)),
+            TrainingLoadMath.estimatedRPE(workout.kind, workout.averageHeartRate, FitnessMath.maxHeartRate(FitnessMath.age(bodyProfile?.birthDate))),
             true
         )
     }
@@ -245,7 +250,9 @@ class FitnessStore(
     /** null = no heart-rate data (no Health / no watch). */
     val heartRateZones: List<HeartRateZone>? get() = if (showsDemoBaseline) DemoData.heartRateZones else current.health?.heartRateZones
     val averageHeartRate: Int? get() = if (showsDemoBaseline) DemoData.AVERAGE_HEART_RATE else current.health?.averageHeartRate
-    val bodyMetrics: List<BodyMetric> get() = current.health?.bodyMetrics ?: if (showsDemoBaseline) DemoData.bodyMetrics else emptyList()
+    val bodyMetrics: List<BodyMetric>
+        get() = current.health?.bodyMetrics
+            ?: if (showsDemoBaseline) DemoData.bodyMetrics else bodyProfile?.let { BodyMath.metrics(it, null, null, null, null) } ?: emptyList()
 
     fun add(workout: Workout) {
         current = current.copy(workouts = (current.workouts + workout).sortedBy { it.date })

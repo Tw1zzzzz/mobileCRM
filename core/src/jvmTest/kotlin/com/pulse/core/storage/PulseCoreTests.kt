@@ -2,6 +2,9 @@ package com.pulse.core.storage
 
 import com.pulse.core.PulseCore
 import com.pulse.core.auth.DemoAuth
+import com.pulse.core.model.AboutYou
+import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.FitnessGoals
 import com.pulse.core.model.RegistrationForm
 import com.pulse.core.model.UserRole
 import com.pulse.core.platform.JvmFileSystem
@@ -12,6 +15,7 @@ import io.ktor.client.engine.mock.respond
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
 import java.nio.file.Files
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -53,5 +57,67 @@ class PulseCoreTests {
         restarted.session.logout()
         restarted.session.login("player@pulse.app", DemoAuth.DEMO_PASSWORD)
         assertTrue(restarted.sleep.sessions.size >= 30) // demo history + the night recorded above
+    }
+
+    private suspend fun registered(root: java.io.File): PulseCore = core(root).also {
+        it.session.register(RegistrationForm(nickname = "Тестер", email = "t@team.gg", password = "abcd1234", confirmPassword = "abcd1234",
+            acceptedTerms = true, acceptedPrivacy = true))
+    }
+
+    private fun filled(core: PulseCore) = AboutYou.initial(core.sleep.window, core.fitness.goals, core.nutrition.goals,
+        core.screenTime.state.value.dailyLimitMinutes, core.body.profile, isNewPlayer = true)
+        .copy(birthDate = LocalDate(2004, 3, 12), heightText = "182", bedtimeHour = 23, bedtimeMinute = 30, wakeHour = 7, wakeMinute = 30,
+            activeMinutes = 45, steps = 8_500, activeKcal = 500, screenLimitHours = 4)
+        .withWeightText("74").withFoodKcal(2_600).withWater(2_750)
+
+    @Test fun demoAccountsHaveAProfile() = runTest {
+        val core = core(Files.createTempDirectory("pulse-core").toFile())
+        core.session.switchToDemo(UserRole.TEAM_PLAYER)
+        assertEquals(BodyProfile.demo, core.body.profile)
+        assertFalse(core.needsAboutYou)
+    }
+
+    @Test fun needsAboutYouOnlyForRealPlayers() = runTest {
+        val root = Files.createTempDirectory("pulse-core").toFile()
+        val core = registered(root)
+        assertNull(core.body.profile)
+        assertTrue(core.needsAboutYou)
+        assertTrue(core.applyAboutYou(filled(core)))
+        assertFalse(core.needsAboutYou)
+        core.session.switchToDemo(UserRole.STAFF)
+        assertFalse(core.needsAboutYou)
+    }
+
+    @Test fun applyAboutYouWritesEveryMetric() = runTest {
+        val root = Files.createTempDirectory("pulse-core").toFile()
+        val core = registered(root)
+        val protein = core.nutrition.goals.protein
+        assertTrue(core.applyAboutYou(filled(core)))
+        assertEquals(listOf(23, 30, 7, 30), core.sleep.window.let { listOf(it.bedtimeHour, it.bedtimeMinute, it.wakeHour, it.wakeMinute) })
+        assertEquals(FitnessGoals(45, 8_500, 500), core.fitness.goals)
+        assertEquals(2_600, core.nutrition.goals.kcal)
+        assertEquals(2_750, core.nutrition.goals.waterMilliliters)
+        assertEquals(protein, core.nutrition.goals.protein)
+        assertEquals(240, core.screenTime.state.value.dailyLimitMinutes)
+        assertEquals(182, core.body.profile?.heightCm)
+        // Saved in the account's own file: a restart keeps it.
+        val restarted = core(root)
+        assertEquals(74.0, restarted.body.profile?.weightKg)
+        assertFalse(restarted.needsAboutYou)
+    }
+
+    @Test fun invalidFormChangesNothing() = runTest {
+        val core = registered(Files.createTempDirectory("pulse-core").toFile())
+        val before = Triple(core.sleep.window, core.fitness.goals, core.nutrition.goals)
+        assertFalse(core.applyAboutYou(filled(core).copy(heightText = "")))
+        assertEquals(before, Triple(core.sleep.window, core.fitness.goals, core.nutrition.goals))
+        assertNull(core.body.profile)
+    }
+
+    @Test fun bodyMetricsFromProfileWithoutHealth() = runTest {
+        val core = registered(Files.createTempDirectory("pulse-core").toFile())
+        assertTrue(core.fitness.bodyMetrics.isEmpty())
+        core.applyAboutYou(filled(core))
+        assertEquals(listOf("Вес", "Рост", "ИМТ"), core.fitness.bodyMetrics.map { it.title })
     }
 }

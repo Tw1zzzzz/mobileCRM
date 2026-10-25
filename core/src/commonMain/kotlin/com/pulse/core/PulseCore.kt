@@ -11,7 +11,12 @@ import com.pulse.core.auth.SessionStore
 import com.pulse.core.demo.PlayerSurveyState
 import com.pulse.core.feature.ActivityStreak
 import com.pulse.core.feature.NotificationInbox
+import com.pulse.core.model.AboutYou
+import com.pulse.core.model.AboutYouForm
+import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.FitnessGoals
 import com.pulse.core.model.WeeklyInputs
+import com.pulse.core.store.BodyProfileStore
 import com.pulse.core.util.addingDays
 import com.pulse.core.util.isSameDay
 import com.pulse.core.util.startOfDay
@@ -82,6 +87,7 @@ class PulseCore(
     val gameGoals = GameGoalsStore(file(GameGoalsStore.FILE, GameGoals.serializer()))
     val game = GameStore(file(GameStore.FILE, GameStore.Saved.serializer()), secrets) { key -> FaceitClient(key, http) }
     val survey = PlayerSurveyStore(file(PlayerSurveyStore.FILE, PlayerSurveyState.serializer()))
+    val body = BodyProfileStore(file(BodyProfileStore.FILE, BodyProfile.serializer()))
 
     /** Platform hook: reschedule reminders, stop the sleep notification of the previous account, etc. */
     var onAccountActivated: ((User?, Boolean) -> Unit)? = null
@@ -109,7 +115,32 @@ class PulseCore(
         gameGoals.reload(isDemo)
         game.reload(isDemo)
         survey.reload(user)
+        body.reload(user)
+        fitness.bodyProfile = body.profile
         onAccountActivated?.invoke(user, accountChanged)
+    }
+
+    /** A real player without «О тебе» answers: the step is shown once, on its own, at the next launch. */
+    val needsAboutYou: Boolean
+        get() {
+            val user = session.user.value ?: return false
+            return !user.role.isStaff && !user.isDemo && body.profile == null
+        }
+
+    /**
+     * Saves «О тебе» and spreads it over the metrics: body profile, sleep window (reminders), fitness and nutrition
+     * goals, screen-time limit. False, and nothing changes, while any answer is missing or out of range.
+     */
+    fun applyAboutYou(form: AboutYouForm, now: Instant = Clock.System.now()): Boolean {
+        val profile = AboutYou.profile(form, now) ?: return false
+        body.save(profile)
+        fitness.bodyProfile = profile
+        sleep.updateWindow(sleep.window.copy(bedtimeHour = form.bedtimeHour, bedtimeMinute = form.bedtimeMinute,
+            wakeHour = form.wakeHour, wakeMinute = form.wakeMinute))
+        fitness.updateGoals(FitnessGoals(form.activeMinutes, form.steps, form.activeKcal))
+        nutrition.updateGoals(nutrition.goals.copy(kcal = form.foodKcal, waterMilliliters = form.waterMl))
+        screenTime.setLimit(form.screenLimitHours * 60)
+        return true
     }
 
     /** Personal weekly report inputs from every store (iOS `WeeklySource`); 70 days cover two compared weeks. */
