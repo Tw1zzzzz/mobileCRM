@@ -5,7 +5,8 @@ import HealthKit
 protocol HealthDataProviding {
     var isAvailable: Bool { get }
     func requestAuthorization() async throws
-    func snapshot(now: Date) async throws -> HealthSnapshot
+    /// `body` («О тебе») gives the age for heart-rate zones and the height/weight for «Тело» and the kcal estimate.
+    func snapshot(now: Date, body: BodyProfile?) async throws -> HealthSnapshot
 }
 
 /// Read-only Apple Health access: steps, distance, energy, exercise minutes, heart rate, workouts, body.
@@ -32,7 +33,7 @@ final class HealthKitService: HealthDataProviding {
         try await store.requestAuthorization(toShare: [], read: readTypes)
     }
 
-    func snapshot(now: Date = .now) async throws -> HealthSnapshot {
+    func snapshot(now: Date = .now, body: BodyProfile? = nil) async throws -> HealthSnapshot {
         let start = now.startOfDay.adding(days: -(days - 1))
         async let steps = dailySums(.stepCount, unit: .count(), from: start, to: now)
         async let distance = dailySums(.distanceWalkingRunning, unit: .meterUnit(with: .kilo), from: start, to: now)
@@ -48,13 +49,14 @@ final class HealthKitService: HealthDataProviding {
                                            from: now.startOfDay.adding(days: -29), to: now)
         async let resting = latest(.restingHeartRate, unit: HKUnit.count().unitDivided(by: .minute()))
         async let hrv = latest(.heartRateVariabilitySDNN, unit: .secondUnit(with: .milli))
-        async let weight = latest(.bodyMass, unit: .gramUnit(with: .kilo))
+        async let weight = latestSample(.bodyMass, unit: .gramUnit(with: .kilo))
         async let fat = latest(.bodyFatPercentage, unit: .percent())
         async let lean = latest(.leanBodyMass, unit: .gramUnit(with: .kilo))
 
         let (stepsByDay, distanceByDay, energyByDay, exerciseByDay, briskByDay) =
             try await (steps, distance, energy, exercise, brisk)
-        let weightKg = try await weight
+        let healthWeight = try await weight
+        let weightKg = BodyMath.currentWeight(profile: body, healthKg: healthWeight?.value, healthAt: healthWeight?.date)
         let dayList = (0..<days).map { start.adding(days: $0) }
         let activeMinutes = dayList.map { day in
             DailyValue(date: day, value: max(exerciseByDay[day] ?? 0, Double(briskByDay[day] ?? 0)))
@@ -69,7 +71,8 @@ final class HealthKitService: HealthDataProviding {
             activeMinutes: Int(activeMinutes.last?.value ?? 0)
         )
         let bpm = try await heartRates
-        let age = FitnessMath.age(birthDate: try? store.dateOfBirthComponents(), now: now)
+        // «О тебе» first; Apple Health's date of birth only for accounts that have not answered it yet.
+        let age = FitnessMath.age(birthDate: body?.birthDay ?? (try? store.dateOfBirthComponents()), now: now)
         let average = bpm.isEmpty ? nil : Int((bpm.reduce(0, +) / Double(bpm.count)).rounded())
 
         let allWorkouts = try await workouts
@@ -84,7 +87,9 @@ final class HealthKitService: HealthDataProviding {
             averageHeartRate: average,
             restingHeartRate: try await resting.map { Int($0.rounded()) },
             hrv: try await hrv.map { Int($0.rounded()) },
-            bodyMetrics: Self.bodyMetrics(weight: weightKg, fat: try await fat, lean: try await lean),
+            // Apple Health stores body fat as a fraction.
+            bodyMetrics: BodyMath.metrics(profile: body, healthKg: healthWeight?.value, healthAt: healthWeight?.date,
+                                          fatPercent: try await fat.map { $0 * 100 }, leanKg: try await lean),
             fetchedAt: now,
             sleepIntervals: intervals,
             nightVitals: vitals,
@@ -213,6 +218,16 @@ final class HealthKitService: HealthDataProviding {
         return try await descriptor.result(for: store).map { $0.quantity.doubleValue(for: unit) }
     }
 
+    /// The newest sample with its end date (decides whether it beats the weight from «О тебе»).
+    private func latestSample(_ id: HKQuantityTypeIdentifier, unit: HKUnit) async throws -> (value: Double, date: Date)? {
+        let descriptor = HKSampleQueryDescriptor(
+            predicates: [.quantitySample(type: HKQuantityType(id))],
+            sortDescriptors: [SortDescriptor(\.endDate, order: .reverse)],
+            limit: 1
+        )
+        return try await descriptor.result(for: store).first.map { ($0.quantity.doubleValue(for: unit), $0.endDate) }
+    }
+
     private func latest(_ id: HKQuantityTypeIdentifier, unit: HKUnit) async throws -> Double? {
         let descriptor = HKSampleQueryDescriptor(
             predicates: [.quantitySample(type: HKQuantityType(id))],
@@ -255,13 +270,5 @@ final class HealthKitService: HealthDataProviding {
         case .flexibility, .cooldown, .preparationAndRecovery: .stretch
         default: .cardio
         }
-    }
-
-    private static func bodyMetrics(weight: Double?, fat: Double?, lean: Double?) -> [BodyMetric] {
-        [
-            weight.map { BodyMetric(title: "Вес", value: $0, unit: "кг") },
-            fat.map { BodyMetric(title: "Жир", value: $0 * 100, unit: "%") },
-            lean.map { BodyMetric(title: "Сух. масса", value: $0, unit: "кг") }
-        ].compactMap { $0 }
     }
 }

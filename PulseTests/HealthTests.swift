@@ -36,7 +36,21 @@ private struct FakeHealth: HealthDataProviding {
     var snapshot: HealthSnapshot
 
     func requestAuthorization() async throws {}
-    func snapshot(now: Date) async throws -> HealthSnapshot { snapshot }
+    func snapshot(now: Date, body: BodyProfile?) async throws -> HealthSnapshot { snapshot }
+}
+
+/// Remembers the «О тебе» profile the store handed over.
+private final class RecordingHealth: HealthDataProviding {
+    var isAvailable = true
+    var lastBody: BodyProfile?
+    let snapshot: HealthSnapshot
+    init(snapshot: HealthSnapshot) { self.snapshot = snapshot }
+
+    func requestAuthorization() async throws {}
+    func snapshot(now: Date, body: BodyProfile?) async throws -> HealthSnapshot {
+        lastBody = body
+        return snapshot
+    }
 }
 
 @MainActor
@@ -73,6 +87,24 @@ struct FitnessStoreHealthTests {
         #expect(store.todayWorkouts.contains { $0.detail == "Apple Health" })
         // No watch → no zones rather than fake ones.
         #expect(store.heartRateZones == nil)
+    }
+
+    @Test func snapshotFakeReceivesProfile() async {
+        let health = RecordingHealth(snapshot: snapshot(steps: 100, minutes: 10, kcal: 50))
+        let store = FitnessStore(storage: makeStorage(), seed: [], healthService: health)
+        store.bodyProfile = BodyProfile(birthDate: "1986-01-01", heightCm: 180, weightKg: 80, updatedAt: .now)
+        await store.connectHealth()
+        #expect(health.lastBody?.birthDate == "1986-01-01")
+        #expect(health.lastBody?.weightKg == 80)
+    }
+
+    @Test func bodyMetricsPreferNewerHealthWeight() {
+        let saved = Date(timeIntervalSince1970: 1_800_000_000)
+        let profile = BodyProfile(birthDate: "2004-03-12", heightCm: 182, weightKg: 74, updatedAt: saved)
+        // Apple Health stores body fat as a fraction; the service passes percent.
+        let metrics = BodyMath.metrics(profile: profile, healthKg: 76, healthAt: saved.adding(days: 1), fatPercent: 14, leanKg: nil)
+        #expect(metrics.map(\.title) == ["Вес", "Рост", "ИМТ", "Жир"])
+        #expect(metrics.map(\.value) == [76, 182, 22.9, 14])
     }
 
     @Test func manualWorkoutsAddOnTopOfHealth() async {

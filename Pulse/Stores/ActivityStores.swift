@@ -150,7 +150,7 @@ final class FitnessStore {
         isSyncing = true
         defer { isSyncing = false }
         do {
-            let snapshot = try await healthService.snapshot(now: now)
+            let snapshot = try await healthService.snapshot(now: now, body: bodyProfile)
             health = snapshot
             healthError = nil
             onHealthSnapshot?(snapshot)
