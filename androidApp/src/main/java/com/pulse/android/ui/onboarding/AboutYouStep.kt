@@ -62,7 +62,7 @@ const val ABOUT_YOU_SUBTITLE = "Возраст, рост и вес нужны д
  * pressed the button with a wrong answer, so every error is shown, not only those of fields already left.
  */
 data class AboutYouDraft(val form: AboutYouForm, val birthText: String, val revealed: Boolean = false) {
-    fun withBirthText(text: String) = copy(birthText = text, form = form.copy(birthDate = AboutYou.parseBirthDate(text)))
+    fun withBirthText(text: String) = copy(birthText = text, form = form.copy(birthDate = AboutYou.parseBirthDigits(text)))
 
     val isValid: Boolean get() = AboutYou.errors(form, Clock.System.now()).isEmpty()
 

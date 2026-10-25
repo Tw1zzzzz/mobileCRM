@@ -127,6 +127,14 @@ class AboutYouTest {
         assertEquals("12.03.2004", AboutYou.birthDateText(LocalDate(2004, 3, 12)))
     }
 
+    /** The masked field holds digits only: a date counts only once all 8 are typed, never via another split. */
+    @Test fun birthDigitsNeedAllEight() {
+        assertNull(AboutYou.parseBirthDigits("1032004"))
+        assertNull(AboutYou.parseBirthDigits("132004"))
+        assertNull(AboutYou.parseBirthDigits("31022004"))
+        assertEquals(LocalDate(2004, 3, 12), AboutYou.parseBirthDigits("12032004"))
+    }
+
     @Test fun birthDateMaskFormats() {
         assertEquals("1", BirthDateMask.format("1"))
         assertEquals("12", BirthDateMask.format("12"))

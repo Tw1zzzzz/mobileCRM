@@ -189,6 +189,10 @@ object AboutYou {
         return runCatching { LocalDate(year.toInt(), month.toInt(), day.toInt()) }.getOrNull()
     }
 
+    /** Android's masked field (digits only): a date only once all 8 are typed — «1032004» must not become 10.03.2004. */
+    fun parseBirthDigits(digits: String): LocalDate? =
+        if (digits.length == BirthDateMask.DIGITS && digits.all(Char::isDigit)) parseBirthDate(BirthDateMask.format(digits)) else null
+
     fun birthDateText(date: LocalDate): String =
         "${date.day.toString().padStart(2, '0')}.${date.month.number.toString().padStart(2, '0')}.${date.year}"
 
