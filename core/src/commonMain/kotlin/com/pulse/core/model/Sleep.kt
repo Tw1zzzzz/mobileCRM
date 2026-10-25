@@ -5,7 +5,9 @@ package com.pulse.core.model
 import com.pulse.core.util.IsoInstantSerializer
 import com.pulse.core.util.Tint
 import com.pulse.core.util.UuidSerializer
+import com.pulse.core.util.addingDays
 import com.pulse.core.util.minutesBetween
+import com.pulse.core.util.setting
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.UseSerializers
 import kotlin.math.max
@@ -108,4 +110,28 @@ data class SleepWindow(
 /** One bar in the weekly stacked chart (deep / REM / light minutes). */
 data class SleepWeekDay(val date: Instant, val deep: Int, val rem: Int, val light: Int) {
     val total: Int get() = deep + rem + light
+}
+
+/**
+ * «Добавить ночь»: a night entered by hand when «Начать сон» was forgotten. [wakeDaysAgo] picks the wake day
+ * (0 = «Сегодня»); a bedtime at or after the wake time belongs to the evening before.
+ */
+data class ManualNight(val wakeDaysAgo: Int, val bedHour: Int, val bedMinute: Int, val wakeHour: Int, val wakeMinute: Int) {
+    fun interval(now: Instant): Pair<Instant, Instant> {
+        val wakeDay = now.addingDays(-wakeDaysAgo)
+        val end = wakeDay.setting(wakeHour, wakeMinute)
+        val bedDay = if (bedHour * 60 + bedMinute >= wakeHour * 60 + wakeMinute) wakeDay.addingDays(-1) else wakeDay
+        return bedDay.setting(bedHour, bedMinute) to end
+    }
+
+    companion object {
+        val DAYS = listOf("Сегодня", "Вчера", "Позавчера")
+        val DURATION_MINUTES = 60..16 * 60
+
+        /** The planned window, waking today once this morning's wake time has passed, yesterday before that. */
+        fun suggested(window: SleepWindow, now: Instant): ManualNight {
+            val woke = now >= now.setting(window.wakeHour, window.wakeMinute)
+            return ManualNight(if (woke) 0 else 1, window.bedtimeHour, window.bedtimeMinute, window.wakeHour, window.wakeMinute)
+        }
+    }
 }

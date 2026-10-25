@@ -31,6 +31,7 @@ import com.pulse.core.model.LineupType
 import com.pulse.core.model.LineupVisibility
 import com.pulse.core.model.Meal
 import com.pulse.core.model.MealSource
+import com.pulse.core.model.ManualNight
 import com.pulse.core.model.MindsetTest
 import com.pulse.core.model.NutritionTotals
 import com.pulse.core.model.PlayerSurvey
@@ -585,5 +586,59 @@ class InboxAndStreakTests {
         assertEquals(3, com.pulse.core.feature.ActivityStreak.days(days, today))
         assertEquals(2, com.pulse.core.feature.ActivityStreak.days(setOf(today.addingDays(-1), today.addingDays(-2)), today))
         assertEquals(0, com.pulse.core.feature.ActivityStreak.days(emptySet(), today))
+    }
+}
+
+/** «Добавить ночь»: a night entered by hand when «Начать сон» was forgotten. */
+class ManualNightTests {
+    @BeforeTest fun zone() = pinTestZone()
+
+    private val now = at(2026, 10, 25, 12)
+    private fun store() = SleepStore(null, seed = emptyList())
+
+    @Test fun manualNightBeforeMidnight() {
+        val store = store()
+        assertNull(store.addNight(ManualNight(wakeDaysAgo = 0, bedHour = 23, bedMinute = 30, wakeHour = 7, wakeMinute = 15), now))
+        val saved = store.sessions.first()
+        assertEquals(at(2026, 10, 24, 23, 30), saved.start)
+        assertEquals(at(2026, 10, 25, 7, 15), saved.end)
+    }
+
+    @Test fun manualNightAfterMidnight() {
+        val night = ManualNight(wakeDaysAgo = 1, bedHour = 1, bedMinute = 0, wakeHour = 9, wakeMinute = 0)
+        assertEquals(at(2026, 10, 24, 1) to at(2026, 10, 24, 9), night.interval(now))
+    }
+
+    @Test fun manualNightInFutureIsRejected() {
+        val store = store()
+        val early = at(2026, 10, 25, 6)
+        assertEquals("Подъём ещё не наступил", store.addNight(ManualNight(0, 23, 0, 7, 0), early))
+        assertTrue(store.sessions.isEmpty())
+    }
+
+    @Test fun manualNightTooLongOrShort() {
+        val store = store()
+        assertEquals("Сон — от 1 до 16 часов", store.addNight(ManualNight(0, 7, 0, 7, 30), now))
+        assertEquals("Сон — от 1 до 16 часов", store.addNight(ManualNight(0, 11, 0, 5, 0), now))
+        assertTrue(store.sessions.isEmpty())
+    }
+
+    @Test fun manualNightOverlapsSavedSession() {
+        val store = store()
+        assertNull(store.addNight(ManualNight(0, 23, 0, 7, 0), now))
+        assertEquals("Эта ночь пересекается с уже записанной", store.addNight(ManualNight(0, 2, 0, 9, 0), now))
+        assertEquals(1, store.sessions.size)
+    }
+
+    @Test fun manualNightOverlapsRunningSession() {
+        val store = store()
+        store.startSleep(at(2026, 10, 25, 4))
+        assertEquals("Эта ночь пересекается с уже записанной", store.addNight(ManualNight(0, 23, 0, 7, 0), now))
+    }
+
+    @Test fun suggestedNightUsesWindow() {
+        val window = SleepWindow(bedtimeHour = 23, bedtimeMinute = 0, wakeHour = 7, wakeMinute = 0)
+        assertEquals(ManualNight(1, 23, 0, 7, 0), ManualNight.suggested(window, at(2026, 10, 25, 6)))
+        assertEquals(ManualNight(0, 23, 0, 7, 0), ManualNight.suggested(window, at(2026, 10, 25, 10)))
     }
 }

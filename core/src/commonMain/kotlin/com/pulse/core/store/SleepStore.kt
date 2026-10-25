@@ -4,6 +4,7 @@ package com.pulse.core.store
 
 import com.pulse.core.demo.DemoData
 import com.pulse.core.model.HealthSnapshot
+import com.pulse.core.model.ManualNight
 import com.pulse.core.model.SleepMath
 import com.pulse.core.model.SleepNight
 import com.pulse.core.model.SleepSession
@@ -13,6 +14,7 @@ import com.pulse.core.storage.JsonFileStorage
 import com.pulse.core.util.IsoInstantSerializer
 import com.pulse.core.util.addingDays
 import com.pulse.core.util.isSameDay
+import com.pulse.core.util.minutesBetween
 import com.pulse.core.util.secondsBetween
 import com.pulse.core.util.startOfDay
 import kotlinx.serialization.Serializable
@@ -99,6 +101,28 @@ class SleepStore(
         current = current.copy(activeStart = null)
         persist()
         onTrackingChange?.invoke(null, current.window)
+    }
+
+    /** Why [night] cannot be saved, or null when it can. */
+    fun nightError(night: ManualNight, now: Instant = Clock.System.now()): String? {
+        val (start, end) = night.interval(now)
+        val minutes = minutesBetween(start, end).toInt()
+        val active = current.activeStart
+        return when {
+            end > now -> "Подъём ещё не наступил"
+            minutes !in ManualNight.DURATION_MINUTES -> "Сон — от 1 до 16 часов"
+            current.sessions.any { it.start < end && start < it.end } || (active != null && active < end) -> "Эта ночь пересекается с уже записанной"
+            else -> null
+        }
+    }
+
+    /** Saves [night] in the history; returns the reason instead when it cannot be saved. */
+    fun addNight(night: ManualNight, now: Instant = Clock.System.now()): String? {
+        nightError(night, now)?.let { return it }
+        val (start, end) = night.interval(now)
+        current = current.copy(sessions = (current.sessions + SleepSession(Uuid.random(), start, end)).sortedByDescending { it.start })
+        persist()
+        return null
     }
 
     fun deleteSession(id: Uuid) {
