@@ -71,7 +71,15 @@ data class RegistrationForm(
 
     val isTeamPlayer: Boolean get() = accessType == AccessType.TEAM && teamRole == TeamRole.PLAYER
     val isTeamStaff: Boolean get() = accessType == AccessType.TEAM && teamRole == TeamRole.MANAGER
+
+    /** The visible fields in screen order: the keyboard's «Далее» walks them, the last one closes the keyboard. */
+    fun fields(): List<AuthFieldId> = listOfNotNull(
+        AuthFieldId.NAME, AuthFieldId.EMAIL, AuthFieldId.PASSWORD, AuthFieldId.CONFIRM, AuthFieldId.FACEIT,
+        AuthFieldId.TEAM_CODE.takeIf { isTeamPlayer }, AuthFieldId.TEAM_NAME.takeIf { isTeamStaff }
+    )
 }
+
+enum class AuthFieldId { NAME, EMAIL, PASSWORD, CONFIRM, FACEIT, TEAM_CODE, TEAM_NAME }
 
 /** Errors and user-facing messages exactly as defined in the spec (раздел «Авторизация»). */
 enum class AuthError(val message: String) {

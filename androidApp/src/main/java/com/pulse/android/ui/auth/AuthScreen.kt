@@ -26,6 +26,11 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import com.pulse.core.model.AuthFieldId
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.focus.FocusDirection
+import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
@@ -156,7 +161,7 @@ private fun LoginCard(session: SessionStore, onRegister: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Text("Вход", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
         AuthField("Email", email, { email = it }, keyboard = KeyboardType.Email)
-        AuthField("Пароль", password, { password = it }, isPassword = true)
+        AuthField("Пароль", password, { password = it }, isPassword = true, ime = ImeAction.Done) { scope.launch { session.login(email, password) } }
         error?.let { ErrorBanner(it) }
         GradientButton("Войти", Modifier.padding(top = 8.dp), isLoading = loading, brush = AuthStyle.button) {
             scope.launch { session.login(email, password) }
@@ -235,18 +240,18 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
             }
         }
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            AuthField("Имя", form.nickname, { form = form.copy(nickname = it) })
-            AuthField("Email", form.email, { form = form.copy(email = it) }, keyboard = KeyboardType.Email)
-            AuthField("Пароль", form.password, { form = form.copy(password = it) }, isPassword = true)
-            AuthField("Повторите пароль", form.confirmPassword, { form = form.copy(confirmPassword = it) }, isPassword = true)
-            AuthField("Ссылка Faceit", form.faceitURL, { form = form.copy(faceitURL = it) }, keyboard = KeyboardType.Uri)
-            if (form.isTeamPlayer) AuthField("Код команды", form.teamCode, { form = form.copy(teamCode = it) })
-            if (form.isTeamStaff) AuthField("Название команды", form.teamName, { form = form.copy(teamName = it) })
+            val last = form.fields().last()
+            fun ime(id: AuthFieldId) = if (id == last) ImeAction.Done else ImeAction.Next
+            AuthField("Имя", form.nickname, { form = form.copy(nickname = it) }, ime = ime(AuthFieldId.NAME))
+            AuthField("Email", form.email, { form = form.copy(email = it) }, keyboard = KeyboardType.Email, ime = ime(AuthFieldId.EMAIL))
+            AuthField("Пароль", form.password, { form = form.copy(password = it) }, isPassword = true, ime = ime(AuthFieldId.PASSWORD))
+            AuthField("Повторите пароль", form.confirmPassword, { form = form.copy(confirmPassword = it) }, isPassword = true,
+                ime = ime(AuthFieldId.CONFIRM))
+            AuthField("Ссылка Faceit", form.faceitURL, { form = form.copy(faceitURL = it) }, keyboard = KeyboardType.Uri, ime = ime(AuthFieldId.FACEIT))
+            if (form.isTeamPlayer) AuthField("Код команды", form.teamCode, { form = form.copy(teamCode = it) }, ime = ime(AuthFieldId.TEAM_CODE))
+            if (form.isTeamStaff) AuthField("Название команды", form.teamName, { form = form.copy(teamName = it) }, ime = ime(AuthFieldId.TEAM_NAME))
         }
-        error?.let { ErrorBanner(it) }
-        GradientButton("Создать аккаунт", Modifier.padding(top = 10.dp), isLoading = loading, brush = AuthStyle.button) {
-            scope.launch { session.register(form) }
-        }
+        // Consents before the button: «Создать аккаунт» is the last thing to press, not the first error to read.
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
             Consent("Я принимаю условия ", "Пользовательского соглашения", form.acceptedTerms, { onLegal(LegalDocument.TERMS) }) {
                 form = form.copy(acceptedTerms = it)
@@ -255,20 +260,33 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
                 form = form.copy(acceptedPrivacy = it)
             }
         }
+        error?.let { ErrorBanner(it) }
+        GradientButton("Создать аккаунт", Modifier.padding(top = 10.dp), isLoading = loading, brush = AuthStyle.button) {
+            scope.launch { session.register(form) }
+        }
         SwitchLink("Уже есть аккаунт?", "Войти", onLogin)
     }
 }
 
 @Composable
-private fun AuthField(placeholder: String, value: String, onChange: (String) -> Unit, isPassword: Boolean = false, keyboard: KeyboardType = KeyboardType.Text) {
+/**
+ * [name] sits inside the empty field and moves above the text once something is typed, so two filled password fields
+ * still say which is which. «Далее» ([ime] Next) moves to the next field; Done closes the keyboard or runs [onDone].
+ */
+private fun AuthField(
+    name: String, value: String, onChange: (String) -> Unit, isPassword: Boolean = false, keyboard: KeyboardType = KeyboardType.Text,
+    ime: ImeAction = ImeAction.Next, onDone: (() -> Unit)? = null
+) {
     var visible by remember { mutableStateOf(false) }
+    val focus = LocalFocusManager.current
     TextField(
         value = value,
         onValueChange = onChange,
-        placeholder = { Text(placeholder, color = AuthStyle.placeholder) },
+        label = { Text(name) },
         singleLine = true,
         visualTransformation = if (isPassword && !visible) PasswordVisualTransformation() else VisualTransformation.None,
-        keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else keyboard),
+        keyboardOptions = KeyboardOptions(keyboardType = if (isPassword) KeyboardType.Password else keyboard, imeAction = ime),
+        keyboardActions = KeyboardActions(onNext = { focus.moveFocus(FocusDirection.Down) }, onDone = { focus.clearFocus(); onDone?.invoke() }),
         trailingIcon = if (isPassword) {
             {
                 Box(Modifier.size(Metrics.minTouchTarget).pressable { visible = !visible }, contentAlignment = Alignment.Center) {
@@ -281,7 +299,8 @@ private fun AuthField(placeholder: String, value: String, onChange: (String) -> 
         colors = TextFieldDefaults.colors(
             focusedContainerColor = AuthStyle.field, unfocusedContainerColor = AuthStyle.field,
             focusedTextColor = Color.White, unfocusedTextColor = Color.White, cursorColor = Palette.cyan,
-            focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent
+            focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent,
+            focusedLabelColor = Palette.cyan, unfocusedLabelColor = AuthStyle.placeholder
         ),
         modifier = Modifier.fillMaxWidth()
     )
