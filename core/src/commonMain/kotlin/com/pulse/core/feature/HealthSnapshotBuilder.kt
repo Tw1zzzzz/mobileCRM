@@ -1,6 +1,8 @@
 package com.pulse.core.feature
 
+import com.pulse.core.model.BodyMath
 import com.pulse.core.model.BodyMetric
+import com.pulse.core.model.BodyProfile
 import com.pulse.core.model.DailyValue
 import com.pulse.core.model.FitnessMath
 import com.pulse.core.model.HealthDaySummary
@@ -48,6 +50,8 @@ data class HealthRawData(
     val respiratoryRate: List<HeartRateSample> = emptyList(),
     val spo2Percent: List<HeartRateSample> = emptyList(),
     val weightKg: Double? = null,
+    /** When [weightKg] was measured: decides whether it beats the weight from «О тебе». */
+    val weightAt: Instant? = null,
     val bodyFatPercent: Double? = null,
     val leanMassKg: Double? = null,
     val sleep: List<SleepInterval> = emptyList()
@@ -59,7 +63,9 @@ object HealthSnapshotBuilder {
     const val LOAD_DAYS = 28
     const val BASELINE_DAYS = 30
 
-    fun build(raw: HealthRawData, now: Instant, sourceName: String): HealthSnapshot {
+    /** [body] («О тебе») gives the age for heart-rate zones and the height/weight for «Тело» and the kcal estimate. */
+    fun build(raw: HealthRawData, now: Instant, sourceName: String, body: BodyProfile? = null): HealthSnapshot {
+        val weight = BodyMath.currentWeight(body, raw.weightKg, raw.weightAt)
         val today = now.startOfDay()
         val days = (0 until ACTIVITY_DAYS).map { today.addingDays(it - (ACTIVITY_DAYS - 1)) }
         fun dayOf(instant: Instant) = instant.startOfDay()
@@ -77,7 +83,7 @@ object HealthSnapshotBuilder {
         val summary = HealthDaySummary(
             steps = todaySteps,
             distanceKm = (distance[today] ?: 0.0) / 1000,
-            activeKcal = if (recordedKcal > 0) recordedKcal else FitnessMath.estimatedActiveKcal(todaySteps, raw.weightKg),
+            activeKcal = if (recordedKcal > 0) recordedKcal else FitnessMath.estimatedActiveKcal(todaySteps, weight),
             activeMinutes = activeMinutes.last().value.toInt()
         )
 
@@ -89,15 +95,11 @@ object HealthSnapshotBuilder {
             today = summary,
             weeklyActiveMinutes = activeMinutes,
             workouts = workouts.filter { it.date >= days.first() },
-            heartRateZones = FitnessMath.zones(todayHeart, FitnessMath.maxHeartRate(FitnessMath.age(null, now))),
+            heartRateZones = FitnessMath.zones(todayHeart, FitnessMath.maxHeartRate(FitnessMath.age(body?.birthDate, now))),
             averageHeartRate = StatisticsMath.mean(todayHeart)?.roundToIntSwift(),
             restingHeartRate = raw.restingHeartRate.maxByOrNull { it.date }?.bpm?.roundToIntSwift(),
             hrv = raw.hrv.maxByOrNull { it.date }?.bpm?.roundToIntSwift(),
-            bodyMetrics = listOfNotNull(
-                raw.weightKg?.let { BodyMetric("Вес", it, "кг") },
-                raw.bodyFatPercent?.let { BodyMetric("Жир", it, "%") },
-                raw.leanMassKg?.let { BodyMetric("Сух. масса", it, "кг") }
-            ),
+            bodyMetrics = BodyMath.metrics(body, raw.weightKg, raw.weightAt, raw.bodyFatPercent, raw.leanMassKg),
             fetchedAt = now,
             sleepIntervals = raw.sleep.filter { it.end >= today.addingDays(-BASELINE_DAYS) }.sortedBy { it.start },
             nightVitals = nightVitals(SleepMath.nights(raw.sleep).lastOrNull(), raw),

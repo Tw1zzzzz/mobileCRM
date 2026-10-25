@@ -38,7 +38,8 @@ interface HealthDataProvider {
     val name: String
     val isAvailable: Boolean
     suspend fun requestAuthorization()
-    suspend fun snapshot(now: Instant): HealthSnapshot
+    /** [body] («О тебе») feeds age, height and weight into the snapshot. */
+    suspend fun snapshot(now: Instant, body: BodyProfile?): HealthSnapshot
 }
 
 /** Swift encodes `[UUID: Int]` as a flat array: ["UUID", 7, "UUID", 9]. */
@@ -190,7 +191,7 @@ class FitnessStore(
         if (!current.isHealthConnected || current.isSyncing) return
         current = current.copy(isSyncing = true)
         try {
-            val snapshot = service.snapshot(now)
+            val snapshot = service.snapshot(now, bodyProfile)
             current = current.copy(health = snapshot, healthError = null)
             onHealthSnapshot?.invoke(snapshot)
         } catch (error: Exception) {

@@ -8,6 +8,7 @@ import com.pulse.core.demo.TeamAnalytics
 import com.pulse.core.demo.TeamFood
 import com.pulse.core.demo.WellbeingFactor
 import com.pulse.core.model.BalanceCategory
+import com.pulse.core.model.BodyProfile
 import com.pulse.core.model.CSMap
 import com.pulse.core.model.CalendarEvent
 import com.pulse.core.model.CognitiveOutcome
@@ -262,7 +263,7 @@ class NutritionWellbeingCognitiveCalendarTests {
 private class FakeHealth(override val isAvailable: Boolean = true, val snapshot: HealthSnapshot) : HealthDataProvider {
     override val name = "Health Connect"
     override suspend fun requestAuthorization() {}
-    override suspend fun snapshot(now: Instant): HealthSnapshot = snapshot
+    override suspend fun snapshot(now: Instant, body: BodyProfile?): HealthSnapshot = snapshot
 }
 
 class FitnessStoreTests {

@@ -27,6 +27,7 @@ import com.pulse.core.feature.HealthRawData
 import com.pulse.core.feature.HealthSnapshotBuilder
 import com.pulse.core.feature.RawExercise
 import com.pulse.core.feature.TimedValue
+import com.pulse.core.model.BodyProfile
 import com.pulse.core.model.HealthSnapshot
 import com.pulse.core.model.HeartRateSample
 import com.pulse.core.model.SleepInterval
@@ -71,7 +72,7 @@ class HealthConnectProvider(private val context: Context) : HealthDataProvider {
      * would count them twice). Each type is read once, over the window it is needed for, newest first when capped;
      * conversion runs off the main thread.
      */
-    override suspend fun snapshot(now: Instant): HealthSnapshot = withContext(Dispatchers.Default) {
+    override suspend fun snapshot(now: Instant, body: BodyProfile?): HealthSnapshot = withContext(Dispatchers.Default) {
         val granted = client.permissionController.getGrantedPermissions()
         fun canRead(type: KClass<out Record>) = HealthPermission.getReadPermission(type) in granted
         val today = now.startOfDay()
@@ -84,6 +85,7 @@ class HealthConnectProvider(private val context: Context) : HealthDataProvider {
         } else null
 
         val days = dailyTotals(today.addingDays(-(HealthSnapshotBuilder.ACTIVITY_DAYS - 1)), now, ::canRead)
+        val weight = latest(WeightRecord::class)
         val raw = HealthRawData(
             steps = days.steps,
             stepMinutes = stepMinutes(today.addingDays(-(HealthSnapshotBuilder.ACTIVITY_DAYS - 1)), now, canRead(StepsRecord::class)),
@@ -95,12 +97,13 @@ class HealthConnectProvider(private val context: Context) : HealthDataProvider {
             hrv = read(HeartRateVariabilityRmssdRecord::class, baselineFrom).map { HeartRateSample(it.time.toKotlinInstant(), it.heartRateVariabilityMillis) },
             respiratoryRate = read(RespiratoryRateRecord::class, nightFrom).map { HeartRateSample(it.time.toKotlinInstant(), it.rate) },
             spo2Percent = read(OxygenSaturationRecord::class, nightFrom).map { HeartRateSample(it.time.toKotlinInstant(), it.percentage.value) },
-            weightKg = latest(WeightRecord::class)?.weight?.inKilograms,
+            weightKg = weight?.weight?.inKilograms,
+            weightAt = weight?.time?.toKotlinInstant(),
             bodyFatPercent = latest(BodyFatRecord::class)?.percentage?.value,
             leanMassKg = latest(LeanBodyMassRecord::class)?.mass?.inKilograms,
             sleep = read(SleepSessionRecord::class, baselineFrom).flatMap(::sleepIntervals)
         )
-        HealthSnapshotBuilder.build(raw, now, name)
+        HealthSnapshotBuilder.build(raw, now, name, body)
     }
 
     private fun range(from: Instant, to: Instant) = TimeRangeFilter.between(from.toJavaInstant(), to.toJavaInstant())

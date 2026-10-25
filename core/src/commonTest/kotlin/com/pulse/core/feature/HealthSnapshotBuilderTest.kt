@@ -1,5 +1,7 @@
 package com.pulse.core.feature
 
+import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.FitnessMath
 import com.pulse.core.model.HeartRateSample
 import com.pulse.core.model.SleepInterval
 import com.pulse.core.model.SleepStage
@@ -7,6 +9,7 @@ import com.pulse.core.model.WorkoutKind
 import com.pulse.core.model.at
 import com.pulse.core.model.pinTestZone
 import com.pulse.core.util.addingMinutes
+import kotlinx.datetime.LocalDate
 import kotlin.test.BeforeTest
 import kotlin.test.Test
 import kotlin.test.assertEquals
@@ -133,5 +136,26 @@ class HealthSnapshotBuilderTest {
         assertEquals(listOf(65.0), snapshot.hrvByDay.map { it.value })
         // Like iOS `latest(.heartRateVariabilitySDNN)`: the most recent sample, not the day average.
         assertEquals(70, snapshot.hrv)
+    }
+
+    @Test fun zonesUseProfileAge() {
+        val heart = (0 until 20).map { HeartRateSample(at(2026, 10, 21, 10).addingMinutes(it), 120.0 + it * 3) }
+        val body = BodyProfile(LocalDate(1986, 1, 1), 180, 80.0, now)
+        val snapshot = HealthSnapshotBuilder.build(HealthRawData(heartRate = heart), now, "Health Connect", body)
+        assertEquals(FitnessMath.zones(heart.map { it.bpm }, FitnessMath.maxHeartRate(40)), snapshot.heartRateZones)
+    }
+
+    @Test fun kcalEstimateUsesProfileWeight() {
+        val raw = HealthRawData(steps = listOf(TimedValue(at(2026, 10, 21, 9), at(2026, 10, 21, 10), 5000.0)))
+        val body = BodyProfile(LocalDate(2004, 3, 12), 182, 100.0, now)
+        val snapshot = HealthSnapshotBuilder.build(raw, now, "Health Connect", body)
+        assertEquals(FitnessMath.estimatedActiveKcal(5000, 100.0), snapshot.today.activeKcal)
+    }
+
+    @Test fun bodyMetricsCombineProfileAndHealth() {
+        val body = BodyProfile(LocalDate(2004, 3, 12), 182, 74.0, at(2026, 10, 19))
+        val raw = HealthRawData(weightKg = 76.0, weightAt = at(2026, 10, 20), bodyFatPercent = 14.0)
+        val snapshot = HealthSnapshotBuilder.build(raw, now, "Health Connect", body)
+        assertEquals(listOf("Вес" to 76.0, "Рост" to 182.0, "ИМТ" to 22.9, "Жир" to 14.0), snapshot.bodyMetrics.map { it.title to it.value })
     }
 }
