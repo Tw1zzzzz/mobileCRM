@@ -16,6 +16,8 @@ final class FitnessStore {
 
     private(set) var workouts: [Workout]
     private(set) var goals: FitnessGoals
+    /// «О тебе» (set by AppDependencies): age for heart-rate estimates, height and weight for «Тело».
+    var bodyProfile: BodyProfile?
     private(set) var healthRatings: [UUID: Int]
     var activeMinutesGoal: Int { goals.activeMinutes }
     var stepsGoal: Int { goals.steps }
@@ -89,7 +91,7 @@ final class FitnessStore {
     func effort(for workout: Workout) -> (value: Int, isEstimated: Bool) {
         if let rpe = workout.rpe ?? healthRatings[workout.id] { return (rpe, false) }
         return (TrainingLoadMath.estimatedRPE(kind: workout.kind, averageHeartRate: workout.averageHeartRate,
-                                              maxHeartRate: FitnessMath.maxHeartRate(age: FitnessMath.defaultAge)), true)
+                                              maxHeartRate: FitnessMath.maxHeartRate(age: FitnessMath.age(birthDate: bodyProfile?.birthDay))), true)
     }
 
     func rate(_ workout: Workout, effort value: Int) {
@@ -229,7 +231,9 @@ final class FitnessStore {
     }
 
     var bodyMetrics: [BodyMetric] {
-        health?.bodyMetrics ?? (showsDemoBaseline ? DemoData.bodyMetrics : [])
+        if let metrics = health?.bodyMetrics { return metrics }
+        if showsDemoBaseline { return DemoData.bodyMetrics }
+        return bodyProfile.map { BodyMath.metrics(profile: $0, healthKg: nil, healthAt: nil, fatPercent: nil, leanKg: nil) } ?? []
     }
 
     func add(_ workout: Workout) {

@@ -21,6 +21,7 @@ final class AppDependencies {
     let gameGoals = GameGoalsStore()
     let game = GameStore()
     let survey = PlayerSurveyStore()
+    let body = BodyProfileStore()
     let deepLinks = DeepLinkCenter()
 
     private init() {
@@ -42,6 +43,21 @@ final class AppDependencies {
         activate(session.user, accountChanged: false)
     }
 
+    /// A real player without «О тебе» answers: the step is shown once, on its own, at the next launch.
+    var needsAboutYou: Bool { AboutYou.needsStep(user: session.user, profile: body.profile) }
+
+    /// Saves «О тебе» and spreads it over the metrics (the sleep window change reschedules «Скоро отбой»).
+    @discardableResult
+    func applyAboutYou(_ form: AboutYouForm) -> Bool {
+        AboutYou.apply(form, body: body, sleep: sleep, fitness: fitness, nutrition: nutrition, screenTime: screenTime)
+    }
+
+    /// Профиль → «О тебе»: body only.
+    @discardableResult
+    func updateBody(_ form: AboutYouForm) -> Bool {
+        AboutYou.updateBody(form, body: body, fitness: fitness)
+    }
+
     /// Points every store at the account's own folder: demo accounts get seeded data, real accounts
     /// start empty. On a switch, reminders and the lock-screen timer of the previous account are cleared.
     func activate(_ user: User?, accountChanged: Bool) {
@@ -58,6 +74,8 @@ final class AppDependencies {
         gameGoals.reload(isDemo: isDemo)
         game.reload(isDemo: isDemo)
         survey.reload(user: user)
+        body.reload(user: user)
+        fitness.bodyProfile = body.profile
         guard accountChanged else { return }
         UNUserNotificationCenter.current().removeAllPendingNotificationRequests()
         UNUserNotificationCenter.current().removeAllDeliveredNotifications()
