@@ -127,6 +127,22 @@ class AboutYouTest {
         assertEquals("12.03.2004", AboutYou.birthDateText(LocalDate(2004, 3, 12)))
     }
 
+    @Test fun birthDateMaskFormats() {
+        assertEquals("1", BirthDateMask.format("1"))
+        assertEquals("12", BirthDateMask.format("12"))
+        assertEquals("12.0", BirthDateMask.format("120"))
+        assertEquals("12.03.2", BirthDateMask.format("12032"))
+        assertEquals("12.03.2004", BirthDateMask.format("12032004"))
+    }
+
+    /** The cursor jumps over the dots both ways, so deleting and typing in the middle land where expected. */
+    @Test fun birthDateMaskOffsets() {
+        assertEquals(listOf(2, 4, 7, 10), listOf(2, 3, 5, 8).map { BirthDateMask.toTransformed(it, 8) })
+        assertEquals(listOf(2, 4, 8), listOf(3, 6, 10).map { BirthDateMask.toOriginal(it, 8) })
+        assertEquals(4, BirthDateMask.toTransformed(3, 3)) // «12.0»: after the third digit
+        assertEquals(2, BirthDateMask.toOriginal(2, 2))
+    }
+
     @Test fun bodyValuesDropTrailingZero() {
         assertEquals("182", com.pulse.core.util.Formatters.measure(182.0))
         assertEquals("74,5", com.pulse.core.util.Formatters.measure(74.5))

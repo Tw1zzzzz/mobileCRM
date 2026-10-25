@@ -1,6 +1,8 @@
 package com.pulse.android.ui.onboarding
 
 import android.app.Application
+import androidx.compose.ui.test.assertIsFocused
+import androidx.compose.ui.test.assertIsNotFocused
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -55,6 +57,23 @@ class AboutYouStepTest {
         rule.onNodeWithText("Вес — от 30 до 200 кг").assertExists()
         rule.onNodeWithText("Укажи дату рождения").assertExists()
         assertNull(core.body.profile)
+    }
+
+    /** Digits only, dots appear by themselves: «12032004» reads as «12.03.2004». */
+    @Test fun birthDateShowsDots() {
+        open()
+        type("ДД.ММ.ГГГГ", "12032004")
+        rule.onNode(hasSetTextAction() and hasText("12.03.2004")).assertExists()
+    }
+
+    /** With the keyboard up the error sits under the button; the tap closes the keyboard so it can be read. */
+    @Test fun tapWithErrorsClosesKeyboard() {
+        open()
+        type("Например, 74", "250")
+        rule.onNode(hasSetTextAction() and hasText("250")).assertIsFocused()
+        rule.onNodeWithText("Сохранить").performClick()
+        rule.waitForIdle()
+        rule.onNode(hasSetTextAction() and hasText("250")).assertIsNotFocused()
     }
 
     @Test fun savingAppliesToCore() {

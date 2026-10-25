@@ -100,14 +100,14 @@ fun SearchField(query: String, placeholder: String, padding: Dp = 12.dp, onChang
 @Composable
 fun PulseTextField(
     title: String, value: String, placeholder: String = "", keyboard: KeyboardType = KeyboardType.Text, singleLine: Boolean = true,
-    secure: Boolean = false, error: String? = null, onChange: (String) -> Unit
+    secure: Boolean = false, error: String? = null, transformation: VisualTransformation = VisualTransformation.None, onChange: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, color = Palette.textSecondary, fontSize = 14.sp, fontWeight = FontWeight.Medium)
         TextField(
             value, onChange, placeholder = { Text(placeholder, color = Palette.textTertiary) }, singleLine = singleLine,
             keyboardOptions = KeyboardOptions(keyboardType = if (secure) KeyboardType.Password else keyboard, autoCorrectEnabled = !secure),
-            visualTransformation = if (secure) PasswordVisualTransformation() else VisualTransformation.None,
+            visualTransformation = if (secure) PasswordVisualTransformation() else transformation,
             shape = RoundedCornerShape(12.dp),
             colors = TextFieldDefaults.colors(
                 focusedContainerColor = Color(0xFF1C2333), unfocusedContainerColor = Color(0xFF1C2333),

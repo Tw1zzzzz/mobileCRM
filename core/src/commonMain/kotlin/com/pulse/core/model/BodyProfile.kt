@@ -93,6 +93,26 @@ data class AboutYouForm(
     fun withWater(ml: Int) = copy(waterMl = ml, waterEdited = true)
 }
 
+/**
+ * Android's birth-date field keeps digits only («12032004») and shows them as «12.03.2004»; these map the cursor
+ * between the two so it steps over the dots.
+ */
+object BirthDateMask {
+    const val DIGITS = 8
+
+    fun format(digits: String): String = when {
+        digits.length <= 2 -> digits
+        digits.length <= 4 -> "${digits.take(2)}.${digits.drop(2)}"
+        else -> "${digits.take(2)}.${digits.substring(2, 4)}.${digits.drop(4)}"
+    }
+
+    fun toTransformed(offset: Int, length: Int): Int =
+        offset + (if (offset > 2 && length > 2) 1 else 0) + (if (offset > 4 && length > 4) 1 else 0)
+
+    fun toOriginal(offset: Int, length: Int): Int =
+        (offset - (if (offset > 2 && length > 2) 1 else 0) - (if (offset > 5 && length > 4) 1 else 0)).coerceIn(0, length)
+}
+
 /** Rules of «О тебе», shared with iOS (`AboutYou` in `Pulse/Models/BodyProfile.swift`). */
 object AboutYou {
     val AGE_YEARS = 10..80

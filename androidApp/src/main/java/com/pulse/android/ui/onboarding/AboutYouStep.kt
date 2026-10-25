@@ -28,6 +28,12 @@ import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import com.pulse.core.model.BirthDateMask
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.input.TransformedText
+import androidx.compose.ui.text.input.OffsetMapping
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.background
@@ -52,7 +58,7 @@ const val ABOUT_YOU_TITLE = "О тебе"
 const val ABOUT_YOU_SUBTITLE = "Возраст, рост и вес нужны для пульсовых зон и калорий, режим — для напоминаний о сне. Всё можно поменять в профиле."
 
 /**
- * «О тебе» while it is filled in: the form plus the birth date exactly as typed («12.03.2004»). [revealed]: the player
+ * «О тебе» while it is filled in: the form plus the birth date as typed, digits only («12032004», shown «12.03.2004»). [revealed]: the player
  * pressed the button with a wrong answer, so every error is shown, not only those of fields already left.
  */
 data class AboutYouDraft(val form: AboutYouForm, val birthText: String, val revealed: Boolean = false) {
@@ -64,7 +70,7 @@ data class AboutYouDraft(val form: AboutYouForm, val birthText: String, val reve
         fun start(core: PulseCore, isNewPlayer: Boolean): AboutYouDraft {
             val form = AboutYou.initial(core.sleep.window, core.fitness.goals, core.nutrition.goals,
                 core.screenTime.state.value.dailyLimitMinutes, core.body.profile, isNewPlayer, core.fitness.currentWeightKg)
-            return AboutYouDraft(form, form.birthDate?.let(AboutYou::birthDateText) ?: "")
+            return AboutYouDraft(form, form.birthDate?.let { AboutYou.birthDateText(it).filter(Char::isDigit) } ?: "")
         }
     }
 }
@@ -83,7 +89,7 @@ val AboutYouDraftSaver: Saver<AboutYouDraft, List<Any>> = Saver(
             foodKcal = v[10] as Int, waterMl = v[11] as Int, screenLimitHours = v[12] as Int, suggestsFromWeight = v[13] as Boolean,
             kcalEdited = v[14] as Boolean, waterEdited = v[15] as Boolean
         )
-        AboutYouDraft(form, "", revealed = v[16] as Boolean).withBirthText(v[0] as String)
+        AboutYouDraft(form, "", revealed = v[16] as Boolean).withBirthText((v[0] as String).filter(Char::isDigit))
     }
 )
 
@@ -93,8 +99,26 @@ private val BODY_FIELDS = setOf(AboutYouField.BIRTH_DATE, AboutYouField.HEIGHT, 
 fun visibleErrors(draft: AboutYouDraft, touched: Set<AboutYouField>): Map<AboutYouField, String> =
     AboutYou.errors(draft.form, Clock.System.now()).filterKeys { draft.revealed || it !in BODY_FIELDS || it in touched }
 
-/** The button's action: [save] when every answer is right, otherwise show what is wrong. */
-fun AboutYouDraft.submit(onChange: (AboutYouDraft) -> Unit, save: () -> Unit) = if (isValid) save() else onChange(copy(revealed = true))
+/**
+ * The button's action: [save] when every answer is right, otherwise show what is wrong — [onReveal] closes the keyboard
+ * (the error under a focused field sits behind the button) and brings the fields into view.
+ */
+fun AboutYouDraft.submit(onChange: (AboutYouDraft) -> Unit, onReveal: () -> Unit, save: () -> Unit) {
+    if (isValid) return save()
+    onChange(copy(revealed = true))
+    onReveal()
+}
+
+/** «12032004» on screen as «12.03.2004». */
+private object BirthDateTransformation : VisualTransformation {
+    override fun filter(text: AnnotatedString): TransformedText {
+        val length = text.length
+        return TransformedText(AnnotatedString(BirthDateMask.format(text.text)), object : OffsetMapping {
+            override fun originalToTransformed(offset: Int) = BirthDateMask.toTransformed(offset, length)
+            override fun transformedToOriginal(offset: Int) = BirthDateMask.toOriginal(offset, length)
+        })
+    }
+}
 
 /** «Тело», «Режим сна», «Цели на день»; the profile sheet shows the body only. */
 @Composable
@@ -112,8 +136,9 @@ fun AboutYouFields(draft: AboutYouDraft, onChange: (AboutYouDraft) -> Unit, sche
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
         SectionHeader("Тело")
         Box(leaves(AboutYouField.BIRTH_DATE, draft.birthText)) {
-            PulseTextField("Дата рождения", draft.birthText, "ДД.ММ.ГГГГ", KeyboardType.Number, error = errors[AboutYouField.BIRTH_DATE]) {
-                onChange(draft.withBirthText(it.filter { c -> c.isDigit() || c == '.' }.take(10)))
+            PulseTextField("Дата рождения", draft.birthText, "ДД.ММ.ГГГГ", KeyboardType.Number, error = errors[AboutYouField.BIRTH_DATE],
+                transformation = BirthDateTransformation) {
+                onChange(draft.withBirthText(it.filter(Char::isDigit).take(BirthDateMask.DIGITS)))
             }
         }
         Box(leaves(AboutYouField.HEIGHT, form.heightText)) {
@@ -192,11 +217,12 @@ private fun TimeRow(title: String, hour: Int, minute: Int, onChange: (Int, Int) 
 @Composable
 fun AboutYouSheet(onClose: () -> Unit) {
     val core = observeCore()
+    val focus = LocalFocusManager.current
     var draft by rememberSaveable(stateSaver = AboutYouDraftSaver) { mutableStateOf(AboutYouDraft.start(core, isNewPlayer = false)) }
     SheetScaffold(ABOUT_YOU_TITLE, onClose) {
         AboutYouFields(draft, { draft = it }, schedule = false)
         GradientButton("Сохранить", dimmed = !draft.isValid) {
-            draft.submit({ draft = it }) { if (core.updateBody(draft.form)) onClose() }
+            draft.submit({ draft = it }, { focus.clearFocus() }) { if (core.updateBody(draft.form)) onClose() }
         }
     }
 }

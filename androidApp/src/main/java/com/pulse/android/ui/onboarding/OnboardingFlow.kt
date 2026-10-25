@@ -18,6 +18,9 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.systemBarsPadding
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import kotlinx.coroutines.launch
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -93,6 +96,8 @@ fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYo
     var answers by remember { mutableStateOf(emptyMap<String, Int>()) }
     var result by remember { mutableStateOf<MindsetProfile?>(null) }
     val scroll = rememberScrollState()
+    val scope = rememberCoroutineScope()
+    val focus = LocalFocusManager.current
     LaunchedEffect(step) { scroll.scrollTo(0) } // every step starts at the top
     val sharingNote = if (user?.role == UserRole.TEAM_PLAYER) "Профиль увидишь ты и тренер команды — так ему проще понять, как с тобой работать."
     else "Профиль видишь только ты."
@@ -109,7 +114,9 @@ fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYo
     }
 
     /** Spreads «О тебе» over the metrics (the core rebuilds Health data with the new age and weight), or shows what is wrong. */
-    fun saveAbout(then: () -> Unit) = about.submit(onAbout) { if (core.applyAboutYou(about.form)) then() }
+    fun saveAbout(then: () -> Unit) = about.submit(onAbout, { focus.clearFocus(); scope.launch { scroll.animateScrollTo(0) } }) {
+        if (core.applyAboutYou(about.form)) then()
+    }
 
     fun saveSurvey() {
         store.saveSurvey(draft)
