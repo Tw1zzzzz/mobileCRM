@@ -219,3 +219,16 @@ struct SessionStoreTests {
         #expect(store.user == nil)
     }
 }
+
+/// The keyboard's «Далее» walks the visible registration fields in this order (Kotlin `RegistrationFieldsTest`).
+struct RegistrationFieldsTests {
+    @Test func registrationFieldOrder() {
+        let solo: [AuthFieldID] = [.name, .email, .password, .confirm, .faceit]
+        #expect(RegistrationForm().fields == solo)
+        var team = RegistrationForm()
+        team.accessType = .team
+        #expect(team.fields == solo + [.teamCode])
+        team.teamRole = .manager
+        #expect(team.fields == solo + [.teamName])
+    }
+}

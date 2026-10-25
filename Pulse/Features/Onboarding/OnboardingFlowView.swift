@@ -31,17 +31,26 @@ struct OnboardingFlowView: View {
     @State private var aboutOnly = false
     /// «Дальше» was pressed with a wrong answer: every «О тебе» error is shown.
     @State private var aboutRevealed = false
+    /// Bumped on each such press: the keyboard closes (the error under a focused field sits behind the button) and the step scrolls up.
+    @State private var revealCount = 0
+    private static let stepTop = "stepTop"
     @State private var answers: [String: Int] = [:]
     @State private var result: MindsetProfile?
 
     var body: some View {
         VStack(spacing: 0) {
             topBar
-            ScrollView {
-                VStack(alignment: .leading, spacing: 20) { content }
-                    .padding(.horizontal, 20)
-                    .padding(.top, 8)
-                    .padding(.bottom, 24)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(alignment: .leading, spacing: 20) { content }
+                        .padding(.horizontal, 20)
+                        .padding(.top, 8)
+                        .padding(.bottom, 24)
+                        .id(Self.stepTop)
+                }
+                .onChange(of: revealCount) { _, _ in
+                    withAnimation { proxy.scrollTo(Self.stepTop, anchor: .top) }
+                }
             }
             .scrollIndicators(.hidden)
             .scrollDismissesKeyboard(.interactively)
@@ -225,7 +234,12 @@ struct OnboardingFlowView: View {
         case .player: Action(title: "Дальше") { saveSurvey(); step = .about }
         case .about:
             Action(title: aboutOnly ? "Сохранить" : "Дальше", dimmed: !(about.map { AboutYou.errors($0, now: .now).isEmpty } ?? false)) {
-                guard saveAbout() else { aboutRevealed = true; return }
+                guard saveAbout() else {
+                    aboutRevealed = true
+                    revealCount += 1
+                    UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                    return
+                }
                 if aboutOnly { dismiss() } else { step = .testIntro }
             }
         case .testIntro: Action(title: "Начать тест") { step = .test }

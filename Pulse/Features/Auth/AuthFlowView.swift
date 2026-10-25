@@ -86,6 +86,7 @@ private struct LoginCard: View {
     @Environment(SessionStore.self) private var session
     @State private var email = ""
     @State private var password = ""
+    @FocusState private var focus: AuthFieldID?
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -93,8 +94,14 @@ private struct LoginCard: View {
                 .font(.system(size: 30, weight: .bold))
                 .foregroundStyle(.white)
                 .padding(.bottom, 6)
-            AuthField(placeholder: "Email", text: $email, keyboard: .emailAddress, contentType: .username)
-            AuthField(placeholder: "Пароль", text: $password, isPassword: true, contentType: .password)
+            AuthField(placeholder: "Email", text: $email, keyboard: .emailAddress, contentType: .username, focus: $focus, id: .email) {
+                focus = .password
+            }
+            AuthField(placeholder: "Пароль", text: $password, isPassword: true, contentType: .password, focus: $focus, id: .password,
+                      submitLabel: .go) {
+                focus = nil
+                Task { await session.login(email: email, password: password) }
+            }
             if let error = session.errorMessage { ErrorBanner(message: error) }
             AuthPrimaryButton(title: "Войти", isLoading: session.isLoading) {
                 Task { await session.login(email: email, password: password) }
@@ -137,6 +144,14 @@ private struct RegistrationCard: View {
     let onLogin: () -> Void
     @Environment(SessionStore.self) private var session
     @State private var form = RegistrationForm()
+    @FocusState private var focus: AuthFieldID?
+
+    /// «Далее» on every field but the last, which closes the keyboard.
+    private func field(_ placeholder: String, _ text: Binding<String>, _ id: AuthFieldID, isPassword: Bool = false,
+                       keyboard: UIKeyboardType = .default, contentType: UITextContentType? = nil) -> AuthField {
+        AuthField(placeholder: placeholder, text: text, isPassword: isPassword, keyboard: keyboard, contentType: contentType,
+                  focus: $focus, id: id, submitLabel: form.field(after: id) == nil ? .done : .next) { focus = form.field(after: id) }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
@@ -165,27 +180,21 @@ private struct RegistrationCard: View {
             }
 
             VStack(spacing: 12) {
-                AuthField(placeholder: "Имя", text: $form.nickname, contentType: .nickname)
-                AuthField(placeholder: "Email", text: $form.email, keyboard: .emailAddress, contentType: .emailAddress)
-                AuthField(placeholder: "Пароль", text: $form.password, isPassword: true, contentType: .newPassword)
-                AuthField(placeholder: "Повторите пароль", text: $form.confirmPassword, isPassword: true, contentType: .newPassword)
-                AuthField(placeholder: "Ссылка Faceit", text: $form.faceitURL, keyboard: .URL, contentType: .URL)
+                field("Имя", $form.nickname, .name, contentType: .nickname)
+                field("Email", $form.email, .email, keyboard: .emailAddress, contentType: .emailAddress)
+                field("Пароль", $form.password, .password, isPassword: true, contentType: .newPassword)
+                field("Повторите пароль", $form.confirmPassword, .confirm, isPassword: true, contentType: .newPassword)
+                field("Ссылка Faceit", $form.faceitURL, .faceit, keyboard: .URL, contentType: .URL)
                 if form.isTeamPlayer {
-                    AuthField(placeholder: "Код команды", text: $form.teamCode)
+                    field("Код команды", $form.teamCode, .teamCode)
                 }
                 if form.isTeamStaff {
-                    AuthField(placeholder: "Название команды", text: $form.teamName, contentType: .organizationName)
+                    field("Название команды", $form.teamName, .teamName, contentType: .organizationName)
                 }
             }
             .padding(.top, 6)
 
-            if let error = session.errorMessage { ErrorBanner(message: error) }
-
-            AuthPrimaryButton(title: "Создать аккаунт", isLoading: session.isLoading) {
-                Task { await session.register(form) }
-            }
-            .padding(.top, 10)
-
+            // Consents before the button: «Создать аккаунт» is the last thing to press, not the first error to read.
             VStack(alignment: .leading, spacing: 10) {
                 AuthConsentRow(prefix: "Я принимаю условия", document: .terms,
                                linkText: "Пользовательского соглашения", isOn: $form.acceptedTerms)
@@ -193,6 +202,14 @@ private struct RegistrationCard: View {
                                linkText: "политику конфиденциальности", isOn: $form.acceptedPrivacy)
             }
             .padding(.top, 6)
+
+            if let error = session.errorMessage { ErrorBanner(message: error) }
+
+            AuthPrimaryButton(title: "Создать аккаунт", isLoading: session.isLoading) {
+                focus = nil
+                Task { await session.register(form) }
+            }
+            .padding(.top, 10)
 
             switchLink(prompt: "Уже есть аккаунт?", action: "Войти", perform: onLogin)
         }

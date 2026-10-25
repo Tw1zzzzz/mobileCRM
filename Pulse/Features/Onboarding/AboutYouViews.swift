@@ -27,7 +27,10 @@ struct AboutYouFields: View {
     var body: some View {
         VStack(alignment: .leading, spacing: 18) {
             SectionHeader(title: "Тело")
-            birthDateRow
+            VStack(alignment: .leading, spacing: 6) {
+                birthDateRow
+                if let error = errors[.birthDate] { errorText(error) }
+            }
             field("Рост, см", text: $form.heightText, placeholder: "Например, 182", keyboard: .numberPad, focus: .height, error: errors[.height])
             field("Вес, кг", text: Binding(get: { form.weightText }, set: { form = form.withWeightText($0) }),
                   placeholder: "Например, 74", keyboard: .decimalPad, focus: .weight, error: errors[.weight])
@@ -142,7 +145,11 @@ struct AboutYouSheet: View {
                 AboutYouFields(form: Binding(get: { form ?? current }, set: { form = $0 }), schedule: false, revealed: revealed)
                 // Stays tappable: a tap with a wrong answer shows what is wrong instead of doing nothing.
                 GradientButton(title: "Сохранить") {
-                    guard let form, AboutYou.updateBody(form, body: bodyProfile, fitness: fitness) else { revealed = true; return }
+                    guard let form, AboutYou.updateBody(form, body: bodyProfile, fitness: fitness) else {
+                        revealed = true
+                        UIApplication.shared.sendAction(#selector(UIResponder.resignFirstResponder), to: nil, from: nil, for: nil)
+                        return
+                    }
                     Task { await fitness.refreshHealth() }
                     dismiss()
                 }

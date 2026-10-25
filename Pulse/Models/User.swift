@@ -128,4 +128,17 @@ struct RegistrationForm: Equatable {
 extension RegistrationForm {
     var isTeamPlayer: Bool { accessType == .team && teamRole == .player }
     var isTeamStaff: Bool { accessType == .team && teamRole == .manager }
+
+    /// The visible fields in screen order: the keyboard's «Далее» walks them, the last one closes the keyboard.
+    var fields: [AuthFieldID] {
+        [.name, .email, .password, .confirm, .faceit] + (isTeamPlayer ? [.teamCode] : []) + (isTeamStaff ? [.teamName] : [])
+    }
+
+    /// The field «Далее» moves to after `field`; nil after the last one.
+    func field(after field: AuthFieldID) -> AuthFieldID? {
+        guard let index = fields.firstIndex(of: field), index + 1 < fields.count else { return nil }
+        return fields[index + 1]
+    }
 }
+
+enum AuthFieldID: Hashable { case name, email, password, confirm, faceit, teamCode, teamName }

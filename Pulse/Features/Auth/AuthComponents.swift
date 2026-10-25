@@ -13,24 +13,41 @@ enum AuthStyle {
 }
 
 /// Placeholder-only filled field; password fields get the eye toggle from the design.
+/// The name sits inside the empty field and above the text once something is typed, so two filled password fields still
+/// say which is which. With `focus` and `id` the keyboard's return key («Далее» / «Готово») runs `onSubmit`.
 struct AuthField: View {
     let placeholder: String
     @Binding var text: String
     var isPassword = false
     var keyboard: UIKeyboardType = .default
     var contentType: UITextContentType?
+    var focus: FocusState<AuthFieldID?>.Binding?
+    var id: AuthFieldID?
+    var submitLabel: SubmitLabel = .next
+    var onSubmit: () -> Void = {}
 
     @State private var isRevealed = false
 
     var body: some View {
         HStack(spacing: 10) {
-            Group {
-                if isPassword && !isRevealed {
-                    SecureField("", text: $text, prompt: prompt)
-                } else {
-                    TextField("", text: $text, prompt: prompt)
-                        .keyboardType(keyboard)
+            VStack(alignment: .leading, spacing: 2) {
+                if !text.isEmpty {
+                    Text(placeholder)
+                        .font(.system(size: 12, weight: .medium))
+                        .foregroundStyle(AuthStyle.placeholder)
+                        .accessibilityHidden(true)
                 }
+                Group {
+                    if isPassword && !isRevealed {
+                        SecureField(placeholder, text: $text, prompt: prompt)
+                    } else {
+                        TextField(placeholder, text: $text, prompt: prompt)
+                            .keyboardType(keyboard)
+                    }
+                }
+                .focusedIfGiven(focus, id: id)
+                .submitLabel(submitLabel)
+                .onSubmit(onSubmit)
             }
             .textContentType(contentType)
             .textInputAutocapitalization(.never)
@@ -175,5 +192,12 @@ struct LegalDocumentSheet: View {
                 .foregroundStyle(Theme.Palette.textSecondary)
                 .textSelection(.enabled)
         }
+    }
+}
+
+private extension View {
+    @ViewBuilder
+    func focusedIfGiven(_ focus: FocusState<AuthFieldID?>.Binding?, id: AuthFieldID?) -> some View {
+        if let focus, let id { focused(focus, equals: id) } else { self }
     }
 }
