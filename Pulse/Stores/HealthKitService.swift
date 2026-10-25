@@ -87,10 +87,10 @@ final class HealthKitService: HealthDataProviding {
             averageHeartRate: average,
             restingHeartRate: try await resting.map { Int($0.rounded()) },
             hrv: try await hrv.map { Int($0.rounded()) },
-            // Apple Health stores body fat as a fraction.
-            bodyMetrics: BodyMath.metrics(profile: body, healthKg: healthWeight?.value, healthAt: healthWeight?.date,
-                                          fatPercent: try await fat.map { $0 * 100 }, leanKg: try await lean),
             fetchedAt: now,
+            // Apple Health stores body fat as a fraction.
+            bodyReadings: BodyReadings(weightKg: healthWeight?.value, weightAt: healthWeight?.date,
+                                       bodyFatPercent: try await fat.map { $0 * 100 }, leanMassKg: try await lean),
             sleepIntervals: intervals,
             nightVitals: vitals,
             restingHeartRateByDay: try await restingByDay,

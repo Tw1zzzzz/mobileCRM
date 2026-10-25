@@ -6,17 +6,22 @@ enum AboutYouCopy {
 }
 
 /// «Тело», «Режим сна», «Цели на день» of the questionnaire step «О тебе»; the profile sheet shows the body only.
-/// Errors of typed fields appear once the player leaves the field, not while typing «18» on the way to «182».
+/// Errors of typed fields appear once the player leaves the field (`AboutYou.visibleErrors`), or all of them once the
+/// button was pressed with a wrong answer (`revealed`).
 struct AboutYouFields: View {
     @Binding var form: AboutYouForm
     var schedule = true
+    var revealed = false
 
-    private enum Field: Hashable { case height, weight }
+    private enum Field: Hashable {
+        case height, weight
+        var answer: AboutYouField { self == .height ? .height : .weight }
+    }
     @FocusState private var focus: Field?
     @State private var touched: Set<AboutYouField> = []
 
     private var errors: [AboutYouField: String] {
-        AboutYou.errors(form, now: .now).filter { [.wake].contains($0.key) || touched.contains($0.key) }
+        AboutYou.visibleErrors(form, touched: touched, revealed: revealed, now: .now)
     }
 
     var body: some View {
@@ -55,9 +60,11 @@ struct AboutYouFields: View {
                 .pulseCard(padding: 18)
             }
         }
-        .onChange(of: focus) { old, _ in
+        .onChange(of: focus) { old, new in
             if old == .height, !form.heightText.isEmpty { touched.insert(.height) }
             if old == .weight, !form.weightText.isEmpty { touched.insert(.weight) }
+            // Coming back to a field: no error while it is retyped.
+            if let new { touched.remove(new.answer) }
         }
     }
 
@@ -127,23 +134,25 @@ struct AboutYouSheet: View {
     @Environment(ScreenTimeStore.self) private var screenTime
     @Environment(\.dismiss) private var dismiss
     @State private var form: AboutYouForm?
+    @State private var revealed = false
 
     var body: some View {
         SheetScaffold(title: AboutYouCopy.title) {
             if let current = form {
-                AboutYouFields(form: Binding(get: { form ?? current }, set: { form = $0 }), schedule: false)
+                AboutYouFields(form: Binding(get: { form ?? current }, set: { form = $0 }), schedule: false, revealed: revealed)
+                // Stays tappable: a tap with a wrong answer shows what is wrong instead of doing nothing.
                 GradientButton(title: "Сохранить") {
-                    guard let form, AboutYou.updateBody(form, body: bodyProfile, fitness: fitness) else { return }
+                    guard let form, AboutYou.updateBody(form, body: bodyProfile, fitness: fitness) else { revealed = true; return }
                     Task { await fitness.refreshHealth() }
                     dismiss()
                 }
-                .disabled(!AboutYou.errors(current, now: .now).isEmpty)
                 .opacity(AboutYou.errors(current, now: .now).isEmpty ? 1 : 0.5)
             }
         }
         .onAppear {
             form = AboutYou.initial(window: sleep.window, fitness: fitness.goals, nutrition: nutrition.goals,
-                                    screenLimitMinutes: screenTime.dailyLimitMinutes, profile: bodyProfile.profile, isNewPlayer: false)
+                                    screenLimitMinutes: screenTime.dailyLimitMinutes, profile: bodyProfile.profile, isNewPlayer: false,
+                                    weightKg: fitness.currentWeightKg)
         }
     }
 }

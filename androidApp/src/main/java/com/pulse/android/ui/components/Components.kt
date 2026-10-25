@@ -146,6 +146,8 @@ fun GradientButton(
     icon: ImageVector? = null,
     isLoading: Boolean = false,
     enabled: Boolean = true,
+    /** Looks disabled but still takes taps: for a form that explains what is missing when pressed. */
+    dimmed: Boolean = false,
     brush: Brush = Gradients.accent,
     onClick: () -> Unit
 ) {
@@ -154,7 +156,7 @@ fun GradientButton(
             .fillMaxWidth()
             .height(54.dp)
             // Dims the whole button (background included) when disabled, like iOS.
-            .alpha(if (enabled) 1f else 0.45f)
+            .alpha(if (enabled && !dimmed) 1f else 0.45f)
             .clip(RoundedCornerShape(Metrics.buttonRadius))
             .background(brush)
             .pressable(enabled && !isLoading, onClick = onClick),

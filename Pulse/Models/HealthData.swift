@@ -10,6 +10,15 @@ struct HealthDaySummary: Equatable {
 }
 
 /// Everything the fitness screens need from Apple Health, fetched in one pass.
+/// Weight and body composition as Apple Health recorded them.
+struct BodyReadings: Equatable {
+    var weightKg: Double?
+    /// When `weightKg` was measured: decides whether it beats the weight from «О тебе».
+    var weightAt: Date?
+    var bodyFatPercent: Double?
+    var leanMassKg: Double?
+}
+
 struct HealthSnapshot: Equatable {
     var today: HealthDaySummary
     /// Active minutes per day, oldest first, last element is today.
@@ -20,8 +29,9 @@ struct HealthSnapshot: Equatable {
     var averageHeartRate: Int?
     var restingHeartRate: Int?
     var hrv: Int?
-    var bodyMetrics: [BodyMetric]
     var fetchedAt: Date
+    /// Raw weight and composition; «Тело» joins them with «О тебе» when shown, so a later profile still counts.
+    var bodyReadings = BodyReadings()
     /// Raw sleep intervals for the last 30 days (phases need a watch / tracker).
     var sleepIntervals: [SleepInterval] = []
     /// Body metrics recorded during the most recent night.

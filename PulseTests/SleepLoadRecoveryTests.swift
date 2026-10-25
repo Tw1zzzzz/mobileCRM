@@ -64,7 +64,7 @@ struct SleepMathTests {
         let snapshot = HealthSnapshot(
             today: HealthDaySummary(steps: 0, distanceKm: 0, activeKcal: 0, activeMinutes: 0),
             weeklyActiveMinutes: [], workouts: [], heartRateZones: nil, averageHeartRate: nil, restingHeartRate: nil,
-            hrv: nil, bodyMetrics: [], fetchedAt: .now, sleepIntervals: night
+            hrv: nil, fetchedAt: .now, sleepIntervals: night
         )
         store.applyHealth(snapshot)
         #expect(store.isHealthConnected)

@@ -231,9 +231,12 @@ final class FitnessStore {
     }
 
     var bodyMetrics: [BodyMetric] {
-        if let metrics = health?.bodyMetrics { return metrics }
-        if showsDemoBaseline { return DemoData.bodyMetrics }
-        return bodyProfile.map { BodyMath.metrics(profile: $0, healthKg: nil, healthAt: nil, fatPercent: nil, leanKg: nil) } ?? []
+        showsDemoBaseline ? DemoData.bodyMetrics : BodyMath.metrics(profile: bodyProfile, readings: health?.bodyReadings ?? BodyReadings())
+    }
+
+    /// The weight «Тело» shows: newer scales in Apple Health beat the one typed in «О тебе».
+    var currentWeightKg: Double? {
+        BodyMath.currentWeight(profile: bodyProfile, healthKg: health?.bodyReadings.weightKg, healthAt: health?.bodyReadings.weightAt)
     }
 
     func add(_ workout: Workout) {

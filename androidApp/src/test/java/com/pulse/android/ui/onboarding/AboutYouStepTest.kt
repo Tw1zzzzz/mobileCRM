@@ -1,8 +1,6 @@
 package com.pulse.android.ui.onboarding
 
 import android.app.Application
-import androidx.compose.ui.test.assertIsEnabled
-import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.StateRestorationTester
@@ -46,11 +44,17 @@ class AboutYouStepTest {
         type("Например, 74", "74")
     }
 
-    @Test fun aboutStepRequiresAllFields() {
-        open()
-        rule.onNodeWithText("Сохранить").assertIsNotEnabled()
-        fillBody()
-        rule.onNodeWithText("Сохранить").assertIsEnabled()
+    /** The button stays tappable: a tap with a wrong answer says what is wrong instead of doing nothing. */
+    @Test fun savingWithErrorsShowsThem() {
+        val core = open()
+        type("Например, 182", "182")
+        type("Например, 74", "250") // still focused: its error has not been shown yet
+        rule.onNodeWithText("Вес — от 30 до 200 кг").assertDoesNotExist()
+        rule.onNodeWithText("Сохранить").performClick()
+        rule.waitForIdle()
+        rule.onNodeWithText("Вес — от 30 до 200 кг").assertExists()
+        rule.onNodeWithText("Укажи дату рождения").assertExists()
+        assertNull(core.body.profile)
     }
 
     @Test fun savingAppliesToCore() {

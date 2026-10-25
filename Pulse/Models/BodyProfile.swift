@@ -52,6 +52,11 @@ enum BodyMath {
         if let leanKg { metrics.append(BodyMetric(title: "Сух. масса", value: leanKg, unit: "кг")) }
         return metrics
     }
+
+    static func metrics(profile: BodyProfile?, readings: BodyReadings) -> [BodyMetric] {
+        metrics(profile: profile, healthKg: readings.weightKg, healthAt: readings.weightAt, fatPercent: readings.bodyFatPercent,
+                leanKg: readings.leanMassKg)
+    }
 }
 
 enum AboutYouField: Hashable { case birthDate, height, weight, wake }
@@ -147,13 +152,24 @@ enum AboutYou {
         return errors
     }
 
-    /// Starting values: the current window and goals; body fields from an earlier profile, if any.
+    private static let bodyFields: Set<AboutYouField> = [.birthDate, .height, .weight]
+
+    /// Errors that may already be shown: body fields only after the player has left them, or all once the button was
+    /// pressed with a wrong answer (`revealed`) — not while typing «18» on the way to «182».
+    static func visibleErrors(_ form: AboutYouForm, touched: Set<AboutYouField>, revealed: Bool, now: Date) -> [AboutYouField: String] {
+        errors(form, now: now).filter { revealed || !bodyFields.contains($0.key) || touched.contains($0.key) }
+    }
+
+    /// Starting values: the current window and goals; body fields from an earlier profile, if any, with `weightKg` — the
+    /// weight «Тело» shows — in place of the typed one. Food kcal and water follow the weight only for a new player whose
+    /// nutrition goals are still the defaults: one who skipped the survey may have set them in Цели.
     static func initial(window: SleepWindow, fitness: FitnessGoals, nutrition: NutritionGoals, screenLimitMinutes: Int,
-                        profile: BodyProfile?, isNewPlayer: Bool) -> AboutYouForm {
-        AboutYouForm(
+                        profile: BodyProfile?, isNewPlayer: Bool, weightKg: Double? = nil) -> AboutYouForm {
+        let defaults = NutritionGoals()
+        return AboutYouForm(
             birthDate: profile.flatMap { Calendar.pulse.date(from: $0.birthDay) },
             heightText: profile.map { String($0.heightCm) } ?? "",
-            weightText: profile.map { weightText($0.weightKg) } ?? "",
+            weightText: (weightKg ?? profile?.weightKg).map(weightText) ?? "",
             bedtimeHour: window.bedtimeHour, bedtimeMinute: window.bedtimeMinute,
             wakeHour: window.wakeHour, wakeMinute: window.wakeMinute,
             activeMinutes: fitness.activeMinutes.clamped(to: activeMinutes),
@@ -162,7 +178,7 @@ enum AboutYou {
             foodKcal: nutrition.kcal.clamped(to: foodKcal),
             waterMl: nutrition.waterMilliliters.clamped(to: waterMl),
             screenLimitHours: (screenLimitMinutes / 60).clamped(to: screenLimitHours),
-            suggestsFromWeight: isNewPlayer
+            suggestsFromWeight: isNewPlayer && nutrition.kcal == defaults.kcal && nutrition.waterMilliliters == defaults.waterMilliliters
         )
     }
 

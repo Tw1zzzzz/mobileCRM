@@ -28,8 +28,9 @@ data class HealthSnapshot(
     val averageHeartRate: Int?,
     val restingHeartRate: Int?,
     val hrv: Int?,
-    val bodyMetrics: List<BodyMetric>,
     val fetchedAt: Instant,
+    /** Raw weight and composition; «Тело» joins them with «О тебе» when shown, so a later profile still counts. */
+    val bodyReadings: BodyReadings = BodyReadings(),
     /** Raw sleep intervals for the last 30 days (phases need a watch / tracker). */
     val sleepIntervals: List<SleepInterval> = emptyList(),
     /** Body metrics recorded during the most recent night. */
@@ -39,6 +40,15 @@ data class HealthSnapshot(
     val hrvByDay: List<DailyValue> = emptyList(),
     /** Workouts of the last 28 days for training load (`workouts` keeps the last 7 for the screens). */
     val loadWorkouts: List<Workout> = emptyList()
+)
+
+/** Weight and body composition as Health recorded them. */
+data class BodyReadings(
+    val weightKg: Double? = null,
+    /** When [weightKg] was measured: decides whether it beats the weight from «О тебе». */
+    val weightAt: Instant? = null,
+    val bodyFatPercent: Double? = null,
+    val leanMassKg: Double? = null
 )
 
 /** Pure formulas behind the fitness numbers. */

@@ -3,7 +3,11 @@ package com.pulse.core.storage
 import com.pulse.core.PulseCore
 import com.pulse.core.auth.DemoAuth
 import com.pulse.core.model.AboutYou
+import com.pulse.core.feature.HealthRawData
+import com.pulse.core.feature.HealthSnapshotBuilder
 import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.HealthSnapshot
+import com.pulse.core.store.HealthDataProvider
 import com.pulse.core.model.FitnessGoals
 import com.pulse.core.model.RegistrationForm
 import com.pulse.core.model.UserRole
@@ -22,12 +26,25 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Instant
 
 /** The composition root keeps every account in its own folder: demo is seeded, a new account starts empty. */
 class PulseCoreTests {
-    private fun core(root: java.io.File) = PulseCore(
-        JvmFileSystem(root), MemorySecretStore(), HttpClient(MockEngine { respond("") }), CoroutineScope(Dispatchers.Unconfined), health = null
+    private fun core(root: java.io.File, health: HealthDataProvider? = null) = PulseCore(
+        JvmFileSystem(root), MemorySecretStore(), HttpClient(MockEngine { respond("") }), CoroutineScope(Dispatchers.Unconfined), health
     )
+
+    /** Records the «О тебе» profile each snapshot was built with. */
+    private class RecordingHealth : HealthDataProvider {
+        val bodies = mutableListOf<BodyProfile?>()
+        override val name = "Health Connect"
+        override val isAvailable = true
+        override suspend fun requestAuthorization() {}
+        override suspend fun snapshot(now: Instant, body: BodyProfile?): HealthSnapshot {
+            bodies += body
+            return HealthSnapshotBuilder.build(HealthRawData(), now, name, body)
+        }
+    }
 
     @Test fun accountsDoNotShareData() = runTest {
         val root = Files.createTempDirectory("pulse-core").toFile()
@@ -59,7 +76,7 @@ class PulseCoreTests {
         assertTrue(restarted.sleep.sessions.size >= 30) // demo history + the night recorded above
     }
 
-    private suspend fun registered(root: java.io.File): PulseCore = core(root).also {
+    private suspend fun registered(root: java.io.File, health: HealthDataProvider? = null): PulseCore = core(root, health).also {
         it.session.register(RegistrationForm(nickname = "Тестер", email = "t@team.gg", password = "abcd1234", confirmPassword = "abcd1234",
             acceptedTerms = true, acceptedPrivacy = true))
     }
@@ -119,6 +136,18 @@ class PulseCoreTests {
         assertTrue(core.fitness.bodyMetrics.isEmpty())
         core.applyAboutYou(filled(core))
         assertEquals(listOf("Вес", "Рост", "ИМТ"), core.fitness.bodyMetrics.map { it.title })
+    }
+
+    /** Zones and «Тело» are rebuilt with the new answers by the core itself: a closing screen cannot cancel it. */
+    @Test fun savingAboutYouRefreshesHealth() = runTest {
+        val health = RecordingHealth()
+        val core = registered(Files.createTempDirectory("pulse-core").toFile(), health)
+        core.fitness.connectHealth()
+        assertTrue(core.applyAboutYou(filled(core)))
+        assertEquals(182, health.bodies.last()?.heightCm)
+        assertTrue(core.updateBody(filled(core).copy(heightText = "185")))
+        assertEquals(185, health.bodies.last()?.heightCm)
+        assertNull(core.fitness.state.value.healthError)
     }
 
     @Test fun updateBodyKeepsGoalsAndWindow() = runTest {

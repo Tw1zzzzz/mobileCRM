@@ -29,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableDoubleStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -56,7 +55,6 @@ import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.color
 import com.pulse.android.ui.theme.sfIcon
-import com.pulse.core.model.AboutYou
 import com.pulse.core.model.FocusGoal
 import com.pulse.core.model.MindsetProfile
 import com.pulse.core.model.MindsetTrait
@@ -67,8 +65,6 @@ import com.pulse.core.model.PlayerSurvey
 import com.pulse.core.model.SkillLevel
 import com.pulse.core.model.UserRole
 import com.pulse.core.util.Formatters
-import kotlin.time.Clock
-import kotlinx.coroutines.launch
 
 private enum class Step { WELCOME, GOALS, PLAYER, ABOUT, TEST_INTRO, TEST, RESULT }
 
@@ -87,7 +83,6 @@ fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYo
     val core = observeCore()
     val store = core.survey
     val user = core.session.user.value
-    val scope = rememberCoroutineScope()
     val testOnly = mode == OnboardingMode.TEST_ONLY
     var aboutOnly by rememberSaveable { mutableStateOf(mode == OnboardingMode.ABOUT_ONLY) }
     var step by rememberSaveable {
@@ -113,12 +108,8 @@ fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYo
         }
     }
 
-    /** Spreads «О тебе» over the metrics; Health data is rebuilt with the new age and weight. */
-    fun saveAbout(): Boolean {
-        if (!core.applyAboutYou(about.form)) return false
-        scope.launch { core.fitness.refreshHealth() }
-        return true
-    }
+    /** Spreads «О тебе» over the metrics (the core rebuilds Health data with the new age and weight), or shows what is wrong. */
+    fun saveAbout(then: () -> Unit) = about.submit(onAbout) { if (core.applyAboutYou(about.form)) then() }
 
     fun saveSurvey() {
         store.saveSurvey(draft)
@@ -218,7 +209,7 @@ fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYo
                 Step.WELCOME -> "Начать" to { step = Step.GOALS }
                 Step.GOALS -> "Дальше" to { step = Step.PLAYER }
                 Step.PLAYER -> "Дальше" to { saveSurvey(); step = Step.ABOUT }
-                Step.ABOUT -> if (aboutOnly) "Сохранить" to { if (saveAbout()) onClose() } else "Дальше" to { if (saveAbout()) step = Step.TEST_INTRO }
+                Step.ABOUT -> if (aboutOnly) "Сохранить" to { saveAbout(onClose) } else "Дальше" to { saveAbout { step = Step.TEST_INTRO } }
                 Step.TEST_INTRO -> "Начать тест" to { step = Step.TEST }
                 Step.TEST -> null
                 Step.RESULT -> "Готово" to onClose
@@ -231,12 +222,8 @@ fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYo
             }
             primary?.let { (title, action) ->
                 Column(Modifier.fillMaxWidth().padding(horizontal = 20.dp).padding(bottom = 12.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    val enabled = when (step) {
-                        Step.GOALS -> draft.goals.isNotEmpty()
-                        Step.ABOUT -> AboutYou.errors(about.form, Clock.System.now()).isEmpty()
-                        else -> true
-                    }
-                    GradientButton(title, enabled = enabled, onClick = action)
+                    GradientButton(title, enabled = step != Step.GOALS || draft.goals.isNotEmpty(), dimmed = step == Step.ABOUT && !about.isValid,
+                        onClick = action)
                     secondary?.let { (label, run) ->
                         Text(label, color = Palette.textSecondary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold,
                             modifier = Modifier.pressable(onClick = run).padding(horizontal = 16.dp, vertical = 8.dp))

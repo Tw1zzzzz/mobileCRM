@@ -29,6 +29,8 @@ struct OnboardingFlowView: View {
     @State private var eloTarget = ""
     @State private var about: AboutYouForm?
     @State private var aboutOnly = false
+    /// «Дальше» was pressed with a wrong answer: every «О тебе» error is shown.
+    @State private var aboutRevealed = false
     @State private var answers: [String: Int] = [:]
     @State private var result: MindsetProfile?
 
@@ -49,7 +51,7 @@ struct OnboardingFlowView: View {
                 VStack(spacing: 10) {
                     GradientButton(title: action.title, action: action.run)
                         .disabled(!action.enabled)
-                        .opacity(action.enabled ? 1 : 0.5)
+                        .opacity(action.enabled && !action.dimmed ? 1 : 0.5)
                     if let secondary = secondaryAction {
                         Button(secondary.title, action: secondary.run)
                             .font(.system(size: 16, weight: .semibold))
@@ -111,7 +113,7 @@ struct OnboardingFlowView: View {
         case .about:
             title(AboutYouCopy.title, AboutYouCopy.subtitle)
             if let current = about {
-                AboutYouFields(form: Binding(get: { about ?? current }, set: { about = $0 }))
+                AboutYouFields(form: Binding(get: { about ?? current }, set: { about = $0 }), revealed: aboutRevealed)
             }
         case .testIntro: testIntro
         case .test:
@@ -192,6 +194,8 @@ struct OnboardingFlowView: View {
     private struct Action {
         let title: String
         var enabled = true
+        /// Looks disabled but still takes taps: the form explains what is missing when pressed.
+        var dimmed = false
         let run: () -> Void
     }
 
@@ -220,8 +224,8 @@ struct OnboardingFlowView: View {
         case .goals: Action(title: "Дальше", enabled: !draft.goals.isEmpty) { step = .player }
         case .player: Action(title: "Дальше") { saveSurvey(); step = .about }
         case .about:
-            Action(title: aboutOnly ? "Сохранить" : "Дальше", enabled: about.map { AboutYou.errors($0, now: .now).isEmpty } ?? false) {
-                guard saveAbout() else { return }
+            Action(title: aboutOnly ? "Сохранить" : "Дальше", dimmed: !(about.map { AboutYou.errors($0, now: .now).isEmpty } ?? false)) {
+                guard saveAbout() else { aboutRevealed = true; return }
                 if aboutOnly { dismiss() } else { step = .testIntro }
             }
         case .testIntro: Action(title: "Начать тест") { step = .test }
@@ -272,7 +276,7 @@ struct OnboardingFlowView: View {
         if let elo = gameGoals.goals.elo { eloTarget = String(elo) }
         about = AboutYou.initial(window: sleep.window, fitness: fitness.goals, nutrition: nutrition.goals,
                                  screenLimitMinutes: screenTime.dailyLimitMinutes, profile: bodyProfile.profile,
-                                 isNewPlayer: store.survey == nil)
+                                 isNewPlayer: store.survey == nil, weightKg: fitness.currentWeightKg)
         switch mode {
         case .testOnly: step = .testIntro
         case .aboutOnly: aboutOnly = true; step = .about

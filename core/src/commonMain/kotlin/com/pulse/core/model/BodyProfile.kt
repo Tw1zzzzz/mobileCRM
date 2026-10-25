@@ -47,6 +47,9 @@ object BodyMath {
             leanKg?.let { BodyMetric("Сух. масса", it, "кг") }
         )
     }
+
+    fun metrics(profile: BodyProfile?, readings: BodyReadings): List<BodyMetric> =
+        metrics(profile, readings.weightKg, readings.weightAt, readings.bodyFatPercent, readings.leanMassKg)
 }
 
 enum class AboutYouField { BIRTH_DATE, HEIGHT, WEIGHT, WAKE }
@@ -129,14 +132,18 @@ object AboutYou {
         }
     }
 
-    /** Starting values: the current window and goals; body fields from an earlier profile, if any. */
+    /**
+     * Starting values: the current window and goals; body fields from an earlier profile, if any, with [weightKg] — the
+     * weight «Тело» shows — in place of the typed one. Food kcal and water follow the weight only for a new player whose
+     * nutrition goals are still the defaults: one who skipped the survey may have set them in Цели.
+     */
     fun initial(
         window: SleepWindow, fitness: FitnessGoals, nutrition: NutritionGoals, screenLimitMinutes: Int,
-        profile: BodyProfile?, isNewPlayer: Boolean
+        profile: BodyProfile?, isNewPlayer: Boolean, weightKg: Double? = profile?.weightKg
     ) = AboutYouForm(
         birthDate = profile?.birthDate,
         heightText = profile?.heightCm?.toString() ?: "",
-        weightText = profile?.weightKg?.let(::weightText) ?: "",
+        weightText = weightKg?.let(::weightText) ?: "",
         bedtimeHour = window.bedtimeHour, bedtimeMinute = window.bedtimeMinute,
         wakeHour = window.wakeHour, wakeMinute = window.wakeMinute,
         activeMinutes = fitness.activeMinutes.coerceIn(ACTIVE_MINUTES),
@@ -145,7 +152,7 @@ object AboutYou {
         foodKcal = nutrition.kcal.coerceIn(FOOD_KCAL),
         waterMl = nutrition.waterMilliliters.coerceIn(WATER_ML),
         screenLimitHours = (screenLimitMinutes / 60).coerceIn(SCREEN_LIMIT_HOURS),
-        suggestsFromWeight = isNewPlayer
+        suggestsFromWeight = isNewPlayer && nutrition.kcal == NutritionGoals().kcal && nutrition.waterMilliliters == NutritionGoals().waterMilliliters
     )
 
     /** The profile to save, or null while any answer is missing or out of range. */

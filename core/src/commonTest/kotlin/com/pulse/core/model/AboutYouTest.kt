@@ -45,6 +45,21 @@ class AboutYouTest {
         assertEquals(3000, form.waterMl)
     }
 
+    /** Pressed «Позже» before «О тебе» existed and set 3 000 kcal in Цели: no survey, but the goals are the player's own. */
+    @Test fun customNutritionIsKeptWithoutSurvey() {
+        val form = blank(isNewPlayer = true, nutrition = NutritionGoals(kcal = 3000, waterMilliliters = 3000)).withWeightText("74")
+        assertEquals(3000, form.foodKcal)
+        assertEquals(3000, form.waterMl)
+    }
+
+    /** Профиль → «О тебе» starts from the weight «Тело» shows (newer scales), not the one typed earlier. */
+    @Test fun sheetStartsFromCurrentWeight() {
+        val profile = BodyProfile(LocalDate(2004, 3, 12), 182, 74.0, now)
+        val form = AboutYou.initial(SleepWindow(), FitnessGoals(), NutritionGoals(), 300, profile, isNewPlayer = false, weightKg = 76.5)
+        assertEquals("76,5", form.weightText)
+        assertEquals("74", AboutYou.initial(SleepWindow(), FitnessGoals(), NutritionGoals(), 300, profile, isNewPlayer = false).weightText)
+    }
+
     @Test fun missingFieldsAreErrors() {
         val errors = AboutYou.errors(blank(), now)
         assertEquals("Укажи дату рождения", errors[AboutYouField.BIRTH_DATE])

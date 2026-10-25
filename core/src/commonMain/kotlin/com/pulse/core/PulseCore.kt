@@ -47,6 +47,7 @@ import com.pulse.core.store.SleepStore
 import com.pulse.core.store.WellbeingStore
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.launch
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
 
@@ -58,7 +59,7 @@ class PulseCore(
     files: FileSystem,
     secrets: SecretStore,
     http: HttpClient,
-    background: CoroutineScope,
+    private val background: CoroutineScope,
     health: HealthDataProvider?,
     foodAnalyzer: FoodAnalyzer = MockFoodAnalyzer()
 ) {
@@ -140,6 +141,7 @@ class PulseCore(
         fitness.updateGoals(FitnessGoals(form.activeMinutes, form.steps, form.activeKcal))
         nutrition.updateGoals(nutrition.goals.copy(kcal = form.foodKcal, waterMilliliters = form.waterMl))
         screenTime.setLimit(form.screenLimitHours * 60)
+        refreshHealthForBody()
         return true
     }
 
@@ -148,7 +150,13 @@ class PulseCore(
         val profile = AboutYou.profile(form, now) ?: return false
         body.save(profile)
         fitness.bodyProfile = profile
+        refreshHealthForBody()
         return true
+    }
+
+    /** Zones and the kcal estimate are built with age and weight: rebuilt on the app's scope, which no closing screen cancels. */
+    private fun refreshHealthForBody() {
+        background.launch { fitness.refreshHealth() }
     }
 
     /** Personal weekly report inputs from every store (iOS `WeeklySource`); 70 days cover two compared weeks. */

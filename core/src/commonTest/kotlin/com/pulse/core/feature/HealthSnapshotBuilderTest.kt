@@ -1,6 +1,8 @@
 package com.pulse.core.feature
 
+import com.pulse.core.model.BodyMath
 import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.BodyReadings
 import com.pulse.core.model.FitnessMath
 import com.pulse.core.model.HeartRateSample
 import com.pulse.core.model.SleepInterval
@@ -93,7 +95,7 @@ class HealthSnapshotBuilderTest {
         assertNull(snapshot.averageHeartRate)
         assertNull(snapshot.nightVitals)
         assertTrue(snapshot.sleepIntervals.isEmpty())
-        assertTrue(snapshot.bodyMetrics.isEmpty())
+        assertEquals(BodyReadings(), snapshot.bodyReadings)
         assertEquals(0, snapshot.today.steps)
     }
 
@@ -130,7 +132,7 @@ class HealthSnapshotBuilderTest {
             hrv = listOf(HeartRateSample(at(2026, 10, 20, 3), 60.0), HeartRateSample(at(2026, 10, 20, 4), 70.0))
         )
         val snapshot = HealthSnapshotBuilder.build(raw, now, "Health Connect")
-        assertEquals(listOf("Вес" to 72.5, "Жир" to 14.0, "Сух. масса" to 60.0), snapshot.bodyMetrics.map { it.title to it.value })
+        assertEquals(BodyReadings(72.5, null, 14.0, 60.0), snapshot.bodyReadings)
         assertEquals(55, snapshot.restingHeartRate)
         assertEquals(listOf(58.0, 55.0), snapshot.restingHeartRateByDay.map { it.value })
         assertEquals(listOf(65.0), snapshot.hrvByDay.map { it.value })
@@ -156,6 +158,6 @@ class HealthSnapshotBuilderTest {
         val body = BodyProfile(LocalDate(2004, 3, 12), 182, 74.0, at(2026, 10, 19))
         val raw = HealthRawData(weightKg = 76.0, weightAt = at(2026, 10, 20), bodyFatPercent = 14.0)
         val snapshot = HealthSnapshotBuilder.build(raw, now, "Health Connect", body)
-        assertEquals(listOf("Вес" to 76.0, "Рост" to 182.0, "ИМТ" to 22.9, "Жир" to 14.0), snapshot.bodyMetrics.map { it.title to it.value })
+        assertEquals(listOf("Вес" to 76.0, "Рост" to 182.0, "ИМТ" to 22.9, "Жир" to 14.0), BodyMath.metrics(body, snapshot.bodyReadings).map { it.title to it.value })
     }
 }

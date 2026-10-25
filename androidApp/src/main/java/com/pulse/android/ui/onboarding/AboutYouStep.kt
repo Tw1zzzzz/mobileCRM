@@ -16,7 +16,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
@@ -47,20 +46,24 @@ import com.pulse.core.model.AboutYou
 import com.pulse.core.model.AboutYouField
 import com.pulse.core.model.AboutYouForm
 import com.pulse.core.util.Formatters
-import kotlinx.coroutines.launch
 import kotlin.time.Clock
 
 const val ABOUT_YOU_TITLE = "О тебе"
 const val ABOUT_YOU_SUBTITLE = "Возраст, рост и вес нужны для пульсовых зон и калорий, режим — для напоминаний о сне. Всё можно поменять в профиле."
 
-/** «О тебе» while it is filled in: the form plus the birth date exactly as typed («12.03.2004»). */
-data class AboutYouDraft(val form: AboutYouForm, val birthText: String) {
+/**
+ * «О тебе» while it is filled in: the form plus the birth date exactly as typed («12.03.2004»). [revealed]: the player
+ * pressed the button with a wrong answer, so every error is shown, not only those of fields already left.
+ */
+data class AboutYouDraft(val form: AboutYouForm, val birthText: String, val revealed: Boolean = false) {
     fun withBirthText(text: String) = copy(birthText = text, form = form.copy(birthDate = AboutYou.parseBirthDate(text)))
+
+    val isValid: Boolean get() = AboutYou.errors(form, Clock.System.now()).isEmpty()
 
     companion object {
         fun start(core: PulseCore, isNewPlayer: Boolean): AboutYouDraft {
             val form = AboutYou.initial(core.sleep.window, core.fitness.goals, core.nutrition.goals,
-                core.screenTime.state.value.dailyLimitMinutes, core.body.profile, isNewPlayer)
+                core.screenTime.state.value.dailyLimitMinutes, core.body.profile, isNewPlayer, core.fitness.currentWeightKg)
             return AboutYouDraft(form, form.birthDate?.let(AboutYou::birthDateText) ?: "")
         }
     }
@@ -71,7 +74,7 @@ val AboutYouDraftSaver: Saver<AboutYouDraft, List<Any>> = Saver(
     save = { draft ->
         val f = draft.form
         listOf(draft.birthText, f.heightText, f.weightText, f.bedtimeHour, f.bedtimeMinute, f.wakeHour, f.wakeMinute, f.activeMinutes,
-            f.steps, f.activeKcal, f.foodKcal, f.waterMl, f.screenLimitHours, f.suggestsFromWeight, f.kcalEdited, f.waterEdited)
+            f.steps, f.activeKcal, f.foodKcal, f.waterMl, f.screenLimitHours, f.suggestsFromWeight, f.kcalEdited, f.waterEdited, draft.revealed)
     },
     restore = { v ->
         val form = AboutYouForm(
@@ -80,15 +83,18 @@ val AboutYouDraftSaver: Saver<AboutYouDraft, List<Any>> = Saver(
             foodKcal = v[10] as Int, waterMl = v[11] as Int, screenLimitHours = v[12] as Int, suggestsFromWeight = v[13] as Boolean,
             kcalEdited = v[14] as Boolean, waterEdited = v[15] as Boolean
         )
-        AboutYouDraft(form, "").withBirthText(v[0] as String)
+        AboutYouDraft(form, "", revealed = v[16] as Boolean).withBirthText(v[0] as String)
     }
 )
 
 private val BODY_FIELDS = setOf(AboutYouField.BIRTH_DATE, AboutYouField.HEIGHT, AboutYouField.WEIGHT)
 
-/** Errors that may already be shown: body fields only after the player has left them. */
+/** Errors that may already be shown: body fields only after the player has left them, or all once [AboutYouDraft.revealed]. */
 fun visibleErrors(draft: AboutYouDraft, touched: Set<AboutYouField>): Map<AboutYouField, String> =
-    AboutYou.errors(draft.form, Clock.System.now()).filterKeys { it !in BODY_FIELDS || it in touched }
+    AboutYou.errors(draft.form, Clock.System.now()).filterKeys { draft.revealed || it !in BODY_FIELDS || it in touched }
+
+/** The button's action: [save] when every answer is right, otherwise show what is wrong. */
+fun AboutYouDraft.submit(onChange: (AboutYouDraft) -> Unit, save: () -> Unit) = if (isValid) save() else onChange(copy(revealed = true))
 
 /** «Тело», «Режим сна», «Цели на день»; the profile sheet shows the body only. */
 @Composable
@@ -96,9 +102,12 @@ fun AboutYouFields(draft: AboutYouDraft, onChange: (AboutYouDraft) -> Unit, sche
     var touched by rememberSaveable { mutableStateOf(emptySet<AboutYouField>()) }
     val errors = visibleErrors(draft, touched)
     val form = draft.form
-    /** Errors of a typed field appear once the player leaves it, not while typing «18» on the way to «182». */
+    /** Errors of a typed field appear once the player leaves it, not while typing «18» on the way to «182» — also when coming back to it. */
     fun leaves(field: AboutYouField, text: String) = Modifier.onFocusChanged { state ->
-        if (!state.hasFocus && text.isNotEmpty() && field !in touched) touched = touched + field
+        when {
+            state.hasFocus -> touched = touched - field
+            text.isNotEmpty() -> touched = touched + field
+        }
     }
     Column(verticalArrangement = Arrangement.spacedBy(18.dp)) {
         SectionHeader("Тело")
@@ -183,15 +192,11 @@ private fun TimeRow(title: String, hour: Int, minute: Int, onChange: (Int, Int) 
 @Composable
 fun AboutYouSheet(onClose: () -> Unit) {
     val core = observeCore()
-    val scope = rememberCoroutineScope()
     var draft by rememberSaveable(stateSaver = AboutYouDraftSaver) { mutableStateOf(AboutYouDraft.start(core, isNewPlayer = false)) }
     SheetScaffold(ABOUT_YOU_TITLE, onClose) {
         AboutYouFields(draft, { draft = it }, schedule = false)
-        GradientButton("Сохранить", enabled = AboutYou.errors(draft.form, Clock.System.now()).isEmpty()) {
-            if (core.updateBody(draft.form)) {
-                scope.launch { core.fitness.refreshHealth() }
-                onClose()
-            }
+        GradientButton("Сохранить", dimmed = !draft.isValid) {
+            draft.submit({ draft = it }) { if (core.updateBody(draft.form)) onClose() }
         }
     }
 }

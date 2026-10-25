@@ -50,6 +50,39 @@ struct AboutYouTests {
         #expect(form.waterMl == 3000)
     }
 
+    /// Pressed «Позже» before «О тебе» existed and set 3 000 kcal in Цели: no survey, but the goals are the player's own.
+    @Test func customNutritionIsKeptWithoutSurvey() {
+        var goals = NutritionGoals()
+        goals.kcal = 3000
+        goals.waterMilliliters = 3000
+        let form = blank(isNewPlayer: true, nutrition: goals).withWeightText("74")
+        #expect(form.foodKcal == 3000)
+        #expect(form.waterMl == 3000)
+    }
+
+    /// Профиль → «О тебе» starts from the weight «Тело» shows (newer scales), not the one typed earlier.
+    @Test func sheetStartsFromCurrentWeight() {
+        let profile = BodyProfile(birthDate: "2004-03-12", heightCm: 182, weightKg: 74, updatedAt: now)
+        let current = AboutYou.initial(window: SleepWindow(), fitness: FitnessGoals(), nutrition: NutritionGoals(), screenLimitMinutes: 300,
+                                       profile: profile, isNewPlayer: false, weightKg: 76.5)
+        #expect(current.weightText == "76,5")
+        let typed = AboutYou.initial(window: SleepWindow(), fitness: FitnessGoals(), nutrition: NutritionGoals(), screenLimitMinutes: 300,
+                                     profile: profile, isNewPlayer: false)
+        #expect(typed.weightText == "74")
+    }
+
+    /// Body errors appear once a field is left, or all of them when the button is pressed with a wrong answer.
+    @Test func errorsShowAfterLeavingOrPressing() {
+        var form = blank()
+        form.heightText = "182"
+        form = form.withWeightText("250")
+        #expect(AboutYou.visibleErrors(form, touched: [], revealed: false, now: now).isEmpty)
+        let left = AboutYou.visibleErrors(form, touched: [.weight], revealed: false, now: now)
+        #expect(Set(left.keys) == [.weight])
+        let pressed = AboutYou.visibleErrors(form, touched: [], revealed: true, now: now)
+        #expect(Set(pressed.keys) == [.birthDate, .weight])
+    }
+
     @Test func missingFieldsAreErrors() {
         let errors = AboutYou.errors(blank(), now: now)
         #expect(errors[.birthDate] == "Укажи дату рождения")

@@ -66,8 +66,20 @@ struct FitnessStoreHealthTests {
             today: HealthDaySummary(steps: steps, distanceKm: 5.1, activeKcal: kcal, activeMinutes: minutes),
             weeklyActiveMinutes: (0..<7).map { DailyValue(date: Date.now.startOfDay.adding(days: $0 - 6), value: 30) },
             workouts: [workout], heartRateZones: nil, averageHeartRate: nil, restingHeartRate: 58, hrv: 70,
-            bodyMetrics: [], fetchedAt: .now
+            fetchedAt: .now
         )
+    }
+
+    /// A snapshot fetched before «О тебе» still gets height and BMI once the profile exists; the newer Health weight stays.
+    @Test func bodyMetricsCombineProfileWithCachedSnapshot() async {
+        var cached = snapshot(steps: 9000, minutes: 35, kcal: 380)
+        cached.bodyReadings = BodyReadings(weightKg: 76, weightAt: .now, bodyFatPercent: 14)
+        let store = FitnessStore(storage: makeStorage(), healthService: FakeHealth(snapshot: cached))
+        await store.connectHealth()
+        store.bodyProfile = BodyProfile(birthDate: "2004-03-12", heightCm: 182, weightKg: 74, updatedAt: Date.now.adding(days: -1))
+        #expect(store.bodyMetrics.map(\.title) == ["Вес", "Рост", "ИМТ", "Жир"])
+        #expect(store.bodyMetrics.map(\.value) == [76, 182, 22.9, 14])
+        #expect(store.currentWeightKg == 76)
     }
 
     @Test func demoUntilConnectedThenRealData() async {

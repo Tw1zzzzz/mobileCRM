@@ -4,6 +4,7 @@ import com.pulse.core.demo.DemoData
 import com.pulse.core.model.BodyMath
 import com.pulse.core.model.BodyMetric
 import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.BodyReadings
 import com.pulse.core.model.DailyValue
 import com.pulse.core.model.FitnessGoals
 import com.pulse.core.model.FitnessMath
@@ -17,6 +18,7 @@ import com.pulse.core.util.addingDays
 import com.pulse.core.util.isSameDay
 import com.pulse.core.util.startOfDay
 import kotlinx.serialization.KSerializer
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.Decoder
@@ -181,6 +183,8 @@ class FitnessStore(
             current = current.copy(isHealthConnected = true)
             persist()
             refreshHealth()
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             current = current.copy(healthError = "Не удалось получить доступ к $healthName")
         }
@@ -194,6 +198,8 @@ class FitnessStore(
             val snapshot = service.snapshot(now, bodyProfile)
             current = current.copy(health = snapshot, healthError = null)
             onHealthSnapshot?.invoke(snapshot)
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             current = current.copy(healthError = "Не удалось обновить данные $healthName")
         } finally {
@@ -252,8 +258,11 @@ class FitnessStore(
     val heartRateZones: List<HeartRateZone>? get() = if (showsDemoBaseline) DemoData.heartRateZones else current.health?.heartRateZones
     val averageHeartRate: Int? get() = if (showsDemoBaseline) DemoData.AVERAGE_HEART_RATE else current.health?.averageHeartRate
     val bodyMetrics: List<BodyMetric>
-        get() = current.health?.bodyMetrics
-            ?: if (showsDemoBaseline) DemoData.bodyMetrics else bodyProfile?.let { BodyMath.metrics(it, null, null, null, null) } ?: emptyList()
+        get() = if (showsDemoBaseline) DemoData.bodyMetrics else BodyMath.metrics(bodyProfile, current.health?.bodyReadings ?: BodyReadings())
+
+    /** The weight «Тело» shows: newer scales in Health beat the one typed in «О тебе». */
+    val currentWeightKg: Double?
+        get() = current.health?.bodyReadings.let { BodyMath.currentWeight(bodyProfile, it?.weightKg, it?.weightAt) }
 
     fun add(workout: Workout) {
         current = current.copy(workouts = (current.workouts + workout).sortedBy { it.date })

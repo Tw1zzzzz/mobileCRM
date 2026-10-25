@@ -9,6 +9,7 @@ import com.pulse.core.demo.TeamFood
 import com.pulse.core.demo.WellbeingFactor
 import com.pulse.core.model.BalanceCategory
 import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.BodyReadings
 import com.pulse.core.model.CSMap
 import com.pulse.core.model.CalendarEvent
 import com.pulse.core.model.CognitiveOutcome
@@ -51,6 +52,8 @@ import com.pulse.core.util.daysUntil
 import com.pulse.core.util.setting
 import com.pulse.core.util.startOfDay
 import kotlinx.coroutines.test.runTest
+import kotlinx.datetime.LocalDate
+import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.serialization.builtins.ListSerializer
 import kotlin.math.abs
 import kotlin.test.BeforeTest
@@ -260,10 +263,10 @@ class NutritionWellbeingCognitiveCalendarTests {
     }
 }
 
-private class FakeHealth(override val isAvailable: Boolean = true, val snapshot: HealthSnapshot) : HealthDataProvider {
+private class FakeHealth(override val isAvailable: Boolean = true, val snapshot: HealthSnapshot, val failure: Exception? = null) : HealthDataProvider {
     override val name = "Health Connect"
     override suspend fun requestAuthorization() {}
-    override suspend fun snapshot(now: Instant, body: BodyProfile?): HealthSnapshot = snapshot
+    override suspend fun snapshot(now: Instant, body: BodyProfile?): HealthSnapshot = failure?.let { throw it } ?: snapshot
 }
 
 class FitnessStoreTests {
@@ -275,7 +278,7 @@ class FitnessStoreTests {
             today = HealthDaySummary(steps, 5.1, kcal, minutes),
             weeklyActiveMinutes = (0 until 7).map { com.pulse.core.model.DailyValue(now.startOfDay().addingDays(it - 6), 30.0) },
             workouts = listOf(Workout(Uuid.random(), WorkoutKind.CARDIO, "Health Connect", now, 30, 250, 140)),
-            heartRateZones = null, averageHeartRate = null, restingHeartRate = 58, hrv = 70, bodyMetrics = emptyList(), fetchedAt = now
+            heartRateZones = null, averageHeartRate = null, restingHeartRate = 58, hrv = 70, fetchedAt = now
         )
     }
 
@@ -295,6 +298,25 @@ class FitnessStoreTests {
         assertNull(store.heartRateZones) // no watch → no zones rather than fake ones
         store.disconnectHealth()
         assertEquals(DemoData.BASELINE_STEPS, store.steps)
+    }
+
+    /** A snapshot fetched before «О тебе» still gets height and BMI once the profile exists; the newer Health weight stays. */
+    @Test fun bodyMetricsCombineProfileWithCachedSnapshot() = runTest {
+        val now = Clock.System.now()
+        val readings = BodyReadings(weightKg = 76.0, weightAt = now, bodyFatPercent = 14.0)
+        val store = FitnessStore(null, FakeHealth(snapshot = snapshot(9000, 35, 380).copy(bodyReadings = readings)), isDemo = false)
+        store.connectHealth()
+        store.bodyProfile = BodyProfile(LocalDate(2004, 3, 12), 182, 74.0, now.addingDays(-1))
+        assertEquals(listOf("Вес" to 76.0, "Рост" to 182.0, "ИМТ" to 22.9, "Жир" to 14.0), store.bodyMetrics.map { it.title to it.value })
+        assertEquals(76.0, store.currentWeightKg)
+    }
+
+    /** A refresh cancelled with its screen is not a failure: no error banner, the cancellation goes on. */
+    @Test fun cancelledRefreshIsNotAnError() = runTest {
+        val store = FitnessStore(null, FakeHealth(snapshot = snapshot(1, 1, 1), failure = CancellationException("screen closed")), isDemo = false)
+        assertFailsWith<CancellationException> { store.connectHealth() }
+        assertNull(store.state.value.healthError)
+        assertFalse(store.state.value.isSyncing)
     }
 
     @Test fun unavailableDeviceShowsError() = runTest {

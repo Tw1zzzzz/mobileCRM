@@ -1,6 +1,7 @@
 package com.pulse.core.feature
 
 import com.pulse.core.model.BodyMath
+import com.pulse.core.model.BodyReadings
 import com.pulse.core.model.BodyMetric
 import com.pulse.core.model.BodyProfile
 import com.pulse.core.model.DailyValue
@@ -99,7 +100,7 @@ object HealthSnapshotBuilder {
             averageHeartRate = StatisticsMath.mean(todayHeart)?.roundToIntSwift(),
             restingHeartRate = raw.restingHeartRate.maxByOrNull { it.date }?.bpm?.roundToIntSwift(),
             hrv = raw.hrv.maxByOrNull { it.date }?.bpm?.roundToIntSwift(),
-            bodyMetrics = BodyMath.metrics(body, raw.weightKg, raw.weightAt, raw.bodyFatPercent, raw.leanMassKg),
+            bodyReadings = BodyReadings(raw.weightKg, raw.weightAt, raw.bodyFatPercent, raw.leanMassKg),
             fetchedAt = now,
             sleepIntervals = raw.sleep.filter { it.end >= today.addingDays(-BASELINE_DAYS) }.sortedBy { it.start },
             nightVitals = nightVitals(SleepMath.nights(raw.sleep).lastOrNull(), raw),
