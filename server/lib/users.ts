@@ -75,3 +75,14 @@ export async function userJson(deps: Deps, userId: string): Promise<UserJson> {
     faceit_url: row.faceit_url,
   };
 }
+
+export interface CredentialsRow extends UserRow {
+  password_hash: string;
+}
+
+/** Login-only lookup: the one place besides registration that reads `password_hash`. */
+export async function findCredentials(deps: Deps, normalizedEmail: string): Promise<CredentialsRow | null> {
+  const [row] = await deps.sql<CredentialsRow[]>`
+    select id, email, email_verified_at, password_hash from users where email = ${normalizedEmail}`;
+  return row ?? null;
+}
