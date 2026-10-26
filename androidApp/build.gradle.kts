@@ -12,6 +12,12 @@ val releaseSigning: Properties? =
         .takeIf { it.isFile }
         ?.let { file -> Properties().apply { file.inputStream().use { load(it) } } }
 
+// Faceit Data API client-side key: `faceit.apiKey` in local.properties (git-ignored) or PULSE_FACEIT_API_KEY.
+// Without it players enter their own key in the app.
+val faceitKey: String? = System.getenv("PULSE_FACEIT_API_KEY")
+    ?: rootProject.file("local.properties").takeIf { it.isFile }
+        ?.let { file -> Properties().apply { file.inputStream().use { load(it) } }.getProperty("faceit.apiKey") }
+
 android {
     namespace = "com.pulse.android"
     compileSdk = 37
@@ -23,6 +29,7 @@ android {
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
+        buildConfigField("String", "FACEIT_API_KEY", "\"${faceitKey.orEmpty()}\"")
     }
 
     signingConfigs {

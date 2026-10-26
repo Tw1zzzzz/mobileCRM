@@ -19,7 +19,7 @@ final class AppDependencies {
     let screenTime = ScreenTimeStore()
     let lineups = LineupStore()
     let gameGoals = GameGoalsStore()
-    let game = GameStore()
+    let game = GameStore(builtInKey: AppSecrets.faceitAPIKey)
     let survey = PlayerSurveyStore()
     let body = BodyProfileStore()
     let deepLinks = DeepLinkCenter()

@@ -27,15 +27,20 @@ final class GameStore {
     private let storage: JSONFileStorage<Saved>?
     private let secrets: SecretStore
     private let makeClient: (String) -> FaceitProviding
+    /// The app's own client-side Data API key (`AppSecrets`, set outside the repository); a key the player enters wins.
+    private let builtInKey: String?
 
     init(
         storage: JSONFileStorage<Saved>? = JSONFileStorage(filename: "faceit.json"),
         secrets: SecretStore = KeychainStore(),
+        builtInKey: String? = nil,
         makeClient: @escaping (String) -> FaceitProviding = { FaceitClient(apiKey: $0) }
     ) {
         self.storage = storage
         self.secrets = secrets
         self.makeClient = makeClient
+        let trimmed = builtInKey?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+        self.builtInKey = trimmed.isEmpty ? nil : trimmed
         let saved = storage?.load()
         self.nickname = saved?.nickname
         self.snapshots = saved?.snapshots ?? []
@@ -56,7 +61,14 @@ final class GameStore {
         error = nil
     }
 
-    var hasApiKey: Bool { !(secrets.read(Self.apiKeyAccount) ?? "").isEmpty }
+    var hasBuiltInKey: Bool { builtInKey != nil }
+    var hasApiKey: Bool { apiKey != nil }
+
+    /// The player's own key, else the app's.
+    private var apiKey: String? {
+        if let own = secrets.read(Self.apiKeyAccount), !own.isEmpty { return own }
+        return builtInKey
+    }
     var isConnected: Bool { nickname != nil && hasApiKey }
 
     // MARK: Sync
@@ -85,7 +97,7 @@ final class GameStore {
 
     @MainActor
     func refresh(now: Date = .now) async {
-        guard let nickname, let key = secrets.read(Self.apiKeyAccount), !key.isEmpty, !isSyncing else { return }
+        guard let nickname, let key = apiKey, !isSyncing else { return }
         isSyncing = true
         defer { isSyncing = false }
         do {

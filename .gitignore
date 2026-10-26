@@ -17,3 +17,5 @@ local.properties
 *.iml
 .idea/
 captures/
+# Keys built into the app (Faceit API) stay off the public repo
+Pulse/Secrets.plist

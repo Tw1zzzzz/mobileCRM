@@ -240,15 +240,20 @@ private fun FaceitConnectSheet(onClose: () -> Unit) {
     var apiKey by remember { mutableStateOf("") }
     SheetScaffold("Faceit", onClose) {
         PulseTextField("Ник или ссылка на профиль", nickname, "https://www.faceit.com/ru/players/…") { nickname = it }
-        PulseTextField(if (game.hasApiKey) "API-ключ (сохранён, можно заменить)" else "API-ключ *", apiKey, "xxxxxxxx-xxxx-…", secure = true) { apiKey = it }
-        Column(Modifier.pulseCard(padding = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Text("Где взять ключ", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
-            Text(
-                "developers.faceit.com → App Studio → создать приложение → API Keys → ключ типа Client side. Ключ хранится только на этом телефоне в защищённом хранилище Android; когда появится сервер Pulse, он будет обращаться к Faceit сам.",
-                color = Palette.textSecondary, fontSize = 13.sp
-            )
-            Text("Открыть портал разработчиков", color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.pressable { uri.openUri("https://developers.faceit.com") })
+        // The app's own key (from the build) is enough: only builds without it ask the player for one.
+        if (game.hasBuiltInKey) {
+            Text("ELO, уровень, матчи и статистика по картам подтянутся по нику.", color = Palette.textSecondary, fontSize = 14.sp)
+        } else {
+            PulseTextField(if (game.hasApiKey) "API-ключ (сохранён, можно заменить)" else "API-ключ *", apiKey, "xxxxxxxx-xxxx-…", secure = true) { apiKey = it }
+            Column(Modifier.pulseCard(padding = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Где взять ключ", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
+                Text(
+                    "developers.faceit.com → App Studio → создать приложение → API Keys → ключ типа Client side. Ключ хранится только на этом телефоне в защищённом хранилище Android; когда появится сервер Pulse, он будет обращаться к Faceit сам.",
+                    color = Palette.textSecondary, fontSize = 13.sp
+                )
+                Text("Открыть портал разработчиков", color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.pressable { uri.openUri("https://developers.faceit.com") })
+            }
         }
         state.error?.let { ErrorBanner(it) }
         GradientButton(if (state.isSyncing) "Подключаем…" else "Подключить", icon = sfIcon("link"), isLoading = state.isSyncing) {

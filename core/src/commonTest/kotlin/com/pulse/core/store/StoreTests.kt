@@ -428,6 +428,27 @@ class DiaryAndGameStoreTests {
         assertEquals(listOf(3010.0), store.eloHistory(null, 7).map { it.value })
     }
 
+    /** The app's own key (set at build time): a player connects with a nickname only. */
+    @Test fun builtInKeyConnectsWithNicknameOnly() = runTest {
+        var used: String? = null
+        val store = GameStore(null, MemorySecretStore(), builtInKey = "app-key") { key -> used = key; FakeFaceit { profile(2000) } }
+        assertTrue(store.hasBuiltInKey)
+        assertTrue(store.hasApiKey)
+        store.connect("Nova", null)
+        assertEquals("app-key", used)
+        assertNull(store.state.value.error)
+        assertEquals(2000, store.profile(null).elo)
+    }
+
+    @Test fun ownKeyOverridesBuiltIn() = runTest {
+        var used: String? = null
+        val secrets = MemorySecretStore()
+        val store = GameStore(null, secrets, builtInKey = "app-key") { key -> used = key; FakeFaceit { profile(2000) } }
+        store.connect("Nova", "mine")
+        assertEquals("mine", used)
+        assertFalse(GameStore(null, MemorySecretStore(), builtInKey = " ") { FakeFaceit { profile(1) } }.hasBuiltInKey)
+    }
+
     @Test fun gameStoreErrors() = runTest {
         val noKey = GameStore(null, MemorySecretStore()) { FakeFaceit { profile(1) } }
         noKey.connect("Nova", "")

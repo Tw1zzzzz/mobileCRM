@@ -61,7 +61,9 @@ class PulseCore(
     http: HttpClient,
     private val background: CoroutineScope,
     health: HealthDataProvider?,
-    foodAnalyzer: FoodAnalyzer = MockFoodAnalyzer()
+    foodAnalyzer: FoodAnalyzer = MockFoodAnalyzer(),
+    /** The app's Faceit Data API key from the build (players may still enter their own). */
+    faceitKey: String? = null
 ) {
     val scope = DataScope(files)
     private val api = ApiClient(http, AppConfig.apiBaseUrl, TokenStore(secrets))
@@ -86,7 +88,7 @@ class PulseCore(
     val screenTime = ScreenTimeStore(file(ScreenTimeStore.FILE, ScreenTimeStore.Saved.serializer()))
     val lineups = LineupStore(file(LineupStore.FILE, ListSerializer(Lineup.serializer())))
     val gameGoals = GameGoalsStore(file(GameGoalsStore.FILE, GameGoals.serializer()))
-    val game = GameStore(file(GameStore.FILE, GameStore.Saved.serializer()), secrets) { key -> FaceitClient(key, http) }
+    val game = GameStore(file(GameStore.FILE, GameStore.Saved.serializer()), secrets, faceitKey) { key -> FaceitClient(key, http) }
     val survey = PlayerSurveyStore(file(PlayerSurveyStore.FILE, PlayerSurveyState.serializer()))
     val body = BodyProfileStore(file(BodyProfileStore.FILE, BodyProfile.serializer()))
 

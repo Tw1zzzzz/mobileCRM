@@ -108,12 +108,19 @@ class FaceitClient(private val apiKey: String, private val http: HttpClient) : F
     }
 }
 
-/** Player-side CS2 data for every game screen: real Faceit data when connected, demo matches otherwise («faceit.json»). */
+/**
+ * Player-side CS2 data for every game screen: real Faceit data when connected, demo matches otherwise («faceit.json»).
+ * [builtInKey] is the app's own client-side Data API key, set at build time outside the repository; a key the player
+ * enters is stored in [secrets] and wins over it.
+ */
 class GameStore(
     private val storage: JsonFileStorage<Saved>?,
     private val secrets: SecretStore,
+    builtInKey: String? = null,
     private val makeClient: (String) -> FaceitProvider
 ) : PulseStore<GameStore.State>(State()) {
+
+    private val builtInKey: String? = builtInKey?.trim()?.takeIf { it.isNotEmpty() }
 
     @Serializable
     data class EloSnapshot(val date: Instant, val elo: Int)
@@ -138,7 +145,10 @@ class GameStore(
 
     /** Something to show on game screens: real Faceit data, or the demo for demo accounts. */
     val hasData: Boolean get() = current.faceit != null || current.isDemo
-    val hasApiKey: Boolean get() = !secrets.read(API_KEY_ACCOUNT).isNullOrEmpty()
+    val hasBuiltInKey: Boolean get() = builtInKey != null
+    val hasApiKey: Boolean get() = apiKey != null
+    /** The player's own key, else the app's. */
+    private val apiKey: String? get() = secrets.read(API_KEY_ACCOUNT)?.takeIf { it.isNotEmpty() } ?: builtInKey
     val isConnected: Boolean get() = current.nickname != null && hasApiKey
     val usesRealData: Boolean get() = current.faceit != null
 
@@ -165,7 +175,7 @@ class GameStore(
 
     suspend fun refresh(now: Instant = Clock.System.now()) {
         val nickname = current.nickname ?: return
-        val key = secrets.read(API_KEY_ACCOUNT)?.takeIf { it.isNotEmpty() } ?: return
+        val key = apiKey ?: return
         if (current.isSyncing) return
         current = current.copy(isSyncing = true)
         try {

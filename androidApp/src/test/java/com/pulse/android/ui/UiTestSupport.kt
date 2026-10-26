@@ -40,20 +40,21 @@ import kotlin.test.assertTrue
  */
 
 /** A core over a fresh temp dir with in-memory secrets; signed in to the demo of [role] when given. */
-fun testCore(role: UserRole?): PulseCore {
+fun testCore(role: UserRole?, faceitKey: String? = null): PulseCore {
     val core = PulseCore(
         files = JvmFileSystem(Files.createTempDirectory("pulse-ui").toFile()),
         secrets = MemorySecretStore(),
         http = HttpClient(OkHttp),
         background = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
-        health = null
+        health = null,
+        faceitKey = faceitKey
     )
     if (role != null) runBlocking { core.session.switchToDemo(role) }
     return core
 }
 
 /** A freshly registered (not demo) solo player: no questionnaire answers, no «О тебе». */
-fun registeredCore(): PulseCore = testCore(null).also { core ->
+fun registeredCore(faceitKey: String? = null): PulseCore = testCore(null, faceitKey).also { core ->
     runBlocking {
         core.session.register(RegistrationForm(nickname = "Тестер", email = "tester@example.com", password = "test-pass-1",
             confirmPassword = "test-pass-1", acceptedTerms = true, acceptedPrivacy = true))

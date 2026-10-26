@@ -35,7 +35,8 @@ class PulseApplication : Application() {
             secrets = KeystoreSecretStore(this),
             http = HttpClient(OkHttp),
             background = appScope,
-            health = HealthConnectProvider(this)
+            health = HealthConnectProvider(this),
+            faceitKey = BuildConfig.FACEIT_API_KEY
         )
         PulseNotifications.ensureChannels(this)
         // Reminders follow the signed-in account (and its role) — replanned on every sign-in, switch and sign-out.

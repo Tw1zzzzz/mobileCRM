@@ -114,6 +114,32 @@ struct GameStoreTests {
         #expect(store.eloHistory(for: nil, days: 7).map(\.value) == [3010])
     }
 
+    /// The app's own key (set at build time): a player connects with a nickname only.
+    @Test func builtInKeyConnectsWithNicknameOnly() async {
+        var used: String?
+        let store = GameStore(storage: nil, secrets: MemorySecrets(), builtInKey: "app-key") { key in
+            used = key
+            return FakeFaceit(result: .success(self.profile(elo: 2000)))
+        }
+        #expect(store.hasBuiltInKey)
+        #expect(store.hasApiKey)
+        await store.connect(nickname: "Nova", apiKey: nil)
+        #expect(used == "app-key")
+        #expect(store.error == nil)
+        #expect(store.profile(for: nil).elo == 2000)
+    }
+
+    @Test func ownKeyOverridesBuiltIn() async {
+        var used: String?
+        let store = GameStore(storage: nil, secrets: MemorySecrets(), builtInKey: "app-key") { key in
+            used = key
+            return FakeFaceit(result: .success(self.profile(elo: 2000)))
+        }
+        await store.connect(nickname: "Nova", apiKey: "mine")
+        #expect(used == "mine")
+        #expect(!GameStore(storage: nil, secrets: MemorySecrets(), builtInKey: " ") { _ in FakeFaceit(result: .success(self.profile(elo: 1))) }.hasBuiltInKey)
+    }
+
     @Test func connectWithoutKeyAsksForIt() async {
         let store = GameStore(storage: nil, secrets: MemorySecrets()) { _ in FakeFaceit(result: .success(self.profile(elo: 1))) }
         await store.connect(nickname: "Nova", apiKey: "")

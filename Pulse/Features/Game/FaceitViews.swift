@@ -96,22 +96,14 @@ struct FaceitConnectSheet: View {
     var body: some View {
         SheetScaffold(title: "Faceit") {
             PulseTextField(title: "Ник или ссылка на профиль", text: $nickname, placeholder: "https://www.faceit.com/ru/players/…")
-            PulseTextField(title: game.hasApiKey ? "API-ключ (сохранён, можно заменить)" : "API-ключ *", text: $apiKey,
-                           placeholder: "xxxxxxxx-xxxx-…", isSecure: true)
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Где взять ключ")
-                    .font(.system(size: 15, weight: .semibold))
-                    .foregroundStyle(Theme.Palette.textPrimary)
-                Text("developers.faceit.com → App Studio → создать приложение → API Keys → ключ типа Client side. Ключ хранится только на этом iPhone в Keychain; когда появится сервер Pulse, он будет обращаться к Faceit сам.")
-                    .font(.system(size: 13))
+            // The app's own key (from the build) is enough: only builds without it ask the player for one.
+            if game.hasBuiltInKey {
+                Text("ELO, уровень, матчи и статистика по картам подтянутся по нику.")
+                    .font(.system(size: 14))
                     .foregroundStyle(Theme.Palette.textSecondary)
-                if let url = URL(string: "https://developers.faceit.com") {
-                    Link("Открыть портал разработчиков", destination: url)
-                        .font(.system(size: 14, weight: .semibold))
-                        .foregroundStyle(Theme.Palette.cyan)
-                }
+            } else {
+                keyFields
             }
-            .pulseCard(padding: 14)
             if let error = game.error { ErrorBanner(message: error) }
             GradientButton(title: game.isSyncing ? "Подключаем…" : "Подключить", systemImage: "link") {
                 Task {
@@ -124,6 +116,25 @@ struct FaceitConnectSheet: View {
         .onAppear {
             nickname = game.nickname ?? session.user?.faceitURL ?? ""
         }
+    }
+
+    @ViewBuilder private var keyFields: some View {
+        PulseTextField(title: game.hasApiKey ? "API-ключ (сохранён, можно заменить)" : "API-ключ *", text: $apiKey,
+                       placeholder: "xxxxxxxx-xxxx-…", isSecure: true)
+        VStack(alignment: .leading, spacing: 8) {
+            Text("Где взять ключ")
+                .font(.system(size: 15, weight: .semibold))
+                .foregroundStyle(Theme.Palette.textPrimary)
+            Text("developers.faceit.com → App Studio → создать приложение → API Keys → ключ типа Client side. Ключ хранится только на этом iPhone в Keychain; когда появится сервер Pulse, он будет обращаться к Faceit сам.")
+                .font(.system(size: 13))
+                .foregroundStyle(Theme.Palette.textSecondary)
+            if let url = URL(string: "https://developers.faceit.com") {
+                Link("Открыть портал разработчиков", destination: url)
+                    .font(.system(size: 14, weight: .semibold))
+                    .foregroundStyle(Theme.Palette.cyan)
+            }
+        }
+        .pulseCard(padding: 14)
     }
 }
 
