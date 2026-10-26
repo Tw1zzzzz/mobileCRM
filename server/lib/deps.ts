@@ -1,6 +1,6 @@
 import type { Sql } from "postgres";
 import { createSql } from "@/db/sql";
-import { ConsoleMailer, type Mailer } from "@/lib/mail";
+import { ConsoleMailer, ResendMailer, type Mailer } from "@/lib/mail";
 
 export interface Deps {
   sql: Sql;
@@ -17,6 +17,15 @@ function requireEnv(name: string): string {
   return value;
 }
 
+function createMailer(): Mailer {
+  const apiKey = process.env.RESEND_API_KEY;
+  if (apiKey) return new ResendMailer(apiKey, requireEnv("MAIL_FROM"));
+  if (process.env.VERCEL_ENV === "production") {
+    throw new Error("RESEND_API_KEY is required in production");
+  }
+  return new ConsoleMailer();
+}
+
 let cached: Deps | undefined;
 
 export function defaultDeps(): Deps {
@@ -28,7 +37,7 @@ export function defaultDeps(): Deps {
   }
   cached = {
     sql: createSql(databaseUrl),
-    mailer: new ConsoleMailer(),
+    mailer: createMailer(),
     now: () => new Date(),
     secret,
   };

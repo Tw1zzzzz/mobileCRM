@@ -8,6 +8,12 @@ export class MemoryMailer implements Mailer {
   async send(m: MailMessage): Promise<void> {
     this.sent.push({ to: m.to, subject: m.subject, text: m.text });
   }
+
+  /** The 6-digit code from the latest message to `to`, if any. */
+  lastCode(to: string): string | undefined {
+    const last = [...this.sent].reverse().find((m) => m.to === to);
+    return last?.text.match(/\b(\d{6})\b/)?.[1];
+  }
 }
 
 export const TEST_START = new Date("2026-10-26T12:00:00Z");
