@@ -48,7 +48,7 @@ function validationFailed(message: string): ApiError {
   return new ApiError("validation_failed", message, 422);
 }
 
-function parseFaceitUrl(raw: string | null | undefined): string | null {
+export function parseFaceitUrl(raw: string | null | undefined): string | null {
   const trimmed = raw?.trim();
   if (!trimmed) return null;
   if (!isValidFaceitUrl(trimmed)) throw validationFailed("faceit_url: must be a faceit.com link");
