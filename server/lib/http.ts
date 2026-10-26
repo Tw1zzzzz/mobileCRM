@@ -21,12 +21,15 @@ export type ErrorCode =
 export class ApiError extends Error {
   readonly code: ErrorCode;
   readonly status: number;
+  /** Message sent to the client; null stays null in the envelope. */
+  readonly publicMessage: string | null;
 
   constructor(code: ErrorCode, message: string | null, status: number) {
     super(message ?? code);
     this.name = "ApiError";
     this.code = code;
     this.status = status;
+    this.publicMessage = message;
   }
 }
 
@@ -65,7 +68,7 @@ export async function handle(fn: () => Promise<Response>): Promise<Response> {
   try {
     return await fn();
   } catch (e) {
-    if (e instanceof ApiError) return fail(e.code, e.message, e.status);
+    if (e instanceof ApiError) return fail(e.code, e.publicMessage, e.status);
     console.error("unhandled error", e);
     return fail("internal", "Internal server error", 500);
   }

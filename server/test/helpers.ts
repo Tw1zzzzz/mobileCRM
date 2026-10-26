@@ -1,18 +1,12 @@
 import type { Deps } from "../lib/deps";
 import { createSql } from "../db/sql";
-import type { Mailer, MailPurpose } from "../lib/mail";
-
-export interface SentMail {
-  to: string;
-  purpose: MailPurpose;
-  code: string;
-}
+import type { MailMessage, Mailer } from "../lib/mail";
 
 /** Test-only mailer that records what would have been sent. */
 export class MemoryMailer implements Mailer {
-  readonly sent: SentMail[] = [];
-  async sendCode(to: string, purpose: MailPurpose, code: string): Promise<void> {
-    this.sent.push({ to, purpose, code });
+  readonly sent: MailMessage[] = [];
+  async send(m: MailMessage): Promise<void> {
+    this.sent.push({ to: m.to, subject: m.subject, text: m.text });
   }
 }
 

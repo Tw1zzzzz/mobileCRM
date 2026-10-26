@@ -1,7 +1,7 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "../app/v1/health/route";
 import { defaultDeps } from "../lib/deps";
-import { fail, handle } from "../lib/http";
+import { ApiError, fail, handle } from "../lib/http";
 import { resetDb, testDeps } from "./helpers";
 
 const deps = testDeps();
@@ -20,7 +20,38 @@ describe("health", () => {
   });
 });
 
+describe("route with missing configuration", () => {
+  it("answers with the internal envelope instead of a bare 500", async () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    vi.stubEnv("AUTH_SECRET", "");
+    vi.resetModules();
+    try {
+      const { GET: freshGet } = await import("../app/v1/health/route");
+      const res = await freshGet(new Request("http://localhost/v1/health"));
+      const text = await res.text();
+      expect(res.status).toBe(500);
+      expect(JSON.parse(text)).toMatchObject({ success: false, data: null, error: { code: "internal" } });
+      expect(text).not.toContain("AUTH_SECRET");
+    } finally {
+      vi.unstubAllEnvs();
+      spy.mockRestore();
+    }
+  });
+});
+
 describe("envelope", () => {
+  it("keeps a null ApiError message null", async () => {
+    const res = await handle(async () => {
+      throw new ApiError("rate_limited", null, 429);
+    });
+    expect(res.status).toBe(429);
+    expect(await res.json()).toEqual({
+      success: false,
+      data: null,
+      error: { code: "rate_limited", message: null },
+    });
+  });
+
   it("fail() builds the error envelope", async () => {
     const res = fail("email_taken", "x", 409);
     expect(res.status).toBe(409);
