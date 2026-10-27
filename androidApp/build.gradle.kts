@@ -18,6 +18,13 @@ val faceitKey: String? = System.getenv("PULSE_FACEIT_API_KEY")
     ?: rootProject.file("local.properties").takeIf { it.isFile }
         ?.let { file -> Properties().apply { file.inputStream().use { load(it) } }.getProperty("faceit.apiKey") }
 
+// Pulse API base URL (e.g. https://api.example.com/v1/): `pulse.apiBaseUrl` in local.properties or PULSE_API_BASE_URL.
+// Empty (default) = local build with on-device accounts.
+val apiBaseUrl: String = System.getenv("PULSE_API_BASE_URL")
+    ?: rootProject.file("local.properties").takeIf { it.isFile }
+        ?.let { file -> Properties().apply { file.inputStream().use { load(it) } }.getProperty("pulse.apiBaseUrl") }
+    ?: ""
+
 android {
     namespace = "com.pulse.android"
     compileSdk = 37
@@ -30,6 +37,7 @@ android {
         versionCode = 1
         versionName = "1.0.0"
         buildConfigField("String", "FACEIT_API_KEY", "\"${faceitKey.orEmpty()}\"")
+        buildConfigField("String", "API_BASE_URL", "\"${apiBaseUrl.trim()}\"")
     }
 
     signingConfigs {

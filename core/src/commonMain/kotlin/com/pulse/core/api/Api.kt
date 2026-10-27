@@ -47,13 +47,6 @@ sealed class Backend {
     data class Remote(val baseUrl: String) : Backend()
 }
 
-object AppConfig {
-    val backend: Backend = Backend.Local
-
-    /** Example for the future: `Backend.Remote("https://api.pulse.app/v1/")`. */
-    val apiBaseUrl: String? get() = (backend as? Backend.Remote)?.baseUrl
-}
-
 /** API wire format: snake_case keys, ISO dates (see docs/API.md). */
 val ApiJson: Json = Json(PulseJson) { namingStrategy = JsonNamingStrategy.SnakeCase }
 
@@ -102,6 +95,9 @@ class TokenStore(private val secrets: SecretStore) {
  * Envelope: `{ "success": true, "data": …, "error": { "code", "message" }, "meta": { … } }`.
  */
 class ApiClient(private val http: HttpClient, private val baseUrl: String?, val tokens: TokenStore) {
+    /** False in a local build: every request fails with `NOT_CONFIGURED` before touching the network. */
+    val isConfigured: Boolean get() = baseUrl != null
+
     /** Refresh tokens rotate and a reused one revokes every session on the server, so only one refresh runs at a time. */
     private val refreshLock = Mutex()
 
@@ -179,7 +175,7 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
     private data class RefreshBody(val refreshToken: String)
 }
 
-/** Sign-in against the Pulse API (enabled by `AppConfig.backend`). Endpoints: docs/API.md → «Auth». */
+/** Sign-in against the Pulse API (used when the build's `Backend` is `Remote`). Endpoints: docs/API.md → «Auth». */
 class RemoteAuthService(private val client: ApiClient, private val background: CoroutineScope) : AuthService {
     @Serializable
     data class UserDto(
@@ -339,7 +335,7 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
 
 /** Pushes locally changed collections to `PUT /sync/{collection}` (idle while the backend is local). */
 class SyncEngine(private val client: ApiClient, private val scope: DataScope, private val ledger: SyncLedger = SyncLedger(scope)) {
-    val isEnabled: Boolean get() = AppConfig.apiBaseUrl != null
+    val isEnabled: Boolean get() = client.isConfigured
 
     /** Returns the collections that were uploaded; stops at the first failure (the rest stay pending). */
     suspend fun pushPending(folder: String = scope.folder(), force: Boolean = false): List<String> {

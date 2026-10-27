@@ -20,6 +20,7 @@ import androidx.compose.ui.test.junit4.ComposeContentTestRule
 import com.pulse.android.ui.main.MainScreen
 import com.pulse.android.ui.theme.Palette
 import com.pulse.core.PulseCore
+import com.pulse.core.api.Backend
 import com.pulse.core.model.RegistrationForm
 import com.pulse.core.model.UserRole
 import com.pulse.core.platform.JvmFileSystem
@@ -40,14 +41,15 @@ import kotlin.test.assertTrue
  */
 
 /** A core over a fresh temp dir with in-memory secrets; signed in to the demo of [role] when given. */
-fun testCore(role: UserRole?, faceitKey: String? = null): PulseCore {
+fun testCore(role: UserRole?, faceitKey: String? = null, backend: Backend = Backend.Local, http: HttpClient = HttpClient(OkHttp)): PulseCore {
     val core = PulseCore(
         files = JvmFileSystem(Files.createTempDirectory("pulse-ui").toFile()),
         secrets = MemorySecretStore(),
-        http = HttpClient(OkHttp),
+        http = http,
         background = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
         health = null,
-        faceitKey = faceitKey
+        faceitKey = faceitKey,
+        backend = backend
     )
     if (role != null) runBlocking { core.session.switchToDemo(role) }
     return core

@@ -1,7 +1,7 @@
 package com.pulse.core
 
 import com.pulse.core.api.ApiClient
-import com.pulse.core.api.AppConfig
+import com.pulse.core.api.Backend
 import com.pulse.core.api.RemoteAuthService
 import com.pulse.core.api.SyncEngine
 import com.pulse.core.api.TokenStore
@@ -63,21 +63,27 @@ class PulseCore(
     health: HealthDataProvider?,
     foodAnalyzer: FoodAnalyzer = MockFoodAnalyzer(),
     /** The app's Faceit Data API key from the build (players may still enter their own). */
-    faceitKey: String? = null
+    faceitKey: String? = null,
+    /** Chosen per build: on-device accounts (first release) or the Pulse server. */
+    backend: Backend = Backend.Local
 ) {
     val scope = DataScope(files)
-    private val api = ApiClient(http, AppConfig.apiBaseUrl, TokenStore(secrets))
+    private val tokens = TokenStore(secrets)
+    private val api = ApiClient(http, (backend as? Backend.Remote)?.baseUrl, tokens)
+
+    /** True in a build that signs in on the Pulse server (demo accounts still work locally). */
+    val isRemote: Boolean = backend is Backend.Remote
 
     private fun <T> file(name: String, serializer: KSerializer<T>, global: Boolean = false) = JsonFileStorage(name, serializer, scope, global)
 
-    /** Local accounts in the first release; the Pulse API once `AppConfig.backend` points to the server. */
-    val auth: AuthService = if (AppConfig.apiBaseUrl == null) {
-        LocalAuthService(file("accounts.json", ListSerializer(LocalAuthService.Account.serializer()), global = true), secrets)
-    } else {
+    /** Local accounts in a local build; the Pulse API in a remote one. */
+    val auth: AuthService = if (isRemote) {
         RemoteAuthService(api, background)
+    } else {
+        LocalAuthService(file("accounts.json", ListSerializer(LocalAuthService.Account.serializer()), global = true), secrets)
     }
     val sync = SyncEngine(api, scope)
-    val session = SessionStore(auth, file("session.json", User.serializer(), global = true), scope)
+    val session = SessionStore(auth, file("session.json", User.serializer(), global = true), scope, requireBetaTerms = isRemote)
 
     val sleep = SleepStore(file(SleepStore.FILE, SleepStore.Saved.serializer()))
     val nutrition = NutritionStore(file(NutritionStore.FILE, NutritionStore.Saved.serializer()), foodAnalyzer)
@@ -96,6 +102,10 @@ class PulseCore(
     var onAccountActivated: ((User?, Boolean) -> Unit)? = null
 
     init {
+        // A session saved by a local build has no server tokens: sign it out before any store loads its folder.
+        // Demo accounts stay local in every build.
+        val stored = session.user.value
+        if (isRemote && stored != null && !stored.isDemo && tokens.tokens == null) session.logout()
         fitness.onHealthSnapshot = { sleep.applyHealth(it) }
         session.onUserChange = { activate(it, accountChanged = true) }
         activate(session.user.value, accountChanged = false)

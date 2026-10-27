@@ -1,9 +1,7 @@
 package com.pulse.core.storage
 
 import com.pulse.core.api.ApiClient
-import com.pulse.core.api.AppConfig
 import com.pulse.core.api.AuthTokens
-import com.pulse.core.api.Backend
 import com.pulse.core.api.RemoteAuthService
 import com.pulse.core.api.SyncEngine
 import com.pulse.core.api.TokenStore
@@ -224,7 +222,8 @@ class ApiClientTests {
     @Test fun notConfiguredMeansNoConnection() = runTest {
         val client = ApiClient(HttpClient(MockEngine { respond("") }), null, TokenStore(MemorySecretStore()))
         assertEquals(AuthError.NO_CONNECTION, assertFailsWith<AuthException> { RemoteAuthService(client, background).login("a@b.cc", "x") }.error)
-        assertEquals(Backend.Local, AppConfig.backend)
+        assertFalse(client.isConfigured)
+        assertTrue(ApiClient(HttpClient(MockEngine { respond("") }), "https://api.test/v1/", TokenStore(MemorySecretStore())).isConfigured)
     }
 
     @Test fun syncUploadsPendingCollectionsUntilAFailure() = runTest {

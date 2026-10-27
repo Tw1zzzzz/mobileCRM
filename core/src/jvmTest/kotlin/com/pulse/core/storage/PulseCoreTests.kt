@@ -1,6 +1,8 @@
 package com.pulse.core.storage
 
 import com.pulse.core.PulseCore
+import com.pulse.core.api.Backend
+import com.pulse.core.api.RemoteAuthService
 import com.pulse.core.auth.DemoAuth
 import com.pulse.core.model.AboutYou
 import com.pulse.core.feature.HealthRawData
@@ -30,8 +32,9 @@ import kotlin.time.Instant
 
 /** The composition root keeps every account in its own folder: demo is seeded, a new account starts empty. */
 class PulseCoreTests {
-    private fun core(root: java.io.File, health: HealthDataProvider? = null) = PulseCore(
-        JvmFileSystem(root), MemorySecretStore(), HttpClient(MockEngine { respond("") }), CoroutineScope(Dispatchers.Unconfined), health
+    private fun core(root: java.io.File, health: HealthDataProvider? = null, backend: Backend = Backend.Local) = PulseCore(
+        JvmFileSystem(root), MemorySecretStore(), HttpClient(MockEngine { respond("") }), CoroutineScope(Dispatchers.Unconfined), health,
+        backend = backend
     )
 
     /** Records the «О тебе» profile each snapshot was built with. */
@@ -44,6 +47,36 @@ class PulseCoreTests {
             bodies += body
             return HealthSnapshotBuilder.build(HealthRawData(), now, name, body)
         }
+    }
+
+    @Test fun remoteBuildUsesServerAuth() = runTest {
+        val remote = core(Files.createTempDirectory("pulse-core").toFile(), backend = Backend.Remote("https://api.test/v1/"))
+        assertTrue(remote.auth is RemoteAuthService)
+        assertTrue(remote.session.requireBetaTerms)
+        assertTrue(remote.isRemote)
+        val local = core(Files.createTempDirectory("pulse-core").toFile())
+        assertFalse(local.auth is RemoteAuthService)
+        assertFalse(local.session.requireBetaTerms)
+        assertFalse(local.isRemote)
+    }
+
+    @Test fun localSessionDroppedInRemoteMode() = runTest {
+        val root = Files.createTempDirectory("pulse-core").toFile()
+        val remote = Backend.Remote("https://api.test/v1/")
+        registered(root)
+        assertEquals("t@team.gg", core(root).session.user.value?.email)
+        // A local account has no server tokens: the remote build signs it out before any store loads its folder.
+        val dropped = core(root, backend = remote)
+        assertNull(dropped.session.user.value)
+        assertEquals("guest", dropped.scope.current)
+        assertNull(core(root, backend = remote).session.user.value)
+
+        // Demo accounts keep working locally in remote mode.
+        val demoRoot = Files.createTempDirectory("pulse-core").toFile()
+        core(demoRoot).session.switchToDemo(UserRole.TEAM_PLAYER)
+        val kept = core(demoRoot, backend = remote)
+        assertEquals("player@pulse.app", kept.session.user.value?.email)
+        assertEquals("demo-teamPlayer", kept.scope.current)
     }
 
     @Test fun accountsDoNotShareData() = runTest {

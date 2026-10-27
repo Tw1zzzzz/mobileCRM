@@ -9,6 +9,7 @@ import com.pulse.android.platform.SleepTrackingNotification
 import com.pulse.android.widget.SleepTileService
 import com.pulse.android.widget.SleepWidget
 import com.pulse.core.PulseCore
+import com.pulse.core.api.Backend
 import com.pulse.core.model.SleepWindow
 import com.pulse.core.platform.JvmFileSystem
 import io.ktor.client.HttpClient
@@ -36,7 +37,8 @@ class PulseApplication : Application() {
             http = HttpClient(OkHttp),
             background = appScope,
             health = HealthConnectProvider(this),
-            faceitKey = BuildConfig.FACEIT_API_KEY
+            faceitKey = BuildConfig.FACEIT_API_KEY,
+            backend = if (BuildConfig.API_BASE_URL.isNotEmpty()) Backend.Remote(BuildConfig.API_BASE_URL) else Backend.Local
         )
         PulseNotifications.ensureChannels(this)
         // Reminders follow the signed-in account (and its role) — replanned on every sign-in, switch and sign-out.
