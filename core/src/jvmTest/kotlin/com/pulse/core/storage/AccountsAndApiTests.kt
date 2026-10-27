@@ -303,6 +303,14 @@ class RemoteSignUpTests {
         assertEquals(listOf("/v1/auth/register", "/v1/auth/verify-email"), paths())
     }
 
+    @Test fun mailFailureOnRegisterShowsItsOwnMessage() = runTest {
+        val client = client { fail(503, "mail_unavailable") }
+        val session = session(client, requireBetaTerms = true)
+        session.register(form())
+        assertEquals("Не удалось отправить письмо с кодом. Попробуйте позже", session.errorMessage.value)
+        assertNull(session.pendingVerification.value)
+    }
+
     @Test fun unverifiedLoginOpensCodeStep() = runTest {
         var resendLimited = false
         val client = client { request ->

@@ -15,6 +15,7 @@ export type ErrorCode =
   | "code_expired"
   | "too_many_attempts"
   | "rate_limited"
+  | "mail_unavailable"
   | "internal";
 
 /** An expected failure: turned into an error envelope by `handle`. */

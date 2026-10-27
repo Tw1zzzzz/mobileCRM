@@ -68,7 +68,12 @@ export async function sendCode(
   });
 
   const mail = MAIL[purpose];
-  await deps.mailer.send({ to: user.email, subject: mail.subject, text: mail.body(code) });
+  try {
+    await deps.mailer.send({ to: user.email, subject: mail.subject, text: mail.body(code) });
+  } catch (e) {
+    console.error("could not send the email code", e);
+    throw new ApiError("mail_unavailable", "Could not send the email. Try again later.", 503);
+  }
 }
 
 interface AttemptRow {

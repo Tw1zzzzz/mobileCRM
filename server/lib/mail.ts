@@ -1,3 +1,4 @@
+import nodemailer, { type Transporter } from "nodemailer";
 import { Resend } from "resend";
 
 export interface MailMessage {
@@ -36,5 +37,43 @@ export class ResendMailer implements Mailer {
       text: m.text,
     });
     if (error) throw new Error(`Resend failed to send mail: ${error.name}: ${error.message}`);
+  }
+}
+
+export interface SmtpConfig {
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  password: string;
+  /** Sender shown to the recipient, e.g. `Pulse <pulse@gmail.com>`. */
+  from: string;
+}
+
+/** Sends through an SMTP account (Gmail with an app password needs no domain). */
+export class SmtpMailer implements Mailer {
+  readonly from: string;
+  private readonly transport: Transporter;
+
+  /** `transport` is injectable for tests; by default a real SMTP connection is used. */
+  constructor(config: SmtpConfig, transport?: Transporter) {
+    this.from = config.from;
+    this.transport =
+      transport ??
+      nodemailer.createTransport({
+        host: config.host,
+        port: config.port,
+        secure: config.secure,
+        auth: { user: config.user, pass: config.password },
+      });
+  }
+
+  async send(m: MailMessage): Promise<void> {
+    try {
+      await this.transport.sendMail({ from: this.from, to: m.to, subject: m.subject, text: m.text });
+    } catch (e) {
+      const reason = e instanceof Error ? e.message : String(e);
+      throw new Error(`SMTP failed to send mail: ${reason}`);
+    }
   }
 }

@@ -104,7 +104,8 @@ enum class AuthError(val message: String) {
     TOO_MANY_ATTEMPTS("Слишком много попыток. Запросите новый код"),
     RATE_LIMITED("Слишком много запросов. Попробуйте через несколько минут"),
     BETA_TERMS_NOT_ACCEPTED("Для продолжения необходимо принять условия бета-тестирования"),
-    EMAIL_NOT_VERIFIED("Подтвердите почту")
+    EMAIL_NOT_VERIFIED("Подтвердите почту"),
+    MAIL_UNAVAILABLE("Не удалось отправить письмо с кодом. Попробуйте позже")
 }
 
 /** Version of the beta-testing terms the user accepts at sign-up (stored by the server). */

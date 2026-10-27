@@ -72,6 +72,7 @@ class ApiException(val kind: Kind, val code: String? = null, val serverMessage: 
                 "code_expired" -> AuthError.CODE_EXPIRED
                 "too_many_attempts" -> AuthError.TOO_MANY_ATTEMPTS
                 "rate_limited" -> AuthError.RATE_LIMITED
+                "mail_unavailable" -> AuthError.MAIL_UNAVAILABLE
                 else -> AuthError.SERVER
             }
             Kind.SERVER, Kind.UNREADABLE -> AuthError.SERVER

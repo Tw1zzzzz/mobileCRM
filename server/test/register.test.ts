@@ -1,8 +1,9 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { handle } from "../lib/http";
 import { registerHandler } from "../lib/auth/register";
 import { resendCodeHandler, verifyEmailHandler } from "../lib/auth/verify";
 import { resetDb, testDeps } from "./helpers";
+import type { Mailer } from "../lib/mail";
 
 const deps = testDeps();
 const EMAIL = "nova@team.gg";
@@ -419,5 +420,30 @@ describe("resend-code", () => {
     for (let i = 0; i < 10; i++) await resend("ghost@team.gg");
     const res = await resend("ghost@team.gg");
     expect(res.status).toBe(429);
+  });
+});
+
+describe("when the mail provider fails", () => {
+  const failing: Mailer = {
+    send: async () => {
+      throw new Error("SMTP failed to send mail: boom");
+    },
+  };
+
+  it("registerReturns503WhenMailFails", async () => {
+    const quiet = vi.spyOn(console, "error").mockImplementation(() => {});
+    const working = deps.mailer;
+    deps.mailer = failing as typeof deps.mailer;
+    const first = await register();
+    deps.mailer = working;
+    expect(first.status).toBe(503);
+    expect(first.body.error.code).toBe("mail_unavailable");
+    expect(first.body.error.message).toBe("Could not send the email. Try again later.");
+    expect(quiet).toHaveBeenCalled();
+    quiet.mockRestore();
+
+    const second = await register();
+    expect(second.status).toBe(201);
+    expect(deps.mailer.lastCode(EMAIL)).toMatch(/^\d{6}$/);
   });
 });
