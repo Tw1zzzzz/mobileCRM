@@ -61,7 +61,9 @@ data class RegistrationForm(
     val accessType: AccessType = AccessType.SOLO,
     val teamRole: TeamRole = TeamRole.PLAYER,
     val acceptedTerms: Boolean = false,
-    val acceptedPrivacy: Boolean = false
+    val acceptedPrivacy: Boolean = false,
+    /** «Я принимаю условия бета-тестирования» — asked only when signing up on the Pulse server. */
+    val acceptedBetaTerms: Boolean = false
 ) {
     val resolvedRole: UserRole
         get() = when (accessType) {
@@ -96,18 +98,31 @@ enum class AuthError(val message: String) {
     REGISTRATION_SERVER("Не удалось выполнить регистрацию. Повторите попытку позже"),
     INVALID_FACEIT("Укажите корректную ссылку на профиль Faceit"),
     TEAM_NOT_FOUND("Команда с таким кодом не найдена"),
-    STAFF_NEEDS_SERVER("Доступ стаффа откроется вместе с сервером команды. Сейчас его можно посмотреть в демо.")
+    STAFF_NEEDS_SERVER("Доступ стаффа откроется вместе с сервером команды. Сейчас его можно посмотреть в демо."),
+    INVALID_CODE("Неверный код"),
+    CODE_EXPIRED("Срок действия кода истёк. Запросите новый"),
+    TOO_MANY_ATTEMPTS("Слишком много попыток. Запросите новый код"),
+    RATE_LIMITED("Слишком много запросов. Попробуйте через несколько минут"),
+    BETA_TERMS_NOT_ACCEPTED("Для продолжения необходимо принять условия бета-тестирования"),
+    EMAIL_NOT_VERIFIED("Подтвердите почту")
+}
+
+/** Version of the beta-testing terms the user accepts at sign-up (stored by the server). */
+object BetaTerms {
+    const val VERSION = "2026-10-26"
 }
 
 class AuthException(val error: AuthError) : Exception(error.message)
 
 object AuthValidator {
     private val emailPattern = Regex("^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
+    private val codePattern = Regex("^[0-9]{6}$")
 
     fun validateLogin(email: String, password: String): AuthError? =
         if (email.isBlank() || password.isEmpty()) AuthError.EMPTY_FIELDS else null
 
-    fun validateRegistration(form: RegistrationForm): AuthError? {
+    /** [requireBetaTerms]: sign-up on the Pulse server also needs the beta-testing terms. */
+    fun validateRegistration(form: RegistrationForm, requireBetaTerms: Boolean = false): AuthError? {
         if (form.nickname.isBlank() || form.email.isBlank() || form.password.isEmpty() || form.confirmPassword.isEmpty()) {
             return AuthError.EMPTY_FIELDS
         }
@@ -120,10 +135,14 @@ object AuthValidator {
         if (faceit.isNotEmpty() && !isValidFaceitURL(faceit)) return AuthError.INVALID_FACEIT
         if (!form.acceptedTerms) return AuthError.TERMS_NOT_ACCEPTED
         if (!form.acceptedPrivacy) return AuthError.PRIVACY_NOT_ACCEPTED
+        if (requireBetaTerms && !form.acceptedBetaTerms) return AuthError.BETA_TERMS_NOT_ACCEPTED
         return null
     }
 
     fun isValidEmail(email: String): Boolean = emailPattern.matches(email)
+
+    /** Email codes are exactly 6 digits. */
+    fun isValidCode(code: String): Boolean = codePattern.matches(code)
 
     /** Profile link on faceit.com (http/https), e.g. https://www.faceit.com/ru/players/nick. */
     fun isValidFaceitURL(text: String): Boolean {

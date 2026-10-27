@@ -22,11 +22,23 @@ import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
-/** Backend contract for authentication: local accounts today, the Pulse API later — screens don't change. */
+/** Result of a sign-up: signed in right away (on the phone) or waiting for the email code (Pulse server). */
+sealed interface RegistrationOutcome {
+    data class SignedIn(val user: User) : RegistrationOutcome
+    data class VerificationSent(val email: String) : RegistrationOutcome
+}
+
+/** Backend contract for authentication: local accounts or the Pulse API — screens don't change. */
 interface AuthService {
-    /** Throws [AuthException] with the spec message, or [com.pulse.core.api.ApiException] for network failures. */
+    /** Throws [AuthException] with the spec message (an unverified address is [AuthError.EMAIL_NOT_VERIFIED]). */
     suspend fun login(email: String, password: String): User
-    suspend fun register(form: RegistrationForm): User
+    suspend fun register(form: RegistrationForm): RegistrationOutcome
+    suspend fun verifyEmail(email: String, code: String): User = throw AuthException(AuthError.SERVER)
+    suspend fun resendCode(email: String) {}
+    suspend fun requestPasswordReset(email: String) {}
+    suspend fun confirmPasswordReset(email: String, code: String, newPassword: String): User = throw AuthException(AuthError.SERVER)
+    /** Ends the session on the backend (fire-and-forget). */
+    fun logout() {}
     fun updateProfile(user: User) {}
     fun deleteAccount(user: User) {}
 }
@@ -54,6 +66,13 @@ object DemoAuth {
     init {
         check(accounts.all { it.email in DemoAccounts.emails })
     }
+
+    /** Demo sign-in on the phone: null when [normalizedEmail] is not a demo address, wrong password → INVALID_CREDENTIALS. */
+    fun login(normalizedEmail: String, password: String): User? {
+        val demo = accounts.firstOrNull { it.email == normalizedEmail } ?: return null
+        if (demo.password != password) throw AuthException(AuthError.INVALID_CREDENTIALS)
+        return demo.user
+    }
 }
 
 /**
@@ -76,17 +95,14 @@ class LocalAuthService(
 
     override suspend fun login(email: String, password: String): User {
         val normalized = normalize(email)
-        DemoAuth.accounts.firstOrNull { it.email == normalized }?.let { demo ->
-            if (demo.password != password) throw AuthException(AuthError.INVALID_CREDENTIALS)
-            return demo.user
-        }
+        DemoAuth.login(normalized, password)?.let { return it }
         val account = accounts.firstOrNull { it.user.email == normalized }
         val credential = credential(normalized)
         if (account == null || credential == null || !verify(password, credential)) throw AuthException(AuthError.INVALID_CREDENTIALS)
         return account.user
     }
 
-    override suspend fun register(form: RegistrationForm): User {
+    override suspend fun register(form: RegistrationForm): RegistrationOutcome {
         val email = normalize(form.email)
         if (email in DemoAccounts.emails || accounts.any { it.user.email == email }) throw AuthException(AuthError.EMAIL_TAKEN)
         // A coach needs the players' data, which only a server can share between phones.
@@ -108,7 +124,7 @@ class LocalAuthService(
         val credential = Credential(Base64.encode(salt), Base64.encode(hash(form.password, salt, ROUNDS)), ROUNDS)
         secrets.write(credentialKey(email), Base64.encode(PulseJson.encodeToString(Credential.serializer(), credential).encodeToByteArray()))
         storage.save(accounts + Account(user, now()))
-        return user
+        return RegistrationOutcome.SignedIn(user)
     }
 
     /** Profile edits are kept with the account so the next login returns them. */

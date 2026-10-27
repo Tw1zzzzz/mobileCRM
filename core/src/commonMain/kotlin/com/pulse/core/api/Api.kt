@@ -1,9 +1,13 @@
 package com.pulse.core.api
 
 import com.pulse.core.auth.AuthService
+import com.pulse.core.auth.DemoAuth
 import com.pulse.core.auth.LocalAuthService
+import com.pulse.core.auth.RegistrationOutcome
 import com.pulse.core.model.AuthError
 import com.pulse.core.model.AuthException
+import com.pulse.core.model.BetaTerms
+import com.pulse.core.model.DemoAccounts
 import com.pulse.core.model.RegistrationForm
 import com.pulse.core.model.Tariff
 import com.pulse.core.model.User
@@ -21,8 +25,11 @@ import io.ktor.client.statement.bodyAsText
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
 import io.ktor.http.contentType
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -67,6 +74,11 @@ class ApiException(val kind: Kind, val code: String? = null, val serverMessage: 
                 "team_not_found" -> AuthError.TEAM_NOT_FOUND
                 "invalid_email" -> AuthError.INVALID_EMAIL
                 "weak_password" -> AuthError.WEAK_PASSWORD
+                "email_not_verified" -> AuthError.EMAIL_NOT_VERIFIED
+                "invalid_code" -> AuthError.INVALID_CODE
+                "code_expired" -> AuthError.CODE_EXPIRED
+                "too_many_attempts" -> AuthError.TOO_MANY_ATTEMPTS
+                "rate_limited" -> AuthError.RATE_LIMITED
                 else -> AuthError.SERVER
             }
             Kind.SERVER, Kind.UNREADABLE -> AuthError.SERVER
@@ -90,6 +102,9 @@ class TokenStore(private val secrets: SecretStore) {
  * Envelope: `{ "success": true, "data": …, "error": { "code", "message" }, "meta": { … } }`.
  */
 class ApiClient(private val http: HttpClient, private val baseUrl: String?, val tokens: TokenStore) {
+    /** Refresh tokens rotate and a reused one revokes every session on the server, so only one refresh runs at a time. */
+    private val refreshLock = Mutex()
+
     suspend fun <T> send(method: HttpMethod, path: String, response: KSerializer<T>, body: JsonElement? = null, authorized: Boolean = true): T {
         val data = perform(method, path, body?.toString(), authorized, retryOnUnauthorized = authorized)
         return runCatching { ApiJson.decodeFromJsonElement(response, data ?: JsonNull) }
@@ -108,6 +123,7 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
 
     private suspend fun perform(method: HttpMethod, path: String, body: String?, authorized: Boolean, retryOnUnauthorized: Boolean): JsonElement? {
         val base = baseUrl ?: throw ApiException(ApiException.Kind.NOT_CONFIGURED)
+        val accessToken = if (authorized) tokens.tokens?.accessToken else null
         val response = try {
             http.request(base.trimEnd('/') + "/" + path.trimStart('/')) {
                 this.method = method
@@ -116,13 +132,13 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
                     contentType(ContentType.Application.Json)
                     setBody(body)
                 }
-                if (authorized) tokens.tokens?.accessToken?.let { header("Authorization", "Bearer $it") }
+                accessToken?.let { header("Authorization", "Bearer $it") }
             }
         } catch (error: Exception) {
             throw ApiException(ApiException.Kind.OFFLINE)
         }
         val status = response.status.value
-        if (status == 401 && retryOnUnauthorized && refreshTokens()) {
+        if (status == 401 && retryOnUnauthorized && refreshTokens(rejectedAccessToken = accessToken)) {
             return perform(method, path, body, authorized, retryOnUnauthorized = false)
         }
         val envelope = runCatching { ApiJson.parseToJsonElement(response.bodyAsText()).jsonObject }.getOrNull()
@@ -139,14 +155,20 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
         }
     }
 
-    /** `POST /auth/refresh` with the refresh token; on failure the session is over. */
-    private suspend fun refreshTokens(): Boolean {
-        val refresh = tokens.tokens?.refreshToken ?: return false
-        return try {
-            val body = ApiJson.encodeToJsonElement(RefreshBody.serializer(), RefreshBody(refresh))
+    /**
+     * `POST /auth/refresh` with the refresh token; on failure the session is over. Single-flight: a caller that waited
+     * for another refresh finds the stored access token changed and retries with it instead of refreshing again.
+     */
+    private suspend fun refreshTokens(rejectedAccessToken: String?): Boolean = refreshLock.withLock {
+        val current = tokens.tokens ?: return@withLock false
+        if (current.accessToken != rejectedAccessToken) return@withLock true
+        try {
+            val body = ApiJson.encodeToJsonElement(RefreshBody.serializer(), RefreshBody(current.refreshToken))
             val data = perform(HttpMethod.Post, "auth/refresh", body.toString(), authorized = false, retryOnUnauthorized = false)
             tokens.tokens = ApiJson.decodeFromJsonElement(AuthTokens.serializer(), data ?: JsonNull)
             true
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             tokens.tokens = null
             false
@@ -189,39 +211,58 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
         val teamCode: String?,
         val teamName: String?,
         val acceptedTerms: Boolean,
-        val acceptedPrivacy: Boolean
+        val acceptedPrivacy: Boolean,
+        val acceptedBetaTerms: Boolean,
+        val betaTermsVersion: String
     )
+
+    /** `201` of `POST /auth/register`: no tokens until the emailed code is confirmed. */
+    @Serializable
+    private data class PendingVerification(val email: String)
+
+    @Serializable
+    private data class EmailBody(val email: String)
+
+    @Serializable
+    private data class CodeBody(val email: String, val code: String)
+
+    @Serializable
+    private data class ResetConfirmBody(val email: String, val code: String, val newPassword: String)
+
+    @Serializable
+    private data class TokenBody(val refreshToken: String)
 
     @Serializable
     private data class ProfileBody(val nickname: String, val faceitUrl: String?)
 
-    override suspend fun login(email: String, password: String): User = try {
-        val body = ApiJson.encodeToJsonElement(LoginBody.serializer(), LoginBody(LocalAuthService.normalize(email), password))
-        val response = client.send(HttpMethod.Post, "auth/login", SessionResponse.serializer(), body, authorized = false)
-        client.tokens.tokens = AuthTokens(response.accessToken, response.refreshToken)
-        response.user.model
-    } catch (error: ApiException) {
-        throw AuthException(error.authError)
+    /** Demo addresses never reach the server: they sign in on the phone, also in remote mode. */
+    override suspend fun login(email: String, password: String): User {
+        val normalized = LocalAuthService.normalize(email)
+        DemoAuth.login(normalized, password)?.let { return it }
+        return signIn("auth/login", ApiJson.encodeToJsonElement(LoginBody.serializer(), LoginBody(normalized, password)))
     }
 
-    override suspend fun register(form: RegistrationForm): User {
+    override suspend fun register(form: RegistrationForm): RegistrationOutcome {
+        val email = LocalAuthService.normalize(form.email)
+        if (email in DemoAccounts.emails) throw AuthException(AuthError.EMAIL_TAKEN)
         fun trimmed(text: String) = text.trim().ifEmpty { null }
         val request = RegisterRequest(
             nickname = form.nickname.trim(),
-            email = LocalAuthService.normalize(form.email),
+            email = email,
             password = form.password,
             role = form.resolvedRole,
             faceitUrl = trimmed(form.faceitURL),
             teamCode = if (form.isTeamPlayer) trimmed(form.teamCode)?.uppercase() else null,
             teamName = if (form.isTeamStaff) trimmed(form.teamName) else null,
             acceptedTerms = form.acceptedTerms,
-            acceptedPrivacy = form.acceptedPrivacy
+            acceptedPrivacy = form.acceptedPrivacy,
+            acceptedBetaTerms = form.acceptedBetaTerms,
+            betaTermsVersion = BetaTerms.VERSION
         )
         return try {
             val body = ApiJson.encodeToJsonElement(RegisterRequest.serializer(), request)
-            val response = client.send(HttpMethod.Post, "auth/register", SessionResponse.serializer(), body, authorized = false)
-            client.tokens.tokens = AuthTokens(response.accessToken, response.refreshToken)
-            response.user.model
+            val pending = client.send(HttpMethod.Post, "auth/register", PendingVerification.serializer(), body, authorized = false)
+            RegistrationOutcome.VerificationSent(pending.email)
         } catch (error: ApiException) {
             val mapped = error.authError
             throw AuthException(
@@ -231,6 +272,36 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
                     else -> mapped
                 }
             )
+        }
+    }
+
+    override suspend fun verifyEmail(email: String, code: String): User =
+        signIn("auth/verify-email", ApiJson.encodeToJsonElement(CodeBody.serializer(), CodeBody(LocalAuthService.normalize(email), code)))
+
+    override suspend fun resendCode(email: String) = mapErrors {
+        client.sendEmpty(HttpMethod.Post, "auth/resend-code", emailBody(email), authorized = false)
+    }
+
+    override suspend fun requestPasswordReset(email: String) = mapErrors {
+        client.sendEmpty(HttpMethod.Post, "auth/password-reset", emailBody(email), authorized = false)
+    }
+
+    override suspend fun confirmPasswordReset(email: String, code: String, newPassword: String): User = signIn(
+        "auth/password-reset/confirm",
+        ApiJson.encodeToJsonElement(ResetConfirmBody.serializer(), ResetConfirmBody(LocalAuthService.normalize(email), code, newPassword))
+    )
+
+    /**
+     * Revokes the refresh token on the server. The tokens are dropped right away (even if the request fails),
+     * so a quick sign-in afterwards cannot lose its new session to this late request.
+     */
+    override fun logout() {
+        val refresh = client.tokens.tokens?.refreshToken ?: return
+        client.tokens.tokens = null
+        background.launch {
+            runCatching {
+                client.sendEmpty(HttpMethod.Post, "auth/logout", ApiJson.encodeToJsonElement(TokenBody.serializer(), TokenBody(refresh)), authorized = false)
+            }
         }
     }
 
@@ -247,6 +318,22 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
             runCatching { client.sendEmpty(HttpMethod.Delete, "me") }
             client.tokens.tokens = null
         }
+    }
+
+    /** Posts [body] to an endpoint that answers with a session, stores the tokens and returns the user. */
+    private suspend fun signIn(path: String, body: JsonElement): User = mapErrors {
+        val response = client.send(HttpMethod.Post, path, SessionResponse.serializer(), body, authorized = false)
+        client.tokens.tokens = AuthTokens(response.accessToken, response.refreshToken)
+        response.user.model
+    }
+
+    private fun emailBody(email: String): JsonElement =
+        ApiJson.encodeToJsonElement(EmailBody.serializer(), EmailBody(LocalAuthService.normalize(email)))
+
+    private suspend fun <T> mapErrors(action: suspend () -> T): T = try {
+        action()
+    } catch (error: ApiException) {
+        throw AuthException(error.authError)
     }
 }
 
