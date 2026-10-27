@@ -26,7 +26,12 @@ import com.pulse.core.model.UserRole
 import com.pulse.core.platform.JvmFileSystem
 import com.pulse.core.platform.MemorySecretStore
 import io.ktor.client.HttpClient
+import io.ktor.client.engine.mock.MockEngine
+import io.ktor.client.engine.mock.respond
 import io.ktor.client.engine.okhttp.OkHttp
+import io.ktor.http.HttpHeaders
+import io.ktor.http.HttpStatusCode
+import io.ktor.http.headersOf
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -62,6 +67,33 @@ fun registeredCore(faceitKey: String? = null): PulseCore = testCore(null, faceit
             confirmPassword = "test-pass-1", acceptedTerms = true, acceptedPrivacy = true))
     }
 }
+
+/** A server user as the auth endpoints return it. */
+const val TEST_USER_JSON = """{"id":"6F1B6A2E-1C2D-4E5F-8A9B-0C1D2E3F4A5B","nickname":"Тестер","email":"tester@example.com",""" +
+    """"role":"soloPlayer","tariff":"free","team":null,"streak_days":0,"faceit_url":null}"""
+
+/**
+ * A remote-build core whose Pulse server is a MockEngine answering the auth endpoints like the real one (paths are
+ * recorded in [requests]): sign-up waits for the emailed code, a code or a new password signs in.
+ */
+fun remoteTestCore(requests: MutableList<String> = mutableListOf()): PulseCore {
+    val session = """{"user":$TEST_USER_JSON,"access_token":"A","refresh_token":"R"}"""
+    val engine = MockEngine { request ->
+        val path = request.url.encodedPath.removePrefix("/v1/")
+        synchronized(requests) { requests += path }
+        val (status, data) = when (path) {
+            "auth/register" -> HttpStatusCode.Created to """{"pending_verification":true,"email":"tester@example.com"}"""
+            "auth/verify-email", "auth/login", "auth/password-reset/confirm" -> HttpStatusCode.OK to session
+            else -> HttpStatusCode.OK to "{}"
+        }
+        respond("""{"success":true,"data":$data,"error":null}""", status, headersOf(HttpHeaders.ContentType, "application/json"))
+    }
+    return testCore(null, backend = Backend.Remote("https://api.test/v1/"), http = HttpClient(engine))
+}
+
+/** A complete remote sign-up form (all three consents). */
+val remoteForm = RegistrationForm(nickname = "Тестер", email = "tester@example.com", password = "test-pass-1", confirmPassword = "test-pass-1",
+    acceptedTerms = true, acceptedPrivacy = true, acceptedBetaTerms = true)
 
 /** The signed-in app as `MainActivity` shows it, opened on a debug route (`DebugRoutes`) when given. */
 fun ComposeContentTestRule.setMain(core: PulseCore, route: String? = null, fontScale: Float? = null) =

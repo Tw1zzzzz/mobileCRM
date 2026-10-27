@@ -12,6 +12,9 @@ import com.pulse.android.ui.auth.AuthScreen
 import com.pulse.android.ui.theme.Metrics
 import com.pulse.core.model.UserRole
 import com.pulse.android.ui.components.FitReport
+import com.pulse.core.PulseCore
+import com.pulse.core.auth.SessionStore
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -72,12 +75,28 @@ class TextFitSweepTest {
         rule.assertTextFits(unfit)
     }
 
+    private fun setAuth(session: SessionStore) = rule.setContent {
+        val density = LocalDensity.current
+        CompositionLocalProvider(LocalDensity provides Density(density.density, Metrics.maxFontScale)) { AuthScreen(session) }
+    }
+
+    /** Sign-in in a remote build, opened on the card [open] leads to (titled [title]). */
+    private fun authSweep(title: String, core: PulseCore = remoteTestCore(), open: () -> Unit = {}) {
+        setAuth(core.session)
+        open()
+        rule.waitForIdle()
+        rule.onNodeWithText(title).assertExists()
+        rule.assertTextFits(unfit)
+    }
+
+    @Test fun remoteSignIn() = authSweep("Вход")
+    @Test fun remoteRegistration() = authSweep("Регистрация") { rule.onNodeWithText("Зарегистрироваться").performScrollTo().performClick() }
+    @Test fun verifyEmail() = authSweep("Подтвердите почту", remoteTestCore().also { runBlocking { it.session.register(remoteForm) } })
+    @Test fun resetEmail() = authSweep("Сброс пароля") { rule.onNodeWithText("Забыли пароль?").performScrollTo().performClick() }
+    @Test fun resetCode() = authSweep("Сменить пароль", remoteTestCore().also { runBlocking { it.session.requestPasswordReset("tester@example.com") } })
+
     @Test fun signInAndRegistration() {
-        val session = testCore(null).session
-        rule.setContent {
-            val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, Metrics.maxFontScale)) { AuthScreen(session) }
-        }
+        setAuth(testCore(null).session)
         rule.assertTextFits(unfit)
         rule.onNodeWithText("Зарегистрироваться").performScrollTo().performClick()
         rule.waitForIdle()

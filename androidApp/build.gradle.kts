@@ -102,6 +102,7 @@ dependencies {
     implementation(libs.androidx.glance.material3)
     testImplementation(kotlin("test-junit"))
     testImplementation(libs.robolectric)
+    testImplementation(libs.ktor.client.mock)
     testImplementation(platform(libs.androidx.compose.bom))
     testImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.test.manifest)

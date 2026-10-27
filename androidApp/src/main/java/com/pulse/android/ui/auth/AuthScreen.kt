@@ -53,6 +53,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.Saver
 import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -82,7 +83,7 @@ import com.pulse.core.model.TeamRole
 import com.pulse.core.model.UserRole
 import kotlinx.coroutines.launch
 
-private object AuthStyle {
+internal object AuthStyle {
     val card = Color(0xFF0B1222)
     val field = Color(0xFF1C2333)
     val placeholder = Color(0xFF7B8599)
@@ -90,12 +91,31 @@ private object AuthStyle {
     val button = Brush.horizontalGradient(listOf(Color(0xFF0A6CFF), Color(0xFF00C8FF)))
 }
 
-/** Вход и регистрация: градиентный хиро-блок и карточка формы (как на iOS). */
+/** What the form card shows. */
+private enum class AuthStep { LOGIN, REGISTER, VERIFY, RESET }
+
+/**
+ * Вход и регистрация: градиентный хиро-блок и карточка формы (как на iOS). A remote build ([SessionStore.requireBetaTerms])
+ * adds the beta-terms consent, the emailed-code step and the password reset.
+ */
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AuthScreen(session: SessionStore) {
+    val remote = session.requireBetaTerms
     var register by rememberSaveable { mutableStateOf(false) }
+    var resetting by rememberSaveable { mutableStateOf(false) }
+    var resetEmail by rememberSaveable { mutableStateOf("") }
     var legal by remember { mutableStateOf<LegalDocument?>(null) }
+    val verifying by session.pendingVerification.collectAsStateWithLifecycle()
+    val resetPending by session.pendingReset.collectAsStateWithLifecycle()
+    val step = when {
+        verifying != null -> AuthStep.VERIFY
+        resetting || resetPending != null -> AuthStep.RESET
+        register -> AuthStep.REGISTER
+        else -> AuthStep.LOGIN
+    }
+    // «Изменить почту» returns to a filled form: the forms keep their fields while the code step is shown.
+    val forms = rememberSaveableStateHolder()
     Box(Modifier.fillMaxSize().background(Color(0xFF070C1A))) {
         Canvas(Modifier.fillMaxSize()) {
             drawRect(
@@ -117,9 +137,24 @@ fun AuthScreen(session: SessionStore) {
                 Modifier.contentWidth().clip(RoundedCornerShape(24.dp)).background(AuthStyle.card)
                     .border(1.dp, Palette.stroke, RoundedCornerShape(24.dp)).padding(horizontal = 22.dp, vertical = 28.dp)
             ) {
-                Crossfade(register, label = "auth") { isRegister ->
-                    if (isRegister) RegistrationCard(session, onLegal = { legal = it }) { register = false }
-                    else LoginCard(session) { register = true }
+                Crossfade(step, label = "auth") { shown ->
+                    when (shown) {
+                        AuthStep.LOGIN -> forms.SaveableStateProvider(shown.name) {
+                            val forgot: (String) -> Unit = { email ->
+                                resetEmail = email
+                                resetting = true
+                            }
+                            LoginCard(session, onRegister = { register = true }, onForgotPassword = forgot.takeIf { remote })
+                        }
+                        AuthStep.REGISTER -> forms.SaveableStateProvider(shown.name) {
+                            RegistrationCard(session, onLegal = { legal = it }) { register = false }
+                        }
+                        AuthStep.VERIFY -> VerifyEmailCard(session, verifying.orEmpty())
+                        AuthStep.RESET -> ResetCard(session, resetEmail, resetPending) {
+                            session.cancelReset()
+                            resetting = false
+                        }
+                    }
                 }
             }
         }
@@ -148,8 +183,9 @@ private fun Hero() {
     }
 }
 
+/** [onForgotPassword] (remote builds only) gets the email typed so far. */
 @Composable
-private fun LoginCard(session: SessionStore, onRegister: () -> Unit) {
+private fun LoginCard(session: SessionStore, onRegister: () -> Unit, onForgotPassword: ((String) -> Unit)?) {
     val scope = rememberCoroutineScope()
     val error by session.errorMessage.collectAsStateWithLifecycle()
     val loading by session.isLoading.collectAsStateWithLifecycle()
@@ -162,6 +198,9 @@ private fun LoginCard(session: SessionStore, onRegister: () -> Unit) {
         Text("Вход", color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 6.dp))
         AuthField("Email", email, { email = it }, keyboard = KeyboardType.Email)
         AuthField("Пароль", password, { password = it }, isPassword = true, ime = ImeAction.Done) { scope.launch { session.login(email, password) } }
+        onForgotPassword?.let { onForgot ->
+            TextLink("Забыли пароль?", Modifier.align(Alignment.End)) { onForgot(email) }
+        }
         error?.let { ErrorBanner(it) }
         GradientButton("Войти", Modifier.padding(top = 8.dp), isLoading = loading, brush = AuthStyle.button) {
             scope.launch { session.login(email, password) }
@@ -193,14 +232,19 @@ private fun LoginCard(session: SessionStore, onRegister: () -> Unit) {
 }
 
 /** Keeps the registration form across rotation and process death — without the passwords. */
-private val RegistrationFormSaver: Saver<RegistrationForm, List<String>> = Saver(
-    save = { listOf(it.nickname, it.email, it.faceitURL, it.teamCode, it.teamName, it.accessType.name, it.teamRole.name, "${it.acceptedTerms}", "${it.acceptedPrivacy}") },
+internal val RegistrationFormSaver: Saver<RegistrationForm, List<String>> = Saver(
+    save = {
+        listOf(it.nickname, it.email, it.faceitURL, it.teamCode, it.teamName, it.accessType.name, it.teamRole.name, "${it.acceptedTerms}",
+            "${it.acceptedPrivacy}", "${it.acceptedBetaTerms}")
+    },
     restore = { saved ->
         RegistrationForm(
             nickname = saved[0], email = saved[1], faceitURL = saved[2], teamCode = saved[3], teamName = saved[4],
             accessType = AccessType.entries.firstOrNull { it.name == saved[5] } ?: AccessType.SOLO,
             teamRole = TeamRole.entries.firstOrNull { it.name == saved[6] } ?: TeamRole.PLAYER,
-            acceptedTerms = saved[7].toBoolean(), acceptedPrivacy = saved[8].toBoolean()
+            acceptedTerms = saved[7].toBoolean(), acceptedPrivacy = saved[8].toBoolean(),
+            // Saved before the beta-terms consent existed: nine entries.
+            acceptedBetaTerms = saved.getOrNull(9).toBoolean()
         )
     }
 )
@@ -211,6 +255,7 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
     val error by session.errorMessage.collectAsStateWithLifecycle()
     val loading by session.isLoading.collectAsStateWithLifecycle()
     var form by rememberSaveable(stateSaver = RegistrationFormSaver) { mutableStateOf(RegistrationForm()) }
+    val remote = session.requireBetaTerms
     LaunchedEffect(Unit) { session.clearError() }
 
     Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
@@ -232,11 +277,8 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
                         ) { Text(role.title, color = if (selected) Color.White else AuthStyle.placeholder, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
                     }
                 }
-                Text(
-                    if (form.isTeamStaff) "Кабинет стаффа с данными игроков откроется вместе с сервером команды. Сейчас его можно посмотреть в демо на экране входа."
-                    else "Код команды сохранится в профиле — привяжем тебя к команде, когда подключится сервер.",
-                    color = if (form.isTeamStaff) Palette.orange else AuthStyle.placeholder, fontSize = 13.sp
-                )
+                Text(teamHint(form.isTeamStaff, remote), color = if (form.isTeamStaff && !remote) Palette.orange else AuthStyle.placeholder,
+                    fontSize = 13.sp)
             }
         }
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -259,6 +301,11 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
             Consent("Я принимаю ", "политику конфиденциальности", form.acceptedPrivacy, { onLegal(LegalDocument.PRIVACY) }) {
                 form = form.copy(acceptedPrivacy = it)
             }
+            if (remote) {
+                Consent("Я принимаю ", "условия бета-тестирования", form.acceptedBetaTerms, { onLegal(LegalDocument.BETA_TERMS) }) {
+                    form = form.copy(acceptedBetaTerms = it)
+                }
+            }
         }
         error?.let { ErrorBanner(it) }
         GradientButton("Создать аккаунт", Modifier.padding(top = 10.dp), isLoading = loading, brush = AuthStyle.button) {
@@ -268,12 +315,20 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
     }
 }
 
+/** Under the team role: on the server a staff member creates the team; on the phone both wait for the server. */
+private fun teamHint(isStaff: Boolean, remote: Boolean): String = when {
+    remote && isStaff -> "После регистрации вы получите код команды — отправьте его игрокам."
+    remote -> "Код команды выдаёт стафф."
+    isStaff -> "Кабинет стаффа с данными игроков откроется вместе с сервером команды. Сейчас его можно посмотреть в демо на экране входа."
+    else -> "Код команды сохранится в профиле — привяжем тебя к команде, когда подключится сервер."
+}
+
 @Composable
 /**
  * [name] sits inside the empty field and moves above the text once something is typed, so two filled password fields
  * still say which is which. «Далее» ([ime] Next) moves to the next field; Done closes the keyboard or runs [onDone].
  */
-private fun AuthField(
+internal fun AuthField(
     name: String, value: String, onChange: (String) -> Unit, isPassword: Boolean = false, keyboard: KeyboardType = KeyboardType.Text,
     ime: ImeAction = ImeAction.Next, onDone: (() -> Unit)? = null
 ) {
@@ -349,4 +404,11 @@ private fun SwitchLink(prompt: String, action: String, onClick: () -> Unit) {
         Text("$prompt ", color = AuthStyle.placeholder, fontSize = 15.sp)
         Text(action, color = Palette.cyan, fontSize = 15.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.pressable(onClick = onClick))
     }
+}
+
+/** A standalone cyan link («Забыли пароль?», «Изменить почту»), tall enough to hit. */
+@Composable
+internal fun TextLink(title: String, modifier: Modifier = Modifier, onClick: () -> Unit) {
+    Text(title, color = Palette.cyan, fontSize = 15.sp, fontWeight = FontWeight.SemiBold,
+        modifier = modifier.heightIn(min = 44.dp).wrapContentHeight().pressable(onClick = onClick))
 }
