@@ -27,7 +27,9 @@ export function createMailer(env: Env = process.env): Mailer {
   if (env.SMTP_PASSWORD) {
     const user = requireEnv("SMTP_USER", env);
     const port = env.SMTP_PORT ? Number(env.SMTP_PORT) : DEFAULT_SMTP_PORT;
-    if (!Number.isInteger(port) || port <= 0) throw new Error("SMTP_PORT must be a port number");
+    if (!Number.isInteger(port) || port < 1 || port > 65535) {
+      throw new Error("SMTP_PORT must be an integer from 1 to 65535");
+    }
     return new SmtpMailer({
       host: env.SMTP_HOST || DEFAULT_SMTP_HOST,
       port,

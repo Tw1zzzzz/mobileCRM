@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import nodemailer from "nodemailer";
 import { createMailer } from "../lib/deps";
-import { ConsoleMailer, ResendMailer, SmtpMailer } from "../lib/mail";
+import { ConsoleMailer, ResendMailer, SmtpMailer, smtpTransportOptions } from "../lib/mail";
 
 describe("createMailer", () => {
   it("createMailerPicksSmtpWhenPasswordSet", () => {
@@ -13,6 +13,13 @@ describe("createMailer", () => {
   it("uses MAIL_FROM for the SMTP sender when set", () => {
     const mailer = createMailer({ SMTP_PASSWORD: "p", SMTP_USER: "u@gmail.com", MAIL_FROM: "Pulse Beta <u@gmail.com>" });
     expect((mailer as SmtpMailer).from).toBe("Pulse Beta <u@gmail.com>");
+  });
+
+  it("rejects an out-of-range SMTP_PORT", () => {
+    for (const port of ["0", "65536", "-1", "abc", "46.5"]) {
+      expect(() => createMailer({ SMTP_PASSWORD: "p", SMTP_USER: "u@gmail.com", SMTP_PORT: port })).toThrow(/SMTP_PORT/);
+    }
+    expect(createMailer({ SMTP_PASSWORD: "p", SMTP_USER: "u@gmail.com", SMTP_PORT: "587" })).toBeInstanceOf(SmtpMailer);
   });
 
   it("createMailerNeedsSmtpUser", () => {
@@ -51,6 +58,19 @@ describe("SmtpMailer", () => {
     expect(message.to).toEqual([{ address: "nova@team.gg", name: "" }]);
     expect(message.subject).toBe("Код");
     expect(message.text).toBe("Ваш код: 123456");
+  });
+
+  it("smtpTransportHasTimeoutsAndRequiresTlsOffImplicitTls", () => {
+    const implicit = smtpTransportOptions(config);
+    expect(implicit).toMatchObject({ secure: true, requireTLS: false });
+    for (const key of ["connectionTimeout", "greetingTimeout", "socketTimeout"] as const) {
+      expect(implicit[key]).toBe(10_000);
+    }
+    expect(smtpTransportOptions({ ...config, port: 587, secure: false })).toMatchObject({
+      port: 587,
+      secure: false,
+      requireTLS: true,
+    });
   });
 
   it("wraps failures without leaking the password", async () => {

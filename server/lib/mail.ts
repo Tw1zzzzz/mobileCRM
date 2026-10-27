@@ -50,6 +50,23 @@ export interface SmtpConfig {
   from: string;
 }
 
+/** Hanging Gmail must fail fast (-> 503) rather than hit the serverless platform timeout. */
+export const SMTP_TIMEOUT_MS = 10_000;
+
+/** Transport options: bounded timeouts, and STARTTLS is mandatory unless the connection is implicit TLS. */
+export function smtpTransportOptions(config: SmtpConfig) {
+  return {
+    host: config.host,
+    port: config.port,
+    secure: config.secure,
+    requireTLS: !config.secure,
+    connectionTimeout: SMTP_TIMEOUT_MS,
+    greetingTimeout: SMTP_TIMEOUT_MS,
+    socketTimeout: SMTP_TIMEOUT_MS,
+    auth: { user: config.user, pass: config.password },
+  };
+}
+
 /** Sends through an SMTP account (Gmail with an app password needs no domain). */
 export class SmtpMailer implements Mailer {
   readonly from: string;
@@ -60,12 +77,7 @@ export class SmtpMailer implements Mailer {
     this.from = config.from;
     this.transport =
       transport ??
-      nodemailer.createTransport({
-        host: config.host,
-        port: config.port,
-        secure: config.secure,
-        auth: { user: config.user, pass: config.password },
-      });
+      nodemailer.createTransport(smtpTransportOptions(config));
   }
 
   async send(m: MailMessage): Promise<void> {
