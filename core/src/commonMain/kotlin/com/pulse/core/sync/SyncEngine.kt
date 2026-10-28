@@ -9,7 +9,6 @@ import com.pulse.core.util.PulseJson
 import io.ktor.http.HttpMethod
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
-import kotlinx.serialization.builtins.serializer
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
@@ -111,7 +110,11 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
             if (collection == NUTRITION) {
                 // Only now are these photos safe on the server: a nutrition write without their meal would have dropped them.
                 val meals = MealPhotos.mealIds(document)
-                saveUploadedPhotos((uploadedPhotos() + sentPhotos).filterTo(HashSet()) { it in meals })
+                val photos = photoLedger()
+                savePhotoLedger(PhotoLedger(
+                    uploaded = (photos.uploaded + sentPhotos).filterTo(HashSet()) { it in meals },
+                    rejected = photos.rejected.filterTo(HashSet()) { it in meals }
+                ))
             }
             ledger.recordServerCopy(
                 file, written.version, CollectionMerge.recordKeys(collection, document), written.updatedAt,
@@ -146,13 +149,23 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
             return needsUpload
         }
 
+        /**
+         * Uploads the photos the server does not have yet. A photo the server refuses for good (too large, not a JPEG)
+         * is recorded as rejected and never sent again; its meal still syncs, without the photo.
+         */
         private suspend fun uploadPhotos(local: JsonElement, sentPhotos: MutableSet<String>) {
-            val onServer = uploadedPhotos()
+            val known = photoLedger()
             for ((id, base64) in MealPhotos.photos(local)) {
-                if (id in onServer || id in sentPhotos) continue
+                if (id in known.uploaded || id in known.rejected || id in sentPhotos) continue
                 val jpeg = runCatching { Base64.decode(base64) }.getOrNull() ?: continue
-                client.sendBytes(HttpMethod.Put, "photos/$id", jpeg)
-                sentPhotos += id
+                try {
+                    client.sendBytes(HttpMethod.Put, "photos/$id", jpeg)
+                    sentPhotos += id
+                } catch (error: ApiException) {
+                    if (error.code !in PHOTO_REJECTIONS) throw error
+                    val current = photoLedger()
+                    savePhotoLedger(current.copy(rejected = current.rejected + id))
+                }
             }
         }
 
@@ -162,7 +175,10 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
             val meals = MealPhotos.mealIds(merged)
             val wanted = (MealPhotos.referenced(merged) + MealPhotos.referenced(remote)).filter { it in meals && it !in localPhotos }
             val fetched = wanted.mapNotNull { id -> downloadPhoto(id)?.let { id to it } }.toMap()
-            if (fetched.isNotEmpty()) saveUploadedPhotos(uploadedPhotos() + fetched.keys)
+            if (fetched.isNotEmpty()) {
+                val photos = photoLedger()
+                savePhotoLedger(photos.copy(uploaded = photos.uploaded + fetched.keys))
+            }
             return MealPhotos.restore(merged, localPhotos + fetched)
         }
 
@@ -178,18 +194,24 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
             if (error.code == NOT_FOUND) null else throw error
         }
 
-        /** Ids of photos known to be on the server, kept in `sync-photos.json` (never marked changed, never sent). */
-        private fun uploadedPhotos(): Set<String> = readText(PHOTOS_FILE)
-            ?.let { runCatching { PulseJson.decodeFromString(ListSerializer(String.serializer()), it) }.getOrNull() }
-            ?.toSet() ?: emptySet()
+        /** Photo ids known to the server, kept in `sync-photos.json` (never marked changed, never sent). */
+        private fun photoLedger(): PhotoLedger = readText(PHOTOS_FILE)
+            ?.let { runCatching { PulseJson.decodeFromString(PhotoLedger.serializer(), it) }.getOrNull() }
+            ?: PhotoLedger()
 
-        private fun saveUploadedPhotos(ids: Set<String>) {
-            scope.files.writeText(path(PHOTOS_FILE), PulseJson.encodeToString(ListSerializer(String.serializer()), ids.sorted()))
+        private fun savePhotoLedger(photos: PhotoLedger) {
+            val sorted = PhotoLedger(photos.uploaded.sorted().toSet(), photos.rejected.sorted().toSet())
+            scope.files.writeText(path(PHOTOS_FILE), PulseJson.encodeToString(PhotoLedger.serializer(), sorted))
         }
+
+        /** The copy for the server: nutrition without photos; refused photos leave no `photoRef` behind. */
+        private fun forServer(collection: String, local: JsonElement): JsonElement =
+            if (collection == NUTRITION) MealPhotos.strip(local, unreferenced = photoLedger().rejected) else local
     }
 
-    private fun forServer(collection: String, local: JsonElement): JsonElement =
-        if (collection == NUTRITION) MealPhotos.strip(local) else local
+    /** `uploaded`: on the server (sent with an accepted nutrition write, or downloaded). `rejected`: refused for good. */
+    @Serializable
+    private data class PhotoLedger(val uploaded: Set<String> = emptySet(), val rejected: Set<String> = emptySet())
 
     /** `base_version` is sent even when null (first upload): the server requires the key. */
     private fun putBody(baseVersion: Int?, document: JsonElement) = buildJsonObject {
@@ -219,6 +241,8 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
         const val MAX_PUT_ATTEMPTS = 3
         const val NUTRITION = "nutrition"
         const val NOT_FOUND = "not_found"
+        /** Photo errors that a retry cannot fix. */
+        val PHOTO_REJECTIONS = setOf("payload_too_large", "validation_failed")
         const val PHOTOS_FILE = "sync-photos.json"
         const val GUEST = "guest"
         const val DEMO_PREFIX = "demo-"

@@ -16,10 +16,21 @@ object MealPhotos {
     private const val PHOTO = "photo"
     private const val PHOTO_REF = "photoRef"
 
-    /** The copy sent to the server: every photo → absent, with `"photoRef": true` in its place. */
-    fun strip(nutrition: JsonElement): JsonElement = mapMeals(nutrition) { meal ->
+    /**
+     * The copy sent to the server: every photo → absent, with `"photoRef": true` in its place — except the meals in
+     * [unreferenced] (photos the server refused), which get no marker so other phones do not ask for them.
+     */
+    fun strip(nutrition: JsonElement, unreferenced: Set<String> = emptySet()): JsonElement = mapMeals(nutrition) { meal ->
         if (photoOf(meal) == null) return@mapMeals meal
-        JsonObject(meal.entries.associate { (key, value) -> if (key == PHOTO) PHOTO_REF to JsonPrimitive(true) else key to value })
+        val marker = idOf(meal) !in unreferenced
+        val stripped = LinkedHashMap<String, JsonElement>()
+        for ((key, value) in meal) {
+            when {
+                key != PHOTO -> stripped[key] = value
+                marker -> stripped[PHOTO_REF] = JsonPrimitive(true)
+            }
+        }
+        JsonObject(stripped)
     }
 
     /** Meal id → base64 JPEG of every meal that has a photo. */

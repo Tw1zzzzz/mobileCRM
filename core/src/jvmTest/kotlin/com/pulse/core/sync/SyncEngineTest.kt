@@ -86,7 +86,7 @@ private class FakeSyncServer {
         val path = request.url.encodedPath.removePrefix("/v1/")
         val recorded = Recorded(request.method, path, bytesOf(request), request.body.contentType)
         requests += recorded
-        failures[path]?.let { return@MockEngine respond(fail("server_error"), HttpStatusCode.fromValue(it)) }
+        failures[path]?.let { return@MockEngine respond(fail(codeFor(it)), HttpStatusCode.fromValue(it)) }
         val (status, body) = when {
             path == "sync" -> 200 to ok(JsonArray(documents.toSortedMap().map { (name, stored) -> summary(name, stored) }))
             path.startsWith("sync/") && request.method == HttpMethod.Get -> getDocument(path.removePrefix("sync/"))
@@ -135,6 +135,12 @@ private class FakeSyncServer {
         put("collection", name)
         put("version", stored.version)
         put("updated_at", stored.updatedAt.toString())
+    }
+
+    private fun codeFor(status: Int) = when (status) {
+        413 -> "payload_too_large"
+        422 -> "validation_failed"
+        else -> "server_error"
     }
 
     private fun ok(data: JsonElement) = """{"success":true,"data":$data,"error":null}"""
@@ -370,6 +376,50 @@ class SyncEngineTest {
         assertContentEquals(jpeg, server.photos[idOf(fresh)])
         assertEquals(setOf(idOf(kept), idOf(fresh), idOf(other)), ids(server.documents.getValue("nutrition").document, "meals"))
         assertTrue(assertNotNull(phone.text("sync-photos.json")).contains(idOf(fresh)))
+    }
+
+    @Test fun rejectedPhotoDoesNotBlockNutrition() = runTest {
+        val tooBig = Uuid.random()
+        val fine = Uuid.random()
+        val phone = Phone()
+        server.failures = mapOf("photos/${idOf(tooBig)}" to 413)
+        phone.save("nutrition.json", nutrition(meal(tooBig, jpeg), meal(fine, jpeg)))
+        val local = phone.text("nutrition.json")
+
+        assertEquals(SyncResult(listOf("nutrition.json"), emptyList(), failed = false), phone.engine.pushPending())
+
+        fun sentMeal(id: Uuid) = server.puts("nutrition").last().json.getValue("document").jsonObject.getValue("meals").jsonArray
+            .map { it.jsonObject }.single { it["id"]?.jsonPrimitive?.content == idOf(id) }
+        assertNull(sentMeal(tooBig)["photo"])
+        assertNull(sentMeal(tooBig)["photoRef"], "other phones must not try to download a rejected photo")
+        assertEquals(JsonPrimitive(true), sentMeal(fine)["photoRef"])
+        assertNull(server.photos[idOf(tooBig)])
+        assertContentEquals(jpeg, server.photos[idOf(fine)])
+        assertEquals(local, phone.text("nutrition.json"), "the phone keeps the rejected photo")
+
+        phone.save("nutrition.json", nutrition(meal(tooBig, jpeg), meal(fine, jpeg), water = mapOf("2026-10-27" to 250)))
+        assertEquals(listOf("nutrition.json"), phone.engine.pushPending().uploaded)
+        assertEquals(1, server.photoPuts(idOf(tooBig)).size, "a rejected photo is not retried")
+        assertEquals(1, server.photoPuts(idOf(fine)).size)
+        assertNull(sentMeal(tooBig)["photoRef"])
+
+        // Another phone's write merges in without bringing a photoRef back for the rejected meal.
+        server.write("nutrition", server.documents.getValue("nutrition").document)
+        phone.save("nutrition.json", nutrition(meal(tooBig, jpeg), meal(fine, jpeg), water = mapOf("2026-10-27" to 500)))
+        assertFalse(phone.engine.pushPending().failed)
+        assertNull(sentMeal(tooBig)["photoRef"])
+        assertEquals(1, server.photoPuts(idOf(tooBig)).size)
+    }
+
+    @Test fun photoServerErrorStillStopsTheRound() = runTest {
+        val broken = Uuid.random()
+        val phone = Phone()
+        server.failures = mapOf("photos/${idOf(broken)}" to 500)
+        phone.save("nutrition.json", nutrition(meal(broken, jpeg)))
+
+        assertEquals(SyncResult(emptyList(), emptyList(), failed = true), phone.engine.pushPending())
+        assertTrue(server.puts("nutrition").isEmpty())
+        assertEquals(listOf("nutrition.json"), phone.ledger.pending())
     }
 
     @Test fun offlineLeavesChangesPending() = runTest {
