@@ -51,7 +51,10 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
         return isEnabled && client.tokens.tokens != null && account != GUEST && !account.startsWith(DEMO_PREFIX)
     }
 
-    /** Any API error other than a version conflict ends the round; what was done so far stays done. */
+    /**
+     * Any API error other than a version conflict ends the round, as does a file the app keeps rewriting while its
+     * server copy is merged in; what was done so far stays done.
+     */
     private suspend fun sync(folder: String, work: suspend (Round) -> Unit): SyncResult {
         if (!canSync(folder)) return SyncResult(emptyList(), emptyList(), failed = false)
         val round = Round(folder)
@@ -59,6 +62,8 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
             work(round)
             false
         } catch (error: ApiException) {
+            true
+        } catch (error: LocalFileBusy) {
             true
         }
         return SyncResult(round.uploaded.toList(), round.downloaded.toList(), failed)
@@ -126,28 +131,50 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
         /**
          * Brings the server copy into the local file: taken whole when there is nothing unsent, merged per record
          * otherwise. Returns true when the result still has to be uploaded.
+         *
+         * Photos are downloaded before anything is written. If the app saved the file meanwhile, the merge starts
+         * again with that save (downloaded photos are kept), so the edit is neither overwritten nor marked as sent.
          */
         private suspend fun absorb(file: String, remote: RemoteDocument): Boolean {
             val collection = collectionOf(file)
-            val entry = ledger.entries(folder)[file]
-            val local = readText(file)?.let(::parse)
-            val unsent = if (local != null && (entry == null || entry.isPending)) local else null
-            val merged = unsent?.let {
-                val localIsNewer = entry != null && entry.changedAt > remote.updatedAt
-                CollectionMerge.merge(collection, forServer(collection, it), remote.document, entry?.baseKeys.orEmpty(), localIsNewer)
-            } ?: remote.document
-            val needsUpload = unsent != null && merged != remote.document
-            val result = if (collection == NUTRITION) withPhotos(merged, local, remote.document) else merged
-            if (result != local) {
-                scope.files.writeText(path(file), PulseJson.encodeToString(JsonElement.serializer(), result))
-                downloaded += file
+            // Meal id → base64 photo, or null when the server has none (404).
+            val photoCache = HashMap<String, String?>()
+            repeat(MAX_ABSORB_PASSES) {
+                val text = readText(file)
+                val entry = ledger.entries(folder)[file]
+                val local = text?.let(::parse)
+                val unsent = if (local != null && hasUnsentChanges(entry)) local else null
+                val merged = unsent?.let {
+                    val localIsNewer = entry != null && entry.changedAt > remote.updatedAt
+                    CollectionMerge.merge(collection, forServer(collection, it), remote.document, entry?.baseKeys.orEmpty(), localIsNewer)
+                } ?: remote.document
+                val needsUpload = unsent != null && merged != remote.document
+                val localPhotos = local?.let(MealPhotos::photos).orEmpty()
+                if (collection == NUTRITION) downloadPhotos(merged, remote.document, localPhotos, photoCache)
+                if (readText(file) != text) return@repeat
+
+                // From here on nothing suspends: the file and the ledger are updated together.
+                val fetched = photoCache.mapNotNull { (id, photo) -> photo?.let { id to it } }.toMap()
+                val result = if (collection == NUTRITION) MealPhotos.restore(merged, localPhotos + fetched) else merged
+                if (result != local) {
+                    scope.files.writeText(path(file), PulseJson.encodeToString(JsonElement.serializer(), result))
+                    downloaded += file
+                }
+                if (fetched.isNotEmpty()) {
+                    val photos = photoLedger()
+                    savePhotoLedger(photos.copy(uploaded = photos.uploaded + fetched.keys))
+                }
+                ledger.recordServerCopy(
+                    file, remote.version, CollectionMerge.recordKeys(collection, remote.document), remote.updatedAt,
+                    upToDate = !needsUpload, folder = folder
+                )
+                return needsUpload
             }
-            ledger.recordServerCopy(
-                file, remote.version, CollectionMerge.recordKeys(collection, remote.document), remote.updatedAt,
-                upToDate = !needsUpload, folder = folder
-            )
-            return needsUpload
+            throw LocalFileBusy()
         }
+
+        /** No ledger entry, a pending change, or an entry from before versioned sync (never really synced). */
+        private fun hasUnsentChanges(entry: SyncLedger.Entry?): Boolean = entry == null || entry.isPending || entry.version == null
 
         /**
          * Uploads the photos the server does not have yet. A photo the server refuses for good (too large, not a JPEG)
@@ -169,23 +196,22 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
             }
         }
 
-        /** Local photos first; photos of other meals are downloaded. A photo that fails leaves its meal without one. */
-        private suspend fun withPhotos(merged: JsonElement, local: JsonElement?, remote: JsonElement): JsonElement {
-            val localPhotos = local?.let(MealPhotos::photos).orEmpty()
+        /** Downloads into [cache] the server photos of meals in [merged] that the phone does not have. */
+        private suspend fun downloadPhotos(merged: JsonElement, remote: JsonElement, localPhotos: Map<String, String>, cache: MutableMap<String, String?>) {
             val meals = MealPhotos.mealIds(merged)
-            val wanted = (MealPhotos.referenced(merged) + MealPhotos.referenced(remote)).filter { it in meals && it !in localPhotos }
-            val fetched = wanted.mapNotNull { id -> downloadPhoto(id)?.let { id to it } }.toMap()
-            if (fetched.isNotEmpty()) {
-                val photos = photoLedger()
-                savePhotoLedger(photos.copy(uploaded = photos.uploaded + fetched.keys))
-            }
-            return MealPhotos.restore(merged, localPhotos + fetched)
+            val wanted = (MealPhotos.referenced(merged) + MealPhotos.referenced(remote))
+                .filter { it in meals && it !in localPhotos && it !in cache }
+            for (id in wanted) cache[id] = downloadPhoto(id)
         }
 
+        /**
+         * Only a missing photo (404) leaves its meal without one. Any other failure ends the round before anything
+         * is written, so the `photoRef` is not lost and the next pull tries again.
+         */
         private suspend fun downloadPhoto(id: String): String? = try {
             Base64.encode(client.getBytes("photos/$id"))
         } catch (error: ApiException) {
-            null
+            if (error.code == NOT_FOUND) null else throw error
         }
 
         private suspend fun fetch(collection: String): RemoteDocument? = try {
@@ -208,6 +234,9 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
         private fun forServer(collection: String, local: JsonElement): JsonElement =
             if (collection == NUTRITION) MealPhotos.strip(local, unreferenced = photoLedger().rejected) else local
     }
+
+    /** The app kept rewriting a file while its server copy was being merged in: the round stops, the next one retries. */
+    private class LocalFileBusy : Exception("Local file changed during sync")
 
     /** `uploaded`: on the server (sent with an accepted nutrition write, or downloaded). `rejected`: refused for good. */
     @Serializable
@@ -239,6 +268,7 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
 
     private companion object {
         const val MAX_PUT_ATTEMPTS = 3
+        const val MAX_ABSORB_PASSES = 3
         const val NUTRITION = "nutrition"
         const val NOT_FOUND = "not_found"
         /** Photo errors that a retry cannot fix. */

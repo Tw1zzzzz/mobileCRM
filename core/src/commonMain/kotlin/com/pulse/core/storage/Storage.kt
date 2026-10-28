@@ -100,7 +100,8 @@ class SyncLedger(private val scope: DataScope) {
 
     /**
      * Records the server copy the local file is now based on. With [upToDate] the local file equals that copy
-     * (nothing left to send); otherwise local changes stay pending, also for a collection the ledger did not know.
+     * (nothing left to send); otherwise the collection is pending, also when the ledger did not know it or counted
+     * it as sent.
      */
     fun recordServerCopy(
         collection: String,
@@ -116,7 +117,7 @@ class SyncLedger(private val scope: DataScope) {
             version = version,
             baseKeys = baseKeys,
             remoteUpdatedAt = remoteUpdatedAt,
-            syncedAt = if (upToDate) at else entry.syncedAt
+            syncedAt = if (upToDate) at else entry.syncedAt.takeIf { entry.isPending }
         ))
     }
 

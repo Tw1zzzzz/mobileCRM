@@ -63,8 +63,12 @@ private class FakeSyncServer {
     val photos = mutableMapOf<String, ByteArray>()
     val requests = mutableListOf<Recorded>()
     var offline = false
-    /** Path → HTTP status the server fails with. */
+    /** `"PUT sync/sleep"` or a bare path (any method) → HTTP status the server fails with. */
     var failures: Map<String, Int> = emptyMap()
+    /** Paths whose requests never reach the server (connection lost). */
+    var unreachable: Set<String> = emptySet()
+    /** Runs when a photo is asked for, before the answer (e.g. the app saves a file meanwhile). */
+    var beforePhotoGet: (() -> Unit)? = null
     /** Runs right after a photo is stored (e.g. another phone writes in between). */
     var afterPhotoStored: (() -> Unit)? = null
     /** Runs before a document write is checked (e.g. another phone always writes first). */
@@ -84,9 +88,10 @@ private class FakeSyncServer {
     fun engine() = MockEngine { request ->
         if (offline) throw IOException("offline")
         val path = request.url.encodedPath.removePrefix("/v1/")
+        if (path in unreachable) throw IOException("connection lost")
         val recorded = Recorded(request.method, path, bytesOf(request), request.body.contentType)
         requests += recorded
-        failures[path]?.let { return@MockEngine respond(fail(codeFor(it)), HttpStatusCode.fromValue(it)) }
+        (failures["${request.method.value} $path"] ?: failures[path])?.let { return@MockEngine respond(fail(codeFor(it)), HttpStatusCode.fromValue(it)) }
         val (status, body) = when {
             path == "sync" -> 200 to ok(JsonArray(documents.toSortedMap().map { (name, stored) -> summary(name, stored) }))
             path.startsWith("sync/") && request.method == HttpMethod.Get -> getDocument(path.removePrefix("sync/"))
@@ -96,7 +101,7 @@ private class FakeSyncServer {
                 afterPhotoStored?.invoke()
                 200 to ok(JsonObject(emptyMap()))
             }
-            else -> photos[path.removePrefix("photos/")]?.let { jpeg ->
+            else -> photos[path.removePrefix("photos/")].also { beforePhotoGet?.invoke() }?.let { jpeg ->
                 return@MockEngine respond(jpeg, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "image/jpeg"))
             } ?: (404 to fail("not_found"))
         }
@@ -329,6 +334,51 @@ class SyncEngineTest {
         assertNull(saved.meals.single().photo)
     }
 
+    @Test fun saveDuringPhotoDownloadIsKept() = runTest {
+        val remoteMeal = Uuid.random()
+        val added = Uuid.random()
+        val phone = Phone()
+        server.write("nutrition", serverNutrition(meal(remoteMeal), withPhoto = setOf(remoteMeal)))
+        server.photos[idOf(remoteMeal)] = jpeg
+        // The app saves a new meal while the engine waits for the photo.
+        server.beforePhotoGet = {
+            server.beforePhotoGet = null
+            phone.save("nutrition.json", nutrition(meal(added)))
+        }
+
+        val result = phone.engine.pullChanged()
+
+        assertEquals(SyncResult(listOf("nutrition.json"), listOf("nutrition.json"), failed = false), result)
+        val saved = PulseJson.decodeFromString(NutritionStore.Saved.serializer(), assertNotNull(phone.text("nutrition.json")))
+        assertEquals(setOf(remoteMeal, added), saved.meals.map { it.id }.toSet())
+        assertContentEquals(jpeg, saved.meals.single { it.id == remoteMeal }.photo)
+        assertEquals(setOf(idOf(remoteMeal), idOf(added)), ids(server.documents.getValue("nutrition").document, "meals"))
+        assertEquals(1, server.requests.count { it.method == HttpMethod.Get && it.path == "photos/${idOf(remoteMeal)}" })
+        assertTrue(server.photoPuts(idOf(remoteMeal)).isEmpty(), "a downloaded photo is not sent back")
+        assertTrue(phone.ledger.pending().isEmpty())
+    }
+
+    @Test fun photoDownloadFailureLeavesEverythingUnchanged() = runTest {
+        val kept = Uuid.random()
+        val remoteMeal = Uuid.random()
+        val phone = Phone()
+        phone.save("nutrition.json", nutrition(meal(kept)))
+        phone.engine.pushPending()
+        server.write("nutrition", serverNutrition(meal(kept), meal(remoteMeal), withPhoto = setOf(remoteMeal)))
+        server.photos[idOf(remoteMeal)] = jpeg
+        server.unreachable = setOf("photos/${idOf(remoteMeal)}")
+        val files = listOf("nutrition.json", "sync-ledger.json", "sync-photos.json").associateWith { phone.text(it) }
+
+        assertEquals(SyncResult(emptyList(), emptyList(), failed = true), phone.engine.pullChanged())
+        assertEquals(files, files.keys.associateWith { phone.text(it) })
+
+        server.unreachable = emptySet()
+        assertEquals(SyncResult(emptyList(), listOf("nutrition.json"), failed = false), phone.engine.pullChanged())
+        val saved = PulseJson.decodeFromString(NutritionStore.Saved.serializer(), assertNotNull(phone.text("nutrition.json")))
+        assertContentEquals(jpeg, saved.meals.single { it.id == remoteMeal }.photo)
+        assertEquals(2, phone.entry("nutrition.json").version)
+    }
+
     @Test fun photosUploadedOnceAndStrippedFromDocument() = runTest {
         val withPhoto = Uuid.random()
         val plain = Uuid.random()
@@ -497,6 +547,29 @@ class SyncEngineTest {
         assertEquals(listOf("sleep.json"), phone.engine.pushPending().uploaded)
         assertEquals(JsonNull, server.puts("sleep").single().json["base_version"])
         assertEquals(1, phone.entry("sleep.json").version)
+    }
+
+    @Test fun oldSyncedEntryIsMergedNotReplaced() = runTest {
+        val phone = Phone()
+        phone.scope.files.writeText("${phone.scope.folder()}/sleep.json", sleep("local-only").toString())
+        phone.scope.files.writeText(
+            "${phone.scope.folder()}/sync-ledger.json",
+            """{"sleep.json":{"changedAt":"2026-10-19T08:00:00Z","syncedAt":"2026-10-19T09:00:00Z"}}"""
+        )
+        assertTrue(phone.ledger.pending().isEmpty(), "plan 1 counted it as sent")
+        server.write("sleep", sleep("remote"))
+        server.failures = mapOf("PUT sync/sleep" to 500)
+
+        val result = phone.engine.pullChanged()
+
+        assertEquals(SyncResult(emptyList(), listOf("sleep.json"), failed = true), result)
+        assertEquals(setOf("local-only", "remote"), ids(phone.read("sleep.json")))
+        assertEquals(listOf("sleep.json"), phone.ledger.pending(), "the merge still has to reach the server")
+        assertEquals(1, phone.entry("sleep.json").version)
+
+        server.failures = emptyMap()
+        assertEquals(listOf("sleep.json"), phone.engine.pushPending().uploaded)
+        assertEquals(setOf("local-only", "remote"), ids(server.documents.getValue("sleep").document))
     }
 
     @Test fun conflictCarriesTheServerVersion() = runTest {
