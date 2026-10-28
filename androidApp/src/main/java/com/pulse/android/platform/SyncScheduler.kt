@@ -32,19 +32,23 @@ object SyncScheduler {
     private val LOCAL_CHANGE_DELAY = 10.seconds
     private const val BACKOFF_SECONDS = 30L
 
-    fun schedule(context: Context, delay: Duration) {
+    /**
+     * [policy] REPLACE (default) is for edits and the background trigger: the new request supersedes the pending one.
+     * The app-start call uses KEEP: a process WorkManager started to run delayed or backed-off work must not cancel it.
+     */
+    fun schedule(context: Context, delay: Duration, policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE) {
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setInitialDelay(delay.inWholeMilliseconds, TimeUnit.MILLISECONDS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, BACKOFF_SECONDS, TimeUnit.SECONDS)
             .build()
-        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, ExistingWorkPolicy.REPLACE, request)
+        WorkManager.getInstance(context).enqueueUniqueWork(WORK_NAME, policy, request)
     }
 
     /**
      * Wires the three triggers. A local change syncs [LOCAL_CHANGE_DELAY] later; the app going to the background
-     * syncs now; so does every start of the app with a real account — an app killed during its first download
-     * finishes syncing through this one.
+     * syncs now; so does every start of the app with a real account (without replacing work that is already pending) —
+     * an app killed during its first download finishes syncing through this one.
      */
     fun attach(context: Context, core: PulseCore, process: Lifecycle = ProcessLifecycleOwner.get().lifecycle) {
         val app = context.applicationContext
@@ -52,7 +56,7 @@ object SyncScheduler {
         process.addObserver(LifecycleEventObserver { _, event ->
             if (event == Lifecycle.Event.ON_STOP && core.isSyncable) schedule(app, Duration.ZERO)
         })
-        if (core.isSyncable) schedule(app, Duration.ZERO)
+        if (core.isSyncable) schedule(app, Duration.ZERO, ExistingWorkPolicy.KEEP)
     }
 }
 

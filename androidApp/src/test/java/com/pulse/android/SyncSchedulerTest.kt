@@ -142,6 +142,18 @@ class SyncSchedulerTest {
         assertEquals(0L, pendingSyncs().single().initialDelayMillis)
     }
 
+    @Test fun appStartKeepsPendingSync() {
+        val core = signedInCore(syncOffline = true)
+        SyncScheduler.schedule(context, 10.seconds)
+        val pending = pendingSyncs().single()
+
+        attach(core)
+
+        val after = pendingSyncs().single()
+        assertEquals(pending.id, after.id, "a process started for delayed work must not replace it")
+        assertEquals(10_000L, after.initialDelayMillis)
+    }
+
     @Test fun localAccountNeverEnqueuesSync() {
         val core = testCore(null)
         val process = attach(core)
