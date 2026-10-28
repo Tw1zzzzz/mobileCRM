@@ -65,21 +65,65 @@
 
 ## Синхронизация данных (этап 1 — документы)
 
-Приложение хранит данные коллекциями (один JSON-документ на коллекцию) и отмечает изменённые
-(`SyncLedger`). На первом этапе сервер хранит документ целиком на пользователя:
+Приложение хранит данные коллекциями (один JSON-документ на коллекцию, имя коллекции — имя файла без `.json`)
+и отмечает изменённые (`SyncLedger`). На первом этапе сервер хранит документ целиком на пользователя, с номером
+версии, чтобы один телефон не затёр правки другого:
 
-| Метод | Путь | Описание |
+| Метод | Путь | Тело | Ответ `data` |
+|---|---|---|---|
+| GET | `/sync` | — | список `[{ collection, version, updated_at }]` (только сохранённые коллекции) |
+| GET | `/sync/{collection}` | — | `{ collection, version, updated_at, document }`; документа нет → `404 not_found` |
+| PUT | `/sync/{collection}` | `{ base_version, document }` | `{ version, updated_at }` |
+
+`base_version` — версия, на которой основана правка (`null` — первая запись коллекции; ключ обязателен, даже
+с `null`). Проверка версии и запись — один атомарный запрос: из двух телефонов с одной и той же `base_version`
+сохранится только один. Второй получит `409 version_conflict` и `meta.current_version` (`0`, если документа ещё нет):
+
+```json
+{ "success": false, "data": null, "error": { "code": "version_conflict", "message": null }, "meta": { "current_version": 4 } }
+```
+
+Приложение в этом случае забирает свежий документ (`GET /sync/{collection}`), сливает записи по `id` и отправляет
+снова (до 3 попыток за раунд).
+
+Ограничения и ошибки:
+
+- Допустимы 12 коллекций из таблицы ниже; любое другое имя → `422 validation_failed`.
+- `document` — любой JSON, кроме `null` (`null` → `422 validation_failed`); размер тела запроса ≤ 4 000 000 байт, больше → `413 payload_too_large`.
+- Символ `\u0000` в строках не принимается (`422 validation_failed`).
+- Тело не является JSON → `400 bad_request`.
+- Лимит — 120 запросов в минуту на пользователя, общий для `/sync` и `/photos` (сверх лимита — `429 rate_limited`).
+
+Новые коды ошибок:
+
+| code | HTTP | Когда |
 |---|---|---|
-| PUT | `/sync/{collection}` | тело — JSON-документ коллекции как есть; сервер сохраняет версию и `updated_at` |
-| GET | `/sync/{collection}` | последний документ (для входа на новом телефоне) |
-| GET | `/sync` | список `{ collection, updated_at }` |
+| `not_found` | 404 | нет документа коллекции или фото блюда |
+| `version_conflict` | 409 | `base_version` не совпала с текущей версией; в `meta` — `current_version` |
+| `payload_too_large` | 413 | документ больше 4 000 000 байт или фото больше 1 000 000 байт |
+
+### Фото блюд
+
+Фото не лежат внутри `nutrition`: иначе месяц приёмов пищи не уместился бы в лимит документа. В документе,
+который уходит на сервер, у блюда нет поля `photo`, вместо него — `"photoRef": true`; само фото (JPEG) хранится отдельно
+по `id` блюда. На телефоне фото остаётся в блюде как base64.
+
+| Метод | Путь | Тело | Ответ |
+|---|---|---|---|
+| PUT | `/photos/{meal_id}` | сырой JPEG, не JSON | `data: {}` |
+| GET | `/photos/{meal_id}` | — | сырой JPEG (`image/jpeg`, `Cache-Control: private, no-store`), без конверта; фото нет → `404 not_found` (в конверте) |
+
+- `meal_id` — UUID блюда, иначе `422 validation_failed`.
+- Тело PUT должно начинаться с сигнатуры JPEG (`FF D8 FF`), иначе `422 validation_failed`; размер ≤ 1 000 000 байт, больше → `413 payload_too_large`. Повторный PUT заменяет фото.
+- Телефон сначала загружает фото, потом записывает `nutrition`. Каждая запись `nutrition` удаляет фото блюд, которых уже нет в документе (в одной транзакции с записью; отклонённая запись ничего не удаляет). Если в документе нет списка `meals`, фото не трогаются.
+- Фото, которое сервер отклонил насовсем (слишком большое или не JPEG), телефон помечает и больше не шлёт; блюдо синхронизируется без фото и без `photoRef`.
 
 Коллекции и их содержимое (модели — в `Pulse/Models`, `Pulse/Stores`):
 
 | collection | Что внутри |
 |---|---|
 | `sleep` | `sessions[] {id, start, end}`, `active_start`, `window {bedtime_hour, bedtime_minute, wake_hour, wake_minute}` |
-| `nutrition` | `meals[] {id, date, name, kcal, protein, fat, carbs, photo (base64 JPEG), source, author}`, `water {day: ml}`, `goals` |
+| `nutrition` | `meals[] {id, date, name, kcal, protein, fat, carbs, photoRef (true — фото блюда лежит на сервере), source, author}`, `water {day: ml}`, `goals` |
 | `wellbeing` | `mood[] {id, day, slot, mood, energy}`, `balance[] {id, day, values}` |
 | `cognitive` | `results[] {id, kind, date, score, metric}`, `game_results[] {id, date, phase, focus, fatigue, readiness}` |
 | `calendar` | `events[] {id, title, details, start, end, links, tag, owner_id}` |
@@ -89,9 +133,11 @@
 | `game-goals` | `elo, elo_start, kd, adr, win_rate` |
 | `faceit` | `nickname, player_id, snapshots[] {date, elo}` |
 | `player-survey` | `survey {goals[], role, level, years_playing, hours_per_week, play_time, motivation, updated_at}`, `mindset[] {id, date, answers {q1…q24: 1–5}}`, `onboarding_dismissed` |
+| `body-profile` | шаг анкеты «О тебе»: `birthDate`, `heightCm`, `weightKg`, `updatedAt` |
 
 > Сейчас приложение пишет даты в ISO 8601 и ключи в camelCase внутри документов. Для этапа 1 сервер хранит
-> документ без разбора; на этапе 2 (ниже) появятся нормальные таблицы.
+> документ без разбора (кроме списка `meals` в `nutrition` — по нему чистятся фото); на этапе 2 (ниже) появятся
+> нормальные таблицы.
 
 **Этап 2 — построчная синхронизация** (когда понадобятся отчёты стаффа по всей базе):
 `GET /sync/{collection}/changes?since=<ISO>` и `POST /sync/{collection}/batch { upserts[], deletes[] }`,
