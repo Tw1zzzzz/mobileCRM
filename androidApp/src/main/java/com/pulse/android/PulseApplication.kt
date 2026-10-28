@@ -6,6 +6,7 @@ import com.pulse.android.platform.KeystoreSecretStore
 import com.pulse.android.platform.PulseNotifications
 import com.pulse.android.platform.ReminderScheduler
 import com.pulse.android.platform.SleepTrackingNotification
+import com.pulse.android.platform.SyncScheduler
 import com.pulse.android.widget.SleepTileService
 import com.pulse.android.widget.SleepWidget
 import com.pulse.core.PulseCore
@@ -41,6 +42,8 @@ class PulseApplication : Application() {
             backend = if (BuildConfig.API_BASE_URL.isNotEmpty()) Backend.Remote(BuildConfig.API_BASE_URL) else Backend.Local
         )
         PulseNotifications.ensureChannels(this)
+        // Data sync: after local changes, when the app goes to the background and at every start with a real account.
+        SyncScheduler.attach(this, core)
         // Reminders follow the signed-in account (and its role) — replanned on every sign-in, switch and sign-out.
         appScope.launch {
             var previous: Any? = null

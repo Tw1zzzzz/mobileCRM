@@ -6,6 +6,7 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.animation.Crossfade
+import androidx.compose.foundation.layout.Box
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.getValue
@@ -21,6 +22,7 @@ import kotlin.time.Clock
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.android.ui.auth.AuthScreen
 import com.pulse.android.ui.main.MainScreen
+import com.pulse.android.ui.main.SyncStatusHost
 import com.pulse.android.ui.theme.Palette
 
 class MainActivity : FontCappedActivity() {
@@ -71,7 +73,10 @@ class MainActivity : FontCappedActivity() {
                     val current = user?.takeIf { it.id.toString() == id }
                     when {
                         id == null -> AuthScreen(core.session)
-                        current != null -> MainScreen(core, current, debugRoute, pendingOpen) { pendingOpen = null }
+                        current != null -> Box {
+                            MainScreen(core, current, debugRoute, pendingOpen) { pendingOpen = null }
+                            SyncStatusHost(core)
+                        }
                     }
                 }
             }
