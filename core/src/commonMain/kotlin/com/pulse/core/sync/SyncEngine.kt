@@ -28,6 +28,13 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
     /** False in a local build (no server). */
     val isEnabled: Boolean get() = client.isConfigured
 
+    /**
+     * Runs `write`, the section that brings a downloaded or merged copy into the collection file [file] of
+     * [folder] (check the file, write it, update the ledger). The section never suspends. The app runs it where its
+     * stores save, and reloads that store in the same step, so a stale in-memory copy never overwrites the new file.
+     */
+    var applyFile: suspend (folder: String, file: String, write: () -> Unit) -> Unit = { _, _, write -> write() }
+
     /** Uploads every pending collection; on version_conflict pulls, merges, re-uploads (max 3 rounds). */
     suspend fun pushPending(folder: String = scope.folder()): SyncResult = sync(folder) { round ->
         for (file in ledger.pending(folder)) {
@@ -151,24 +158,29 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
                 val needsUpload = unsent != null && merged != remote.document
                 val localPhotos = local?.let(MealPhotos::photos).orEmpty()
                 if (collection == NUTRITION) downloadPhotos(merged, remote.document, localPhotos, photoCache)
-                if (readText(file) != text) return@repeat
 
-                // From here on nothing suspends: the file and the ledger are updated together.
-                val fetched = photoCache.mapNotNull { (id, photo) -> photo?.let { id to it } }.toMap()
-                val result = if (collection == NUTRITION) MealPhotos.restore(merged, localPhotos + fetched) else merged
-                if (result != local) {
-                    scope.files.writeText(path(file), PulseJson.encodeToString(JsonElement.serializer(), result))
-                    downloaded += file
+                // Null while the app saved the file meanwhile: the merge starts again with that save.
+                var applied: Boolean? = null
+                applyFile(folder, file) write@{
+                    if (readText(file) != text) return@write
+                    // Nothing in here suspends: the file and the ledger are updated together.
+                    val fetched = photoCache.mapNotNull { (id, photo) -> photo?.let { id to it } }.toMap()
+                    val result = if (collection == NUTRITION) MealPhotos.restore(merged, localPhotos + fetched) else merged
+                    if (result != local) {
+                        scope.files.writeText(path(file), PulseJson.encodeToString(JsonElement.serializer(), result))
+                        downloaded += file
+                    }
+                    if (fetched.isNotEmpty()) {
+                        val photos = photoLedger()
+                        savePhotoLedger(photos.copy(uploaded = photos.uploaded + fetched.keys))
+                    }
+                    ledger.recordServerCopy(
+                        file, remote.version, CollectionMerge.recordKeys(collection, remote.document), remote.updatedAt,
+                        upToDate = !needsUpload, folder = folder
+                    )
+                    applied = needsUpload
                 }
-                if (fetched.isNotEmpty()) {
-                    val photos = photoLedger()
-                    savePhotoLedger(photos.copy(uploaded = photos.uploaded + fetched.keys))
-                }
-                ledger.recordServerCopy(
-                    file, remote.version, CollectionMerge.recordKeys(collection, remote.document), remote.updatedAt,
-                    upToDate = !needsUpload, folder = folder
-                )
-                return needsUpload
+                applied?.let { return it }
             }
             throw LocalFileBusy()
         }

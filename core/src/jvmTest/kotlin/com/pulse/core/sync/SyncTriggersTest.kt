@@ -10,6 +10,7 @@ import com.pulse.core.platform.FileSystem
 import com.pulse.core.platform.JvmFileSystem
 import com.pulse.core.platform.MemorySecretStore
 import com.pulse.core.store.SleepStore
+import com.pulse.core.store.WellbeingStore
 import com.pulse.core.util.PulseJson
 import io.ktor.client.HttpClient
 import io.ktor.client.engine.mock.MockEngine
@@ -72,6 +73,8 @@ private class TriggerServer {
     @Volatile var gate: CompletableDeferred<Unit>? = null
     /** Completed when a `GET sync` arrives. */
     @Volatile var listed = CompletableDeferred<Unit>()
+    /** Runs before a document is sent to the phone (e.g. the app saves meanwhile). */
+    @Volatile var beforeGet: ((String) -> Unit)? = null
     /** Runs before a document write is checked (e.g. another phone writes first). */
     @Volatile var beforePut: ((String) -> Unit)? = null
     private val active = AtomicInteger()
@@ -115,7 +118,7 @@ private class TriggerServer {
                 buildJsonObject { put("collection", name); put("version", stored.version); put("updated_at", stored.updatedAt.toString()) }
             }))
         }
-        method == HttpMethod.Get -> documents[path.removePrefix("sync/")]?.let { stored ->
+        method == HttpMethod.Get -> documents[path.removePrefix("sync/")].also { beforeGet?.invoke(path.removePrefix("sync/")) }?.let { stored ->
             200 to ok(buildJsonObject {
                 put("collection", path.removePrefix("sync/"))
                 put("version", stored.version)
@@ -165,7 +168,8 @@ class SyncTriggersTest {
     private val folder = "accounts/6F1B6A2E-1C2D-4E5F-8A9B-0C1D2E3F4A5B"
 
     private fun core(backend: Backend = Backend.Remote("https://api.test/v1/")) = PulseCore(
-        files, MemorySecretStore(), HttpClient(server.engine()), CoroutineScope(Dispatchers.Unconfined + backgroundJob), null, backend = backend
+        files, MemorySecretStore(), HttpClient(server.engine()), CoroutineScope(Dispatchers.Unconfined + backgroundJob), null,
+        backend = backend, ui = Dispatchers.Unconfined
     )
 
     /** First loads and fire-and-forget requests run on the core's background scope. */
@@ -309,6 +313,25 @@ class SyncTriggersTest {
         assertTrue("sleep.json" in result.downloaded)
         assertEquals(setOf(mine.id, theirs.id), core.sleep.sessions.map { it.id }.toSet())
         assertEquals(setOf(mine.id.toString(), theirs.id.toString()), serverSleepIds())
+    }
+
+    @Test fun saveDuringTheRoundKeepsWhatWasMergedBeforeIt() = runTest {
+        val core = core()
+        core.signIn()
+        awaitBackground()
+        val theirs = night(25)
+        server.write("sleep", sleepDocument(theirs))
+        server.write("wellbeing", PulseJson.encodeToJsonElement(WellbeingStore.Saved.serializer(), WellbeingStore.Saved()))
+        // sleep.json is applied first; while wellbeing is still on its way, the player starts a night.
+        server.beforeGet = { collection -> if (collection == "wellbeing") core.sleep.startSleep() }
+        val result = core.syncNow()
+        assertFalse(result.failed)
+        assertEquals(listOf("sleep.json", "wellbeing.json"), result.downloaded)
+        // The save started from the merged store: the other phone's night survives locally and on the server.
+        assertEquals(listOf(theirs.id), core.sleep.sessions.map { it.id })
+        assertNotNull(core.sleep.activeStart)
+        assertEquals(setOf(theirs.id.toString()), serverSleepIds())
+        assertNotNull(server.documents.getValue("sleep").document.jsonObject["activeStart"])
     }
 
     @Test fun overlappingSyncNowCallsRunOneAtATime() = runTest {

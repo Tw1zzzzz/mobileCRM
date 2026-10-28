@@ -48,9 +48,10 @@ import com.pulse.core.sync.SyncEngine
 import com.pulse.core.sync.SyncResult
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
@@ -89,7 +90,9 @@ class PulseCore(
     /** The app's Faceit Data API key from the build (players may still enter their own). */
     faceitKey: String? = null,
     /** Chosen per build: on-device accounts (first release) or the Pulse server. */
-    backend: Backend = Backend.Local
+    backend: Backend = Backend.Local,
+    /** Where screens change the stores; files merged in by a sync are written and reloaded there too. */
+    private val ui: CoroutineDispatcher = Dispatchers.Main
 ) {
     val scope = DataScope(files)
     private val tokens = TokenStore(secrets)
@@ -137,8 +140,6 @@ class PulseCore(
     /** One sync round at a time; a round never outlives its account (see [stopRound]). */
     private val syncLock = Mutex()
     private val runningRound = MutableStateFlow<Job?>(null)
-    /** Stores are reloaded where the app's own code changes them (the main thread on Android). */
-    private val storeContext = background.coroutineContext.minusKey(Job)
 
     init {
         // A session saved by a local build has no server tokens: sign it out before any store loads its folder.
@@ -148,6 +149,7 @@ class PulseCore(
         fitness.onHealthSnapshot = { sleep.applyHealth(it) }
         scope.onChange = { if (isSyncable) onLocalChange?.invoke() }
         session.beforeLogout = { pushBeforeLogout() }
+        sync.applyFile = { folder, file, write -> applyMergedFile(folder, file, write) }
         session.onUserChange = { user ->
             stopRound()
             activate(user, accountChanged = true)
@@ -168,32 +170,51 @@ class PulseCore(
 
     /** Every store re-reads the active account's folder. */
     private fun reloadStores(user: User?) {
+        for (file in storeFiles) reloadStore(file, user)
+    }
+
+    /** The store kept in [file] re-reads it from the active account's folder. */
+    private fun reloadStore(file: String, user: User?) {
         val isDemo = user?.isDemo ?: false
-        sleep.reload(isDemo)
-        nutrition.reload(isDemo)
-        wellbeing.reload(isDemo)
-        cognitive.reload(isDemo)
-        calendar.reload(isDemo)
-        fitness.reload(isDemo)
-        screenTime.reload(isDemo)
-        lineups.reload(isDemo)
-        gameGoals.reload(isDemo)
-        game.reload(isDemo)
-        survey.reload(user)
-        body.reload(user)
-        fitness.bodyProfile = body.profile
+        when (file) {
+            SleepStore.FILE -> sleep.reload(isDemo)
+            NutritionStore.FILE -> nutrition.reload(isDemo)
+            WellbeingStore.FILE -> wellbeing.reload(isDemo)
+            CognitiveStore.FILE -> cognitive.reload(isDemo)
+            CalendarStore.FILE -> calendar.reload(isDemo)
+            FitnessStore.FILE -> fitness.reload(isDemo)
+            ScreenTimeStore.FILE -> screenTime.reload(isDemo)
+            LineupStore.FILE -> lineups.reload(isDemo)
+            GameGoalsStore.FILE -> gameGoals.reload(isDemo)
+            GameStore.FILE -> game.reload(isDemo)
+            PlayerSurveyStore.FILE -> survey.reload(user)
+            BodyProfileStore.FILE -> {
+                body.reload(user)
+                fitness.bodyProfile = body.profile
+            }
+        }
     }
 
     /**
-     * Downloads what changed on the server, then uploads unsent changes. The stores re-read every file the round
-     * rewrote right after each half, so a stale in-memory copy never overwrites a merged file. Never throws for a
-     * sync failure: it is reported as a failed result and the changes stay pending for the next round.
+     * A sync brings a server copy into [file]: written on the screens' dispatcher, and the store re-reads it in the
+     * same step, so no save from a screen lands in between with the store's older copy.
+     */
+    private suspend fun applyMergedFile(folder: String, file: String, write: () -> Unit) = withContext(ui) {
+        write()
+        // After an account switch the stores read another folder.
+        if (scope.folder() == folder) reloadStore(file, session.user.value)
+    }
+
+    /**
+     * Downloads what changed on the server, then uploads unsent changes (a conflict merges in another phone's records
+     * too). Every file the round rewrites is reloaded into its store as it is written ([applyMergedFile]). Never throws
+     * for a sync failure: it is reported as a failed result and the changes stay pending for the next round.
      */
     suspend fun syncNow(): SyncResult = exclusiveRound { folder ->
         val running = _syncStatus.compareAndSet(SyncStatus.Idle, SyncStatus.Running)
         try {
-            val pulled = step(folder) { sync.pullChanged(folder) }
-            val pushed = step(folder) { sync.pushPending(folder) }
+            val pulled = step { sync.pullChanged(folder) }
+            val pushed = step { sync.pushPending(folder) }
             SyncResult((pulled.uploaded + pushed.uploaded).distinct(), (pulled.downloaded + pushed.downloaded).distinct(), pulled.failed || pushed.failed)
         } finally {
             if (running) _syncStatus.compareAndSet(SyncStatus.Running, SyncStatus.Idle)
@@ -224,7 +245,7 @@ class PulseCore(
     }
 
     private suspend fun pushBeforeLogout() {
-        if (isSyncable) exclusiveRound { folder -> step(folder) { sync.pushPending(folder) } }
+        if (isSyncable) exclusiveRound { folder -> step { sync.pushPending(folder) } }
     }
 
     /**
@@ -256,27 +277,13 @@ class PulseCore(
         runningRound.value?.cancel()
     }
 
-    /**
-     * One half of a round. An unexpected error (a file that cannot be written…) fails the round instead of reaching
-     * the caller; after it, or a cancellation, the files may have changed too, so the stores re-read them.
-     */
-    private suspend fun step(folder: String, half: suspend () -> SyncResult): SyncResult {
-        var result: SyncResult? = null
-        try {
-            result = half()
-            return result
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            return FAILED
-        } finally {
-            if (result == null || result.downloaded.isNotEmpty()) reloadAfterSync(folder)
-        }
-    }
-
-    private suspend fun reloadAfterSync(folder: String) = withContext(storeContext + NonCancellable) {
-        // After an account switch the stores already read another folder.
-        if (scope.folder() == folder) reloadStores(session.user.value)
+    /** One half of a round. An unexpected error (a file that cannot be written…) fails the round instead of reaching the caller. */
+    private suspend fun step(half: suspend () -> SyncResult): SyncResult = try {
+        half()
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        FAILED
     }
 
     /** A real player without «О тебе» answers: the step is shown once, on its own, at the next launch. */
@@ -408,5 +415,10 @@ class PulseCore(
     private companion object {
         val NOTHING = SyncResult(emptyList(), emptyList(), failed = false)
         val FAILED = SyncResult(emptyList(), emptyList(), failed = true)
+        /** Every store's file, in reload order. */
+        val storeFiles = listOf(
+            SleepStore.FILE, NutritionStore.FILE, WellbeingStore.FILE, CognitiveStore.FILE, CalendarStore.FILE, FitnessStore.FILE,
+            ScreenTimeStore.FILE, LineupStore.FILE, GameGoalsStore.FILE, GameStore.FILE, PlayerSurveyStore.FILE, BodyProfileStore.FILE
+        )
     }
 }
