@@ -56,15 +56,15 @@ export function fail(code: ErrorCode, message: string | null, status: number, me
 }
 
 /**
- * Reads the body as text, refusing more than `maxBytes`. A declared
+ * Reads the body as bytes, refusing more than `maxBytes`. A declared
  * `content-length` over the limit is rejected before reading; otherwise the
  * stream is cut off as soon as the limit is exceeded.
  */
-async function readTextLimited(req: Request, maxBytes: number): Promise<string> {
+export async function readBytesLimited(req: Request, maxBytes: number): Promise<Buffer> {
   const tooLarge = () => new ApiError("payload_too_large", `Body is larger than ${maxBytes} bytes`, 413);
   const declared = Number(req.headers.get("content-length"));
   if (Number.isFinite(declared) && declared > maxBytes) throw tooLarge();
-  if (!req.body) return "";
+  if (!req.body) return Buffer.alloc(0);
   const reader = req.body.getReader();
   const chunks: Uint8Array[] = [];
   let total = 0;
@@ -78,13 +78,13 @@ async function readTextLimited(req: Request, maxBytes: number): Promise<string> 
     }
     chunks.push(value);
   }
-  return Buffer.concat(chunks).toString("utf8");
+  return Buffer.concat(chunks);
 }
 
 /** `maxBytes` makes oversized bodies fail with `413 payload_too_large` before parsing. */
 export async function parseBody<T>(req: Request, schema: ZodType<T>, maxBytes?: number): Promise<T> {
   let raw: unknown;
-  const text = maxBytes === undefined ? undefined : await readTextLimited(req, maxBytes);
+  const text = maxBytes === undefined ? undefined : (await readBytesLimited(req, maxBytes)).toString("utf8");
   try {
     raw = text === undefined ? await req.json() : JSON.parse(text);
   } catch {

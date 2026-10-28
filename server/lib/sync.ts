@@ -2,6 +2,7 @@ import { z } from "zod";
 import { requireUser } from "@/lib/auth/tokens";
 import type { Deps } from "@/lib/deps";
 import { ApiError, ok, parseBody } from "@/lib/http";
+import { dropOrphanPhotos } from "@/lib/photos";
 import { rateLimit } from "@/lib/rateLimit";
 
 /** The only collections a phone may store; the document name is the file name without `.json`. */
@@ -70,20 +71,27 @@ export async function putSyncDocument(req: Request, deps: Deps, collection: stri
   const json = deps.sql.json(body.document);
 
   // The version check and the write are one statement, so two writers holding the
-  // same base version cannot both succeed.
+  // same base version cannot both succeed. A nutrition write also drops the photos
+  // of removed meals, in the same transaction so a rejected write drops nothing.
   let written: { version: number; updated_at: Date }[];
   try {
-    written = body.base_version === null
-      ? await deps.sql`
-          insert into sync_documents (user_id, collection, version, document, updated_at)
-          values (${userId}, ${collection}, 1, ${json}, ${now})
-          on conflict (user_id, collection) do nothing
-          returning version, updated_at`
-      : await deps.sql`
-          update sync_documents
-          set version = version + 1, document = ${json}, updated_at = ${now}
-          where user_id = ${userId} and collection = ${collection} and version = ${body.base_version}
-          returning version, updated_at`;
+    written = await deps.sql.begin(async (tx) => {
+      const rows = body.base_version === null
+        ? await tx<{ version: number; updated_at: Date }[]>`
+            insert into sync_documents (user_id, collection, version, document, updated_at)
+            values (${userId}, ${collection}, 1, ${json}, ${now})
+            on conflict (user_id, collection) do nothing
+            returning version, updated_at`
+        : await tx<{ version: number; updated_at: Date }[]>`
+            update sync_documents
+            set version = version + 1, document = ${json}, updated_at = ${now}
+            where user_id = ${userId} and collection = ${collection} and version = ${body.base_version}
+            returning version, updated_at`;
+      if (rows.length > 0 && collection === "nutrition") {
+        await dropOrphanPhotos(tx, userId, body.document);
+      }
+      return [...rows];
+    });
   } catch (e) {
     if ((e as { code?: string }).code === UNSUPPORTED_UNICODE_ESCAPE) {
       throw new ApiError("validation_failed", "document: contains an unsupported character", 422);
