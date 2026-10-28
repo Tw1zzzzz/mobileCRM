@@ -217,6 +217,14 @@ describe("sync documents", () => {
     expect(await deps.sql`select 1 from sync_documents`).toHaveLength(0);
   });
 
+  it("nullDocumentRejected", async () => {
+    const { access_token: token } = await signUp("nova@team.gg");
+    const res = await put("sleep", { base_version: null, document: null }, token);
+    expect(res.status).toBe(422);
+    expect(res.body.error.code).toBe("validation_failed");
+    expect(await deps.sql`select 1 from sync_documents`).toHaveLength(0);
+  });
+
   it("documentsArePerUser", async () => {
     const a = await signUp("a@team.gg");
     const b = await signUp("b@team.gg");

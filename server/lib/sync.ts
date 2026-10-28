@@ -27,7 +27,8 @@ const UNSUPPORTED_UNICODE_ESCAPE = "22P05";
 
 const PutBody = z.object({
   base_version: z.number().int().min(0).max(MAX_VERSION).nullable(),
-  document: z.json(),
+  // Top-level JSON null would be stored as SQL NULL, which `document jsonb not null` refuses.
+  document: z.json().refine((value) => value !== null, "must not be null"),
 });
 
 function requireCollection(collection: string): void {
@@ -66,7 +67,7 @@ export async function putSyncDocument(req: Request, deps: Deps, collection: stri
   requireCollection(collection);
   const body = await parseBody(req, PutBody, MAX_DOCUMENT_BYTES);
   const now = deps.now();
-  const json = deps.sql.json(body.document as Parameters<Deps["sql"]["json"]>[0]);
+  const json = deps.sql.json(body.document);
 
   // The version check and the write are one statement, so two writers holding the
   // same base version cannot both succeed.
