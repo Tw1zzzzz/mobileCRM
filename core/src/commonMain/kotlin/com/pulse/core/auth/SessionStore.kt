@@ -13,6 +13,8 @@ import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.withTimeoutOrNull
+import kotlin.time.Duration.Companion.seconds
 
 /** Signed-in user and the sign-in / sign-up flow (Kotlin twin of iOS `SessionStore`). */
 class SessionStore(
@@ -41,6 +43,9 @@ class SessionStore(
 
     /** Login, logout, demo switch, account deletion — the app reloads every store for the new account. */
     var onUserChange: ((User?) -> Unit)? = null
+
+    /** Runs before «Выйти», for at most [LOGOUT_SYNC_TIMEOUT]: the core sends the account's unsent changes. */
+    var beforeLogout: (suspend () -> Unit)? = null
 
     val isStaff: Boolean get() = _user.value?.role?.isStaff ?: false
     val hasSubscription: Boolean get() = _user.value?.tariff?.hasSubscription ?: false
@@ -155,7 +160,20 @@ class SessionStore(
         login(account.email, account.password)
     }
 
-    fun logout() {
+    /**
+     * «Выйти». Unsent changes get [LOGOUT_SYNC_TIMEOUT] to reach the server; the account signs out regardless (also
+     * when the caller is cancelled meanwhile). The account's folder stays on the phone.
+     */
+    suspend fun logout() {
+        try {
+            beforeLogout?.let { push -> withTimeoutOrNull(LOGOUT_SYNC_TIMEOUT) { push() } }
+        } finally {
+            signOutNow()
+        }
+    }
+
+    /** Signs out without sending anything first (a stored session that has no server tokens). */
+    internal fun signOutNow() {
         authService.logout()
         endSession()
     }
@@ -209,5 +227,9 @@ class SessionStore(
         _user.value = user
         storage?.save(user)
         if (changed) onUserChange?.invoke(user)
+    }
+
+    companion object {
+        val LOGOUT_SYNC_TIMEOUT = 5.seconds
     }
 }

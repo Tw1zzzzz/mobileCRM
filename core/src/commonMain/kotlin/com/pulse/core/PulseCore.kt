@@ -45,11 +45,35 @@ import com.pulse.core.store.ScreenTimeStore
 import com.pulse.core.store.SleepStore
 import com.pulse.core.store.WellbeingStore
 import com.pulse.core.sync.SyncEngine
+import com.pulse.core.sync.SyncResult
 import io.ktor.client.HttpClient
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.async
+import kotlinx.coroutines.coroutineScope
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.ensureActive
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+
+/** What the app shows about data sync: only the download right after sign-in has its own screen. */
+sealed interface SyncStatus {
+    data object Idle : SyncStatus
+    /** «Загружаем ваши данные…» after a sign-in. */
+    data object FirstLoad : SyncStatus
+    /** The download after sign-in failed: local data is shown, the message waits for «Понятно». */
+    data object FirstLoadFailed : SyncStatus
+    data object Running : SyncStatus
+}
 
 /**
  * Composition root shared by the platforms (Kotlin twin of iOS `AppDependencies`): owns every store, points them
@@ -101,13 +125,35 @@ class PulseCore(
     /** Platform hook: reschedule reminders, stop the sleep notification of the previous account, etc. */
     var onAccountActivated: ((User?, Boolean) -> Unit)? = null
 
+    private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
+    val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
+
+    /** A real account signed in on the Pulse server (demo accounts and local builds never sync). */
+    val isSyncable: Boolean get() = isRemote && session.user.value?.isDemo == false
+
+    /** Platform hook, called after every save of a syncable account's file: debounce and schedule [syncNow]. */
+    var onLocalChange: (() -> Unit)? = null
+
+    /** One sync round at a time; a round never outlives its account (see [stopRound]). */
+    private val syncLock = Mutex()
+    private val runningRound = MutableStateFlow<Job?>(null)
+    /** Stores are reloaded where the app's own code changes them (the main thread on Android). */
+    private val storeContext = background.coroutineContext.minusKey(Job)
+
     init {
         // A session saved by a local build has no server tokens: sign it out before any store loads its folder.
         // Demo accounts stay local in every build.
         val stored = session.user.value
-        if (isRemote && stored != null && !stored.isDemo && tokens.tokens == null) session.logout()
+        if (isRemote && stored != null && !stored.isDemo && tokens.tokens == null) session.signOutNow()
         fitness.onHealthSnapshot = { sleep.applyHealth(it) }
-        session.onUserChange = { activate(it, accountChanged = true) }
+        scope.onChange = { if (isSyncable) onLocalChange?.invoke() }
+        session.beforeLogout = { pushBeforeLogout() }
+        session.onUserChange = { user ->
+            stopRound()
+            activate(user, accountChanged = true)
+            _syncStatus.value = SyncStatus.Idle
+            if (isSyncable) startFirstLoad()
+        }
         activate(session.user.value, accountChanged = false)
     }
 
@@ -116,6 +162,12 @@ class PulseCore(
      */
     fun activate(user: User?, accountChanged: Boolean) {
         scope.current = user?.let(DataScope::id) ?: "guest"
+        reloadStores(user)
+        onAccountActivated?.invoke(user, accountChanged)
+    }
+
+    /** Every store re-reads the active account's folder. */
+    private fun reloadStores(user: User?) {
         val isDemo = user?.isDemo ?: false
         sleep.reload(isDemo)
         nutrition.reload(isDemo)
@@ -130,7 +182,101 @@ class PulseCore(
         survey.reload(user)
         body.reload(user)
         fitness.bodyProfile = body.profile
-        onAccountActivated?.invoke(user, accountChanged)
+    }
+
+    /**
+     * Downloads what changed on the server, then uploads unsent changes. The stores re-read every file the round
+     * rewrote right after each half, so a stale in-memory copy never overwrites a merged file. Never throws for a
+     * sync failure: it is reported as a failed result and the changes stay pending for the next round.
+     */
+    suspend fun syncNow(): SyncResult = exclusiveRound { folder ->
+        val running = _syncStatus.compareAndSet(SyncStatus.Idle, SyncStatus.Running)
+        try {
+            val pulled = step(folder) { sync.pullChanged(folder) }
+            val pushed = step(folder) { sync.pushPending(folder) }
+            SyncResult((pulled.uploaded + pushed.uploaded).distinct(), (pulled.downloaded + pushed.downloaded).distinct(), pulled.failed || pushed.failed)
+        } finally {
+            if (running) _syncStatus.compareAndSet(SyncStatus.Running, SyncStatus.Idle)
+        }
+    }
+
+    /** «Понятно» on the first-load failure message. */
+    fun acknowledgeFirstLoadFailure() {
+        _syncStatus.compareAndSet(SyncStatus.FirstLoadFailed, SyncStatus.Idle)
+    }
+
+    /** «Выйти» on the app's scope, which no closing screen cancels: unsent changes get their few seconds first. */
+    fun logout() {
+        background.launch { session.logout() }
+    }
+
+    /** After a sign-in: the account's server data is downloaded behind «Загружаем ваши данные…». */
+    private fun startFirstLoad() {
+        val folder = scope.folder()
+        _syncStatus.value = SyncStatus.FirstLoad
+        background.launch {
+            val result = syncNow()
+            // Another account may be active by now: its status is not this round's to change.
+            if (scope.folder() == folder) {
+                _syncStatus.compareAndSet(SyncStatus.FirstLoad, if (result.failed) SyncStatus.FirstLoadFailed else SyncStatus.Idle)
+            }
+        }
+    }
+
+    private suspend fun pushBeforeLogout() {
+        if (isSyncable) exclusiveRound { folder -> step(folder) { sync.pushPending(folder) } }
+    }
+
+    /**
+     * Runs [work] for the active account's folder once no other round is running. The round is stopped when the
+     * account changes ([stopRound]): later requests would carry the next account's tokens.
+     */
+    private suspend fun exclusiveRound(work: suspend (folder: String) -> SyncResult): SyncResult {
+        if (!isSyncable) return NOTHING
+        return syncLock.withLock {
+            if (!isSyncable) return@withLock NOTHING
+            val folder = scope.folder()
+            try {
+                coroutineScope {
+                    val round = async { work(folder) }
+                    runningRound.value = round
+                    round.await()
+                }
+            } catch (stopped: CancellationException) {
+                // Only the round was stopped (account change): the caller goes on with a failed result.
+                currentCoroutineContext().ensureActive()
+                FAILED
+            } finally {
+                runningRound.value = null
+            }
+        }
+    }
+
+    private fun stopRound() {
+        runningRound.value?.cancel()
+    }
+
+    /**
+     * One half of a round. An unexpected error (a file that cannot be written…) fails the round instead of reaching
+     * the caller; after it, or a cancellation, the files may have changed too, so the stores re-read them.
+     */
+    private suspend fun step(folder: String, half: suspend () -> SyncResult): SyncResult {
+        var result: SyncResult? = null
+        try {
+            result = half()
+            return result
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            return FAILED
+        } finally {
+            if (result == null || result.downloaded.isNotEmpty()) reloadAfterSync(folder)
+        }
+    }
+
+    private suspend fun reloadAfterSync(folder: String) = withContext(storeContext + NonCancellable) {
+        // After an account switch the stores already read another folder.
+        if (scope.folder() == folder) reloadStores(session.user.value)
     }
 
     /** A real player without «О тебе» answers: the step is shown once, on its own, at the next launch. */
@@ -257,5 +403,10 @@ class PulseCore(
         if (!user.isDemo) return
         scope.erase(DataScope.id(user))
         activate(user, accountChanged = false)
+    }
+
+    private companion object {
+        val NOTHING = SyncResult(emptyList(), emptyList(), failed = false)
+        val FAILED = SyncResult(emptyList(), emptyList(), failed = true)
     }
 }

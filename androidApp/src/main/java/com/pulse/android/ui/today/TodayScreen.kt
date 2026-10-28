@@ -412,7 +412,7 @@ fun TopPanel(onNotifications: () -> Unit) {
             ) { Text(user?.initials ?: "?", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold) }
             DropdownMenu(menu, onDismissRequest = { menu = false }) {
                 DropdownMenuItem(text = { Text("Профиль") }, onClick = { menu = false; router.select(AppTab.PROFILE) })
-                DropdownMenuItem(text = { Text("Выйти", color = Palette.red) }, onClick = { menu = false; core.session.logout() })
+                DropdownMenuItem(text = { Text("Выйти", color = Palette.red) }, onClick = { menu = false; core.logout() })
             }
         }
     }

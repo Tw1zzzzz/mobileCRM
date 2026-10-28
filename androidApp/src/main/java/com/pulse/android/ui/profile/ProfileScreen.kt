@@ -144,7 +144,7 @@ fun ProfileScreen() {
             }
         }
     }
-    if (confirmLogout) Confirm("Выйти из аккаунта?", null, "Выйти", { confirmLogout = false }) { core.session.logout() }
+    if (confirmLogout) Confirm("Выйти из аккаунта?", null, "Выйти", { confirmLogout = false }) { core.logout() }
     if (confirmDelete) Confirm(
         "Удалить аккаунт и все данные?",
         "Сон, питание, тесты, тренировки, дневник и цели будут удалены с этого телефона. Отменить нельзя.",

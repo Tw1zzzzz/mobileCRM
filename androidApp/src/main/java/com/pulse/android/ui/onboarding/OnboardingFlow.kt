@@ -223,7 +223,7 @@ fun OnboardingFlow(mode: OnboardingMode, about: AboutYouDraft, onAbout: (AboutYo
             }
             val secondary: Pair<String, () -> Unit>? = when {
                 step == Step.WELCOME -> "Позже" to { close() }
-                step == Step.ABOUT && aboutOnly -> "Выйти из аккаунта" to { core.session.logout(); onClose() }
+                step == Step.ABOUT && aboutOnly -> "Выйти из аккаунта" to { core.logout(); onClose() }
                 step == Step.TEST_INTRO && !testOnly -> "Пройти позже" to onClose
                 else -> null
             }

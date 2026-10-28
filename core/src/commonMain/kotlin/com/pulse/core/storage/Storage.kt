@@ -22,6 +22,9 @@ class DataScope(val files: FileSystem) {
     /** Set when an account is activated, before stores reload. */
     var current: String = "guest"
 
+    /** Called with the file name after the app saves a file of the active account (not the shared files). */
+    var onChange: ((String) -> Unit)? = null
+
     fun folder(scope: String = current): String = "accounts/$scope"
 
     /** Account deletion: removes every file of that account. */
@@ -63,6 +66,7 @@ class JsonFileStorage<T>(
     fun save(value: T) {
         scope.files.writeText(path, PulseJson.encodeToString(serializer, value))
         ledger?.markChanged(filename)
+        if (!global) scope.onChange?.invoke(filename)
     }
 
     fun clear() = scope.files.delete(path)
