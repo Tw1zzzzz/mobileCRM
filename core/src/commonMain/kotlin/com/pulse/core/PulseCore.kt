@@ -3,7 +3,6 @@ package com.pulse.core
 import com.pulse.core.api.ApiClient
 import com.pulse.core.api.Backend
 import com.pulse.core.api.RemoteAuthService
-import com.pulse.core.api.SyncEngine
 import com.pulse.core.api.TokenStore
 import com.pulse.core.auth.AuthService
 import com.pulse.core.auth.LocalAuthService
@@ -45,6 +44,7 @@ import com.pulse.core.store.PlayerSurveyStore
 import com.pulse.core.store.ScreenTimeStore
 import com.pulse.core.store.SleepStore
 import com.pulse.core.store.WellbeingStore
+import com.pulse.core.sync.SyncEngine
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch

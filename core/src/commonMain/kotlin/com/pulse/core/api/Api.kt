@@ -13,18 +13,20 @@ import com.pulse.core.model.Tariff
 import com.pulse.core.model.User
 import com.pulse.core.model.UserRole
 import com.pulse.core.platform.SecretStore
-import com.pulse.core.storage.DataScope
-import com.pulse.core.storage.SyncLedger
 import com.pulse.core.util.PulseJson
 import com.pulse.core.util.UuidSerializer
 import io.ktor.client.HttpClient
 import io.ktor.client.request.header
 import io.ktor.client.request.request
 import io.ktor.client.request.setBody
+import io.ktor.client.statement.HttpResponse
 import io.ktor.client.statement.bodyAsText
+import io.ktor.client.statement.readRawBytes
 import io.ktor.http.ContentType
 import io.ktor.http.HttpMethod
-import io.ktor.http.contentType
+import io.ktor.http.content.ByteArrayContent
+import io.ktor.http.content.OutgoingContent
+import io.ktor.http.content.TextContent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -36,7 +38,9 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNamingStrategy
 import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.contentOrNull
+import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
 import kotlin.uuid.Uuid
@@ -50,11 +54,24 @@ sealed class Backend {
 /** API wire format: snake_case keys, ISO dates (see docs/API.md). */
 val ApiJson: Json = Json(PulseJson) { namingStrategy = JsonNamingStrategy.SnakeCase }
 
-class ApiException(val kind: Kind, val code: String? = null, val serverMessage: String? = null, val status: Int? = null) :
-    Exception("API $kind ${code ?: ""} ${status ?: ""}".trim()) {
+class ApiException(
+    val kind: Kind,
+    val code: String? = null,
+    val serverMessage: String? = null,
+    val status: Int? = null,
+    /** On `version_conflict`: the server's version of the document (`meta.current_version`, 0 = nothing stored). */
+    val currentVersion: Int? = null
+) : Exception("API $kind ${code ?: ""} ${status ?: ""}".trim()) {
     enum class Kind { NOT_CONFIGURED, OFFLINE, UNAUTHORIZED, REJECTED, SERVER, UNREADABLE }
 
     val isOffline: Boolean get() = kind == Kind.OFFLINE || kind == Kind.NOT_CONFIGURED
+
+    /** A versioned write (`PUT /sync/{collection}`) based on an outdated copy. */
+    val isVersionConflict: Boolean get() = code == VERSION_CONFLICT
+
+    companion object {
+        const val VERSION_CONFLICT = "version_conflict"
+    }
 
     /** Maps to the user-facing texts from the spec («Авторизация»). */
     val authError: AuthError
@@ -103,52 +120,91 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
     private val refreshLock = Mutex()
 
     suspend fun <T> send(method: HttpMethod, path: String, response: KSerializer<T>, body: JsonElement? = null, authorized: Boolean = true): T {
-        val data = perform(method, path, body?.toString(), authorized, retryOnUnauthorized = authorized)
+        val data = perform(method, path, body?.let(::jsonContent), authorized)
         return runCatching { ApiJson.decodeFromJsonElement(response, data ?: JsonNull) }
             .getOrElse { throw ApiException(ApiException.Kind.UNREADABLE) }
     }
 
     /** For endpoints without a payload in `data`. */
     suspend fun sendEmpty(method: HttpMethod, path: String, body: JsonElement? = null, authorized: Boolean = true) {
-        perform(method, path, body?.toString(), authorized, retryOnUnauthorized = authorized)
+        perform(method, path, body?.let(::jsonContent), authorized)
     }
 
-    /** Raw JSON body (document sync uploads the collection file as is). */
-    suspend fun sendRaw(method: HttpMethod, path: String, json: String) {
-        perform(method, path, json, authorized = true, retryOnUnauthorized = true)
+    /** Binary upload (a meal photo to `PUT /photos/{meal_id}`); the answer is an ordinary envelope. */
+    suspend fun sendBytes(method: HttpMethod, path: String, bytes: ByteArray, contentType: ContentType = ContentType.Image.JPEG) {
+        perform(method, path, ByteArrayContent(bytes, contentType), authorized = true)
     }
 
-    private suspend fun perform(method: HttpMethod, path: String, body: String?, authorized: Boolean, retryOnUnauthorized: Boolean): JsonElement? {
+    /** Binary download (`GET /photos/{meal_id}` answers raw JPEG); errors still come as an envelope. */
+    suspend fun getBytes(path: String): ByteArray {
+        val response = execute(HttpMethod.Get, path, body = null, authorized = true, accept = "image/jpeg, application/json")
+        if (response.status.value !in 200..299) throw failure(response)
+        return try {
+            response.readRawBytes()
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            throw ApiException(ApiException.Kind.OFFLINE)
+        }
+    }
+
+    private fun jsonContent(body: JsonElement) = TextContent(body.toString(), ContentType.Application.Json)
+
+    /** Sends the request and unwraps the envelope's `data`. */
+    private suspend fun perform(method: HttpMethod, path: String, body: OutgoingContent?, authorized: Boolean): JsonElement? {
+        val response = execute(method, path, body, authorized)
+        if (response.status.value !in 200..299) throw failure(response)
+        val envelope = runCatching { ApiJson.parseToJsonElement(response.bodyAsText()).jsonObject }.getOrNull()
+        if (envelope?.get("error")?.takeIf { it !is JsonNull } != null) throw failure(response.status.value, envelope)
+        return envelope?.get("data")?.takeIf { it !is JsonNull }
+    }
+
+    /** One request with bearer auth; a 401 refreshes the tokens once and repeats the request. */
+    private suspend fun execute(
+        method: HttpMethod,
+        path: String,
+        body: OutgoingContent?,
+        authorized: Boolean,
+        retryOnUnauthorized: Boolean = authorized,
+        accept: String = "application/json"
+    ): HttpResponse {
         val base = baseUrl ?: throw ApiException(ApiException.Kind.NOT_CONFIGURED)
         val accessToken = if (authorized) tokens.tokens?.accessToken else null
         val response = try {
             http.request(base.trimEnd('/') + "/" + path.trimStart('/')) {
                 this.method = method
-                header("Accept", "application/json")
-                if (body != null) {
-                    contentType(ContentType.Application.Json)
-                    setBody(body)
-                }
+                header("Accept", accept)
+                body?.let(::setBody)
                 accessToken?.let { header("Authorization", "Bearer $it") }
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             throw ApiException(ApiException.Kind.OFFLINE)
         }
-        val status = response.status.value
-        if (status == 401 && retryOnUnauthorized && refreshTokens(rejectedAccessToken = accessToken)) {
-            return perform(method, path, body, authorized, retryOnUnauthorized = false)
+        if (response.status.value == 401 && retryOnUnauthorized && refreshTokens(rejectedAccessToken = accessToken)) {
+            return execute(method, path, body, authorized, retryOnUnauthorized = false, accept = accept)
         }
+        return response
+    }
+
+    private suspend fun failure(response: HttpResponse): ApiException {
         val envelope = runCatching { ApiJson.parseToJsonElement(response.bodyAsText()).jsonObject }.getOrNull()
+        return failure(response.status.value, envelope)
+    }
+
+    private fun failure(status: Int, envelope: JsonObject?): ApiException {
         val error = envelope?.get("error")?.takeIf { it !is JsonNull }?.jsonObject
-        if (error != null) {
-            if (status == 401) throw ApiException(ApiException.Kind.UNAUTHORIZED, status = status)
-            throw ApiException(ApiException.Kind.REJECTED, error["code"]?.jsonPrimitive?.contentOrNull,
-                error["message"]?.jsonPrimitive?.contentOrNull, status)
-        }
-        return when (status) {
-            in 200..299 -> envelope?.get("data")?.takeIf { it !is JsonNull }
-            401 -> throw ApiException(ApiException.Kind.UNAUTHORIZED, status = status)
-            else -> throw ApiException(ApiException.Kind.SERVER, status = status)
+        return when {
+            status == 401 -> ApiException(ApiException.Kind.UNAUTHORIZED, status = status)
+            error != null -> {
+                val code = error["code"]?.jsonPrimitive?.contentOrNull
+                val currentVersion = if (code == ApiException.VERSION_CONFLICT) {
+                    (envelope["meta"] as? JsonObject)?.get("current_version")?.jsonPrimitive?.intOrNull
+                } else null
+                ApiException(ApiException.Kind.REJECTED, code, error["message"]?.jsonPrimitive?.contentOrNull, status, currentVersion)
+            }
+            else -> ApiException(ApiException.Kind.SERVER, status = status)
         }
     }
 
@@ -161,7 +217,7 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
         if (current.accessToken != rejectedAccessToken) return@withLock true
         try {
             val body = ApiJson.encodeToJsonElement(RefreshBody.serializer(), RefreshBody(current.refreshToken))
-            val data = perform(HttpMethod.Post, "auth/refresh", body.toString(), authorized = false, retryOnUnauthorized = false)
+            val data = perform(HttpMethod.Post, "auth/refresh", jsonContent(body), authorized = false)
             tokens.tokens = ApiJson.decodeFromJsonElement(AuthTokens.serializer(), data ?: JsonNull)
             true
         } catch (error: CancellationException) {
@@ -331,27 +387,5 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
         action()
     } catch (error: ApiException) {
         throw AuthException(error.authError)
-    }
-}
-
-/** Pushes locally changed collections to `PUT /sync/{collection}` (idle while the backend is local). */
-class SyncEngine(private val client: ApiClient, private val scope: DataScope, private val ledger: SyncLedger = SyncLedger(scope)) {
-    val isEnabled: Boolean get() = client.isConfigured
-
-    /** Returns the collections that were uploaded; stops at the first failure (the rest stay pending). */
-    suspend fun pushPending(folder: String = scope.folder(), force: Boolean = false): List<String> {
-        if (!isEnabled && !force) return emptyList()
-        val uploaded = mutableListOf<String>()
-        for (collection in ledger.pending(folder)) {
-            val json = scope.files.readText("$folder/$collection") ?: continue
-            try {
-                client.sendRaw(HttpMethod.Put, "sync/${collection.removeSuffix(".json")}", json)
-                ledger.markSynced(collection, folder = folder)
-                uploaded += collection
-            } catch (error: ApiException) {
-                break
-            }
-        }
-        return uploaded
     }
 }

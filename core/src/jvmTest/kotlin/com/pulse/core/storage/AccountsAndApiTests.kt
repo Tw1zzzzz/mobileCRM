@@ -3,7 +3,6 @@ package com.pulse.core.storage
 import com.pulse.core.api.ApiClient
 import com.pulse.core.api.AuthTokens
 import com.pulse.core.api.RemoteAuthService
-import com.pulse.core.api.SyncEngine
 import com.pulse.core.api.TokenStore
 import com.pulse.core.auth.DemoAuth
 import com.pulse.core.auth.LocalAuthService
@@ -46,7 +45,6 @@ import kotlin.test.assertEquals
 import kotlin.test.assertFailsWith
 import kotlin.test.assertFalse
 import kotlin.test.assertIs
-import kotlin.test.assertNotEquals
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Instant
@@ -224,18 +222,6 @@ class ApiClientTests {
         assertEquals(AuthError.NO_CONNECTION, assertFailsWith<AuthException> { RemoteAuthService(client, background).login("a@b.cc", "x") }.error)
         assertFalse(client.isConfigured)
         assertTrue(ApiClient(HttpClient(MockEngine { respond("") }), "https://api.test/v1/", TokenStore(MemorySecretStore())).isConfigured)
-    }
-
-    @Test fun syncUploadsPendingCollectionsUntilAFailure() = runTest {
-        val scope = DataScope(JvmFileSystem(Files.createTempDirectory("pulse-sync").toFile()))
-        scope.current = "acc"
-        JsonFileStorage("game-goals.json", com.pulse.core.model.GameGoals.serializer(), scope).save(com.pulse.core.model.GameGoals(elo = 1))
-        JsonFileStorage("sleep.json", com.pulse.core.model.GameGoals.serializer(), scope).save(com.pulse.core.model.GameGoals(elo = 2))
-        val client = client { request -> if (request.url.encodedPath.endsWith("game-goals")) 200 to """{"success":true}""" else 500 to "{}" }
-        val uploaded = SyncEngine(client, scope).pushPending(force = true)
-        assertEquals(listOf("game-goals.json"), uploaded)
-        assertEquals(listOf("sleep.json"), SyncLedger(scope).pending())
-        assertNotEquals(0, requests.size)
     }
 }
 
