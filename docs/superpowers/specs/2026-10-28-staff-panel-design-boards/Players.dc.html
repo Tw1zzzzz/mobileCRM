@@ -1,0 +1,476 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Performance CRM — Игроки (Staff)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#070B17}
+a{color:#3FD0FF}a:hover{color:#8BE4FF}
+.card{padding:24px;border-radius:24px;background:rgba(15,21,40,.82);border:1px solid rgba(120,150,220,.12);display:flex;flex-direction:column;gap:18px;min-width:0}
+.card h2{margin:0;font-size:22px;font-weight:700}
+.sub{font-size:14px;color:#A3AECB}
+.rail-a{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#A3AECB;text-decoration:none}
+.rail-a:hover{background:#141B30;color:#FFFFFF}
+.rail-on{color:#FFFFFF;background:linear-gradient(135deg,#0066FF,#00B4F0);box-shadow:0 6px 20px rgba(0,110,255,.35)}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid rgba(120,150,220,.18);background:#141B30;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.chip:hover{color:#FFFFFF;border-color:rgba(63,208,255,.4)}
+.chip-on{background:linear-gradient(90deg,#0066FF,#00B4F0);border-color:transparent;color:#FFFFFF;font-weight:600}
+.st{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.st-ok{background:rgba(63,208,255,.14);color:#7FE0FF}
+.st-mid{background:rgba(255,194,61,.14);color:#FFD27A}
+.st-bad{background:rgba(255,122,61,.14);color:#FFA27A}
+.st-staff{background:rgba(176,124,255,.16);color:#C9A6FF}
+.pc{display:flex;flex-direction:column;gap:12px;padding:16px;border-radius:20px;border:1px solid rgba(120,150,220,.16);background:rgba(15,21,40,.88);color:#F2F5FB;font-family:inherit;text-align:left;cursor:pointer;min-width:0}
+.pc:hover{border-color:rgba(63,208,255,.45)}
+.pc-on{border-color:rgba(63,208,255,.7);background:linear-gradient(160deg,rgba(0,102,255,.28),rgba(15,21,40,.92) 65%);box-shadow:0 12px 30px rgba(0,110,255,.22)}
+.av{flex:0 0 auto;border-radius:14px;background:linear-gradient(135deg,#0066FF,#00C8FF);display:flex;align-items:center;justify-content:center;font-weight:800;color:#FFFFFF}
+.ring{position:relative;width:64px;height:64px;flex:0 0 auto}
+.mini{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.mini span{display:flex;flex-direction:column;gap:1px;padding:6px 8px;border-radius:10px;background:#10172B;font-size:11px;color:#8A97B8}
+.mini b{font-size:14px;color:#F2F5FB;font-variant-numeric:tabular-nums}
+.tabs{display:flex;gap:4px;padding:5px;border-radius:14px;background:#141B30;border:1px solid rgba(120,150,220,.14);overflow-x:auto}
+.tab{flex:0 0 auto;min-height:42px;padding:0 16px;border:0;border-radius:10px;background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.tab:hover{color:#FFFFFF}
+.tab-on{background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF}
+.kpi{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:16px;background:#141B30;min-width:0}
+.kpi span:first-child{font-size:13px;color:#8A97B8}
+.kpi span:nth-child(2){font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.sel{box-sizing:border-box;min-height:42px;padding:0 12px;border-radius:12px;border:1px solid rgba(120,150,220,.2);background:#10172B;color:#F2F5FB;font-family:inherit;font-size:14px;color-scheme:dark}
+.sel:focus{outline:2px solid #3FD0FF;border-color:transparent}
+.row{display:grid;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(120,150,220,.1);font-size:14px;font-variant-numeric:tabular-nums}
+.row:hover{background:rgba(30,39,64,.45)}
+.rhead{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8A97B8;background:#141B30}
+.rhead:hover{background:#141B30}
+.tbl{border-radius:16px;border:1px solid rgba(120,150,220,.14);background:#0F1528;overflow-x:auto}
+.m{display:flex;flex-direction:column;gap:2px;padding:12px 14px;border-radius:12px;background:#141B30;min-width:0}
+.m span:first-child{font-size:12px;color:#8A97B8}
+.m span:last-child{font-size:18px;font-weight:800;font-variant-numeric:tabular-nums}
+.grp{font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7FE0FF}
+.mxc{padding:12px 6px;border-radius:8px;text-align:center;font-size:14px;font-weight:700;color:#FFFFFF;font-variant-numeric:tabular-nums}
+.mxh{padding:10px 6px;font-size:12px;font-weight:600;color:#A3AECB;text-align:center}
+.mxr{padding:10px 8px;font-size:13px;font-weight:600;color:#C3CCE2}
+.rl{position:absolute;transform:translate(-50%,-50%);font-size:12px;font-weight:600;color:#C3CCE2;white-space:nowrap}
+.tag{padding:5px 10px;border-radius:8px;background:#10172B;border:1px solid rgba(120,150,220,.2);font-size:12px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:#C3CCE2}
+.kv{display:flex;justify-content:space-between;gap:12px;padding:10px 0;border-bottom:1px solid rgba(120,150,220,.1);font-size:14px}
+.drop{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:140px;border-radius:14px;border:1px dashed rgba(120,150,220,.3);background:#10172B;color:#8A97B8;font-size:13px;text-align:center;padding:12px}
+.note{width:100%;box-sizing:border-box;min-height:110px;padding:12px 14px;border-radius:12px;border:1px solid rgba(120,150,220,.2);background:#10172B;color:#F2F5FB;font-family:inherit;font-size:15px;line-height:1.45;resize:vertical}
+.note:focus{outline:2px solid #3FD0FF;border-color:transparent}
+.btn-ghost{min-height:40px;padding:0 14px;border-radius:12px;border:1px solid rgba(120,150,220,.2);background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px;text-decoration:none}
+.btn-ghost:hover{background:#1E2740;color:#FFFFFF}
+.thumb{width:44px;height:44px;border-radius:10px;background:linear-gradient(135deg,#1E2740,#141B30);display:flex;align-items:center;justify-content:center;color:#7FE0FF}
+
+.sb-item{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:12px;text-decoration:none;color:#C3CCE2;font-size:15px;font-weight:500}
+.sb-item:hover{background:rgba(30,39,64,.8);color:#FFFFFF}
+.sb-item:focus-visible{outline:2px solid #3FD0FF;outline-offset:2px}
+.sb-on,.sb-on:hover{color:#FFFFFF;background:linear-gradient(90deg,rgba(0,102,255,.9),rgba(0,200,255,.75));box-shadow:0 6px 20px rgba(0,110,255,.35)}
+.sb-h{padding:0 12px;margin:6px 0 2px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6F7C9C}
+.sb-card{padding:12px;border-radius:16px;background:rgba(23,31,52,.9);border:1px solid rgba(120,150,220,.14);display:flex;align-items:center;gap:12px;text-decoration:none;color:#F2F5FB}
+.sb-card:hover{border-color:rgba(63,208,255,.45);color:#F2F5FB}
+.sb-card-on{border-color:rgba(63,208,255,.7);background:linear-gradient(160deg,rgba(0,102,255,.25),rgba(23,31,52,.95) 70%)}
+.sb-switch{display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;border-radius:12px;border:1px dashed rgba(120,150,220,.3);color:#A3AECB;font-size:13px;font-weight:600;text-decoration:none}
+.sb-switch:hover{color:#FFFFFF;border-color:rgba(63,208,255,.5)}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #070B17; background-image: radial-gradient(900px 520px at 18% -8%, rgba(0,102,255,0.55), rgba(0,102,255,0) 70%), radial-gradient(520px 380px at 2% 10%, rgba(0,200,255,0.35), rgba(0,200,255,0) 70%); font-family: 'Onest', system-ui, sans-serif; color: #F2F5FB; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="{{navLabel}}" style="flex: 1 1 260px; max-width: 100%; box-sizing: border-box; padding: 28px 20px; display: flex; flex-direction: column; gap: 20px; background: rgba(9,14,30,0.72); border-right: 1px solid rgba(120,150,220,0.12)">
+<a href="{{navHome}}" style="display: flex; align-items: center; gap: 12px; padding: 0 8px 8px; text-decoration: none; color: #F2F5FB">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #0066FF, #00C8FF); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,120,255,0.45)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19L10 5l4 9 2-4 4 9"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A97B8">Atlant Technology</span><span style="font-size: 16px; font-weight: 700">Performance CRM</span></span>
+</a>
+<sc-for list="{{navGroups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{ false }}"><span class="sb-h">{{g.title}}</span></sc-if>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="2"><a href="{{it.href}}" class="{{it.cls}}" aria-current="{{it.cur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.icon}}"></path></svg>{{it.name}}</a></sc-for>
+</div>
+</sc-for>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+<sc-if value="{{navHasExtra}}" hint-placeholder-val="{{ true }}"><a href="{{navExtraHref}}" class="{{navExtraCls}}" aria-current="{{navExtraCur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{navExtraIcon}}"></path></svg>{{navExtraName}}</a></sc-if>
+<a href="Profile.dc.html" class="{{navCardCls}}" aria-label="Профиль и настройки" aria-current="{{navCardCur}}">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: {{navAvBg}}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #FFFFFF">{{navIni}}</span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0"><span style="font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{navName}}</span><span style="font-size: 12px; color: #A3AECB">{{navRole}}</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A3AECB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
+</a>
+<a href="{{navSwitchHref}}" class="sb-switch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>{{navSwitchText}}</a>
+</div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px clamp(16px, 3vw, 40px) 48px; display: flex; flex-direction: column; gap: 24px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto">
+<span style="display: flex; align-items: center; gap: 10px"><span class="st st-staff">Staff</span><span style="font-size: 14px; color: #A3AECB">Atlant Esports · 5 игроков</span></span>
+<h1 style="margin: 0; font-size: clamp(32px, 4vw, 52px); line-height: 1.05; font-weight: 800; letter-spacing: -0.01em; text-transform: uppercase">Игроки</h1>
+</div>
+<nav aria-label="Раздел игроков" class="tabs"><a href="Players.dc.html" class="tab tab-on" aria-current="page" style="display: inline-flex; align-items: center; text-decoration: none">Состав и карточки</a><a href="TeamNutrition.dc.html" class="tab" style="display: inline-flex; align-items: center; text-decoration: none">Питание команды</a></nav>
+<div role="group" aria-label="Период" style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{periods}}" as="p" hint-placeholder-count="3"><button class="{{p.cls}}" aria-pressed="{{p.on}}" onClick="{{p.pick}}">{{p.name}}</button></sc-for>
+</div>
+</header>
+
+<!-- Team readiness -->
+<section style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<h2 style="margin: 0; font-size: 22px; font-weight: 700">Готовность сегодня</h2>
+<span class="sub">{{teamSummary}}</span>
+</div>
+<div role="listbox" aria-label="Игроки команды" style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 12px">
+<sc-for list="{{roster}}" as="p" hint-placeholder-count="5">
+<button role="option" aria-selected="{{p.on}}" class="{{p.cls}}" onClick="{{p.pick}}">
+<div style="display: flex; align-items: center; gap: 12px">
+<span class="ring" aria-hidden="true">
+<svg width="64" height="64" viewBox="0 0 64 64"><circle cx="32" cy="32" r="27" fill="none" stroke="#1E2740" stroke-width="6"></circle><circle cx="32" cy="32" r="27" fill="none" stroke="{{p.color}}" stroke-width="6" stroke-linecap="round" stroke-dasharray="{{p.dash}}" transform="rotate(-90 32 32)"></circle></svg>
+<span style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; font-size: 18px; font-weight: 800">{{p.ready}}</span>
+</span>
+<span style="display: flex; flex-direction: column; gap: 3px; min-width: 0"><span style="font-size: 16px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{p.nick}}</span><span style="font-size: 13px; color: #A3AECB">{{p.role}}</span><span class="{{p.stCls}}" style="align-self: flex-start">{{p.status}}</span></span>
+</div>
+<div class="mini"><span>Сон<b>{{p.sleep}}</b></span><span>Настр.<b>{{p.mood}}</b></span><span>Когн.<b>{{p.cog}}</b></span></div>
+<span style="font-size: 12px; color: #8A97B8">{{p.last}}</span>
+</button>
+</sc-for>
+</div>
+<span style="font-size: 13px; color: #8A97B8">Готовность 0–100 — из сна, настроения, энергии и когнитивного индекса за последние сутки. Готов · 70+, под вопросом · 55–69, риск · ниже 55</span>
+</section>
+
+<!-- Player card -->
+<section class="card" aria-labelledby="pname">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 18px">
+<span class="av" style="width: 72px; height: 72px; font-size: 26px; border-radius: 22px">{{initials}}</span>
+<div style="flex: 1 1 260px; display: flex; flex-direction: column; gap: 6px; min-width: 0">
+<h2 id="pname" style="font-size: 28px">{{nick}}</h2>
+<span style="display: flex; gap: 8px; flex-wrap: wrap; align-items: center"><span class="st st-ok">{{role}}</span><span class="sub">{{lastActivity}}</span></span>
+</div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<a href="#" class="btn-ghost"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 4L3 11l6 2 2 6 3-4 5 4z"></path></svg>Telegram</a>
+<a href="#" class="btn-ghost">FACEIT</a>
+<a href="#" class="btn-ghost">Steam</a>
+</div>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end">
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="f-type" style="font-size: 12px; color: #8A97B8">Тип теста</label>
+<select id="f-type" class="sel" value="{{fType}}" onChange="{{onType}}"><option value="all">Все тесты</option><option value="cog">Когнитивные</option><option value="game">Игровые до/после</option><option value="week">Еженедельные</option></select></div>
+<div style="display: flex; flex-direction: column; gap: 6px"><label for="f-src" style="font-size: 12px; color: #8A97B8">Источник игр</label>
+<select id="f-src" class="sel" value="{{fSrc}}" onChange="{{onSrc}}"><option value="all">Все</option><option value="prak">Пракки</option><option value="faceit">Faceit</option><option value="tour">Турниры</option></select></div>
+<span style="font-size: 13px; color: #8A97B8; padding-bottom: 10px">{{rangeLabel}}</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px">
+<div class="kpi"><span>Средний score</span><span>{{avgScore}}</span><span class="{{scoreDCls}}" style="font-size: 13px; font-weight: 700">{{scoreD}}</span></div>
+<div class="kpi"><span>Индекс состояния</span><span>{{stateIdx}}</span><span class="{{stateDCls}}" style="font-size: 13px; font-weight: 700">{{stateD}}</span></div>
+<div class="kpi"><span>Фокус high</span><span>{{focusHigh}}</span><span style="font-size: 13px; color: #8A97B8">дней с фокусом 8+</span></div>
+<div class="kpi"><span>Усталость high</span><span>{{fatigueHigh}}</span><span style="font-size: 13px; color: #8A97B8">дней с усталостью 8+</span></div>
+</div>
+
+<div role="tablist" aria-label="Разделы карточки" class="tabs">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="7"><button role="tab" class="{{t.cls}}" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button></sc-for>
+</div>
+
+<!-- Profile tab -->
+<sc-if value="{{tProfile}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr)); gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 20px; border-radius: 18px; background: #141B30">
+<span class="grp">Архетип</span>
+<span style="font-size: 22px; font-weight: 800">{{arch}}</span>
+<span style="font-size: 14px; line-height: 1.5; color: #C3CCE2">{{archText}}</span>
+<span style="display: flex; flex-wrap: wrap; gap: 6px"><sc-for list="{{archTags}}" as="x" hint-placeholder-count="3"><span class="tag">{{x}}</span></sc-for></span>
+</div>
+<div style="display: flex; flex-direction: column; gap: 2px; padding: 20px; border-radius: 18px; background: #141B30">
+<span class="grp" style="margin-bottom: 6px">Роль в CS2</span>
+<sc-for list="{{roleRows}}" as="r" hint-placeholder-count="4"><div class="kv"><span style="color: #A3AECB">{{r.k}}</span><span style="font-weight: 700">{{r.v}}</span></div></sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="grp">Коммуникативная линия</span>
+<span class="sub">Круг общения в команде, статус общения, открытые вопросы — заметки видит только staff</span>
+<label for="comm" style="position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0)">Заметки о коммуникации</label>
+<textarea id="comm" class="note" value="{{comm}}" onChange="{{onComm}}"></textarea>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 14px">
+<div style="display: flex; flex-direction: column; gap: 8px"><span class="grp">Схема общения</span><div class="drop"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="18" height="18" rx="3"></rect><circle cx="9" cy="9" r="2"></circle><path d="M21 15l-5-5L5 21"></path></svg>Загрузите изображение схемы<button class="btn-ghost" style="min-height: 34px">Загрузить</button></div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span class="grp">Roadmap</span><div class="drop"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19l5-14 6 10 5-6"></path></svg>План развития игрока<button class="btn-ghost" style="min-height: 34px">Загрузить</button></div></div>
+<div style="display: flex; flex-direction: column; gap: 8px"><span class="grp">Mindmap</span><div class="drop"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"></circle><circle cx="4" cy="5" r="2"></circle><circle cx="20" cy="5" r="2"></circle><circle cx="4" cy="19" r="2"></circle><circle cx="20" cy="19" r="2"></circle><path d="M6 6l4 4M18 6l-4 4M6 18l4-4M18 18l-4-4"></path></svg>Карта мышления<button class="btn-ghost" style="min-height: 34px">Загрузить</button></div></div>
+</div>
+</div>
+</sc-if>
+
+<!-- Tests tab -->
+<sc-if value="{{tTests}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; gap: 18px; font-size: 13px; color: #A3AECB; flex-wrap: wrap">
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; height: 4px; border-radius: 2px; background: #3FD0FF"></span>Score</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; border-top: 3px dashed #FFAA3C"></span>State Index</span>
+</div>
+<svg viewBox="0 0 900 220" width="100%" role="img" aria-label="{{testsAria}}">
+<g stroke="#26304A"><line x1="40" y1="20" x2="890" y2="20"></line><line x1="40" y1="100" x2="890" y2="100"></line><line x1="40" y1="180" x2="890" y2="180"></line></g>
+<g fill="#7D89A8" font-size="12" font-family="Onest, sans-serif"><text x="4" y="24">100</text><text x="10" y="104">50</text><text x="22" y="184">0</text></g>
+<path d="{{scorePath}}" fill="none" stroke="#3FD0FF" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></path>
+<path d="{{statePath}}" fill="none" stroke="#FFAA3C" stroke-width="3" stroke-dasharray="8 6" stroke-linejoin="round" stroke-linecap="round"></path>
+</svg>
+<div class="tbl"><div role="table" aria-label="История тестов" style="min-width: 600px">
+<div role="row" class="row rhead" style="grid-template-columns: 1fr 1.4fr 0.8fr 0.8fr"><span role="columnheader">Дата</span><span role="columnheader">Тест</span><span role="columnheader">Score</span><span role="columnheader">State Index</span></div>
+<sc-for list="{{testRows}}" as="r" hint-placeholder-count="6"><div role="row" class="row" style="grid-template-columns: 1fr 1.4fr 0.8fr 0.8fr"><span role="cell">{{r.date}}</span><span role="cell" style="font-weight: 600">{{r.test}}</span><span role="cell" style="font-weight: 800">{{r.score}}</span><span role="cell">{{r.state}}</span></div></sc-for>
+</div></div>
+</div>
+</sc-if>
+
+<!-- Game tab -->
+<sc-if value="{{tGame}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 18px">
+<span class="grp">K/D</span>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px"><sc-for list="{{kd}}" as="m" hint-placeholder-count="4"><div class="m"><span>{{m.l}}</span><span>{{m.v}}</span></div></sc-for></div>
+<span class="grp">Аналитические метрики</span>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px"><sc-for list="{{an}}" as="m" hint-placeholder-count="13"><div class="m"><span>{{m.l}}</span><span>{{m.v}}</span></div></sc-for></div>
+<span class="grp">Матчи, раунды, пистолетки</span>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px"><sc-for list="{{mr}}" as="m" hint-placeholder-count="10"><div class="m"><span>{{m.l}}</span><span>{{m.v}}</span></div></sc-for></div>
+</div>
+</sc-if>
+
+<!-- Correlation tab -->
+<sc-if value="{{tCorr}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<span class="sub">Как состояние игрока связано с игрой за период. Голубой — прямая связь, оранжевый — обратная, ярче — сильнее</span>
+<div style="overflow-x: auto"><div role="table" aria-label="Таблица корреляций" style="display: grid; grid-template-columns: 170px repeat(4, minmax(90px, 1fr)); gap: 4px; min-width: 560px">
+<span class="mxh"></span><sc-for list="{{cHead}}" as="h" hint-placeholder-count="4"><span role="columnheader" class="mxh">{{h}}</span></sc-for>
+<sc-for list="{{cRows}}" as="r" hint-placeholder-count="5"><span role="rowheader" class="mxr">{{r.name}}</span><sc-for list="{{r.cells}}" as="c" hint-placeholder-count="4"><span role="cell" class="mxc" style="background: {{c.bg}}">{{c.v}}</span></sc-for></sc-for>
+</div></div>
+<div style="padding: 14px 16px; border-radius: 14px; background: #141B30; font-size: 14px; line-height: 1.5; color: #D5DCEC"><span style="font-weight: 700; color: #7FE0FF">Главное: </span>{{corrNote}}</div>
+</div>
+</sc-if>
+
+<!-- Wheel tab -->
+<sc-if value="{{tWheel}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 14px">
+<div role="group" aria-label="День" style="display: flex; gap: 8px; flex-wrap: wrap"><sc-for list="{{wDays}}" as="d" hint-placeholder-count="7"><button class="{{d.cls}}" aria-pressed="{{d.on}}" onClick="{{d.pick}}">{{d.name}}</button></sc-for></div>
+<sc-if value="{{wHas}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<div style="position: relative; width: 320px; max-width: 100%; aspect-ratio: 1 / 1; margin: 0 auto">
+<svg viewBox="0 0 340 340" width="100%" height="100%" role="img" aria-label="{{wAria}}">
+<g fill="none" stroke="#26304A"><polygon points="{{ring1}}"></polygon><polygon points="{{ring2}}"></polygon><polygon points="{{ring3}}"></polygon><polygon points="{{ring4}}"></polygon><path d="{{spokes}}"></path></g>
+<polygon points="{{wPoly}}" fill="rgba(63,208,255,0.2)" stroke="#3FD0FF" stroke-width="2.5" stroke-linejoin="round"></polygon>
+</svg>
+<sc-for list="{{wLabels}}" as="l" hint-placeholder-count="8"><span class="rl" style="left: {{l.x}}; top: {{l.y}}">{{l.t}}</span></sc-for>
+</div>
+<div style="flex: 1 1 260px; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px"><sc-for list="{{wList}}" as="w" hint-placeholder-count="8"><div class="kv" style="padding: 8px 12px; border-radius: 10px; background: #141B30; border: 0"><span style="color: #C3CCE2">{{w.n}}</span><span style="font-weight: 800">{{w.v}}</span></div></sc-for></div>
+</div>
+</sc-if>
+<sc-if value="{{wNone}}" hint-placeholder-val="{{ false }}"><div class="drop">Игрок не заполнял колесо баланса в этот день</div></sc-if>
+</div>
+</sc-if>
+
+<!-- Food tab -->
+<sc-if value="{{tFood}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<span class="sub">{{foodSummary}}</span>
+<div class="tbl"><div role="table" aria-label="Дневник питания" style="min-width: 560px">
+<div role="row" class="row rhead" style="grid-template-columns: 60px 1fr 1.6fr 1fr"><span role="columnheader">Фото</span><span role="columnheader">Дата</span><span role="columnheader">Блюдо</span><span role="columnheader">Калорийность</span></div>
+<sc-for list="{{foodRows}}" as="r" hint-placeholder-count="8"><div role="row" class="row" style="grid-template-columns: 60px 1fr 1.6fr 1fr"><span role="cell"><span class="thumb" role="img" aria-label="Фото блюда"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="13" r="7"></circle><path d="M5 13h14"></path></svg></span></span><span role="cell">{{r.date}}</span><span role="cell" style="font-weight: 600">{{r.name}}</span><span role="cell" style="font-weight: 800">{{r.kcal}}</span></div></sc-for>
+</div></div>
+</div>
+</sc-if>
+
+<!-- Sleep tab -->
+<sc-if value="{{tSleep}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 12px">
+<span class="sub">{{sleepSummary}}</span>
+<div class="tbl"><div role="table" aria-label="Дневник сна" style="min-width: 560px">
+<div role="row" class="row rhead" style="grid-template-columns: 1.2fr 1fr 1fr 1fr"><span role="columnheader">Дата сна</span><span role="columnheader">Начало</span><span role="columnheader">Окончание</span><span role="columnheader">Длительность</span></div>
+<sc-for list="{{sleepRows}}" as="r" hint-placeholder-count="8"><div role="row" class="row" style="grid-template-columns: 1.2fr 1fr 1fr 1fr"><span role="cell" style="font-weight: 600">{{r.date}}</span><span role="cell">{{r.start}}</span><span role="cell">{{r.end}}</span><span role="cell" class="{{r.cls}}" style="font-weight: 800">{{r.dur}}</span></div></sc-for>
+</div></div>
+</div>
+</sc-if>
+</section>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1900}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { sel: 0, period: 30, tab: 'profile', fType: 'all', fSrc: 'all', wDay: 0, comm: {} };
+}
+_rvBase() {
+var self = this, st = this.state, DAY = 86400000;
+var MON = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+var WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+function rng(seed) { var s = seed % 2147483647; if (s <= 0) s += 2147483646; return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function mean(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function hm(h) { var hh = Math.floor(h), mm = Math.round((h - hh) * 60); if (mm === 60) { hh++; mm = 0; } return hh + ' ч ' + pad(mm) + ' мин'; }
+function corr(a, b) { var ma = mean(a), mb = mean(b), sxy = 0, sxx = 0, syy = 0; for (var i = 0; i < a.length; i++) { var dx = a[i] - ma, dy = b[i] - mb; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; } return sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0; }
+function sgn(v, d) { var r = Number(v.toFixed(d)); return (r > 0 ? '+' : (r < 0 ? '−' : '±')) + Math.abs(r).toFixed(d); }
+var today = new Date(); today.setHours(0, 0, 0, 0);
+function dl(i) { var d = new Date(today.getTime() - i * DAY); return i === 0 ? 'Сегодня' : (i === 1 ? 'Вчера' : d.getDate() + ' ' + MON[d.getMonth()]); }
+
+var P = [
+{ nick: 'vexa', role: 'IGL', arch: 'Холодный аналитик', text: 'Сильнее всего там, где нужен расчёт и чтение ситуации. Раскрывается в игре с ясной логикой и дисциплиной.', tags: ['Структурный', 'Читает игру', 'Держит контур'], roles: ['IGL', 'Support', 'CT-side', 'Mid-round'], base: 0.4, comm: 'Главный канал в команде. С frost — открытый вопрос по таймингам на B, обсудить на разборе.' },
+{ nick: 'frost', role: 'AWPer', arch: 'Хладнокровный снайпер', text: 'Лучше всего в позиционной игре и дуэлях на дистанции. Нужна тишина в эфире в ключевые моменты.', tags: ['Спокойный', 'Точный', 'Терпеливый'], roles: ['AWPer', 'Lurker', 'CT-side', 'Late-round'], base: -0.6, comm: '' },
+{ nick: 'Kairo', role: 'Entry', arch: 'Импульсивный лидер атаки', text: 'Задаёт темп и открывает раунды. Эффективен, когда план простой и понятный.', tags: ['Агрессивный', 'Быстрый', 'Энергичный'], roles: ['Entry', 'Rifler', 'T-side', 'Early-round'], base: 0.9, comm: '' },
+{ nick: 'm1rage', role: 'Support', arch: 'Командный игрок', text: 'Надёжно закрывает утилиту и поддерживает тиммейтов. Ценит предсказуемость.', tags: ['Надёжный', 'Командный', 'Внимательный'], roles: ['Support', 'Anchor', 'CT-side', 'Mid-round'], base: 0.1, comm: '' },
+{ nick: 'zeNN', role: 'Lurker', arch: 'Тихий охотник', text: 'Читает ротации соперника и бьёт в спину. Лучше работает с долей свободы.', tags: ['Самостоятельный', 'Хитрый', 'Терпеливый'], roles: ['Lurker', 'Rifler', 'T-side', 'Late-round'], base: -0.2, comm: '' }
+];
+var N = st.period, pt = N <= 31 ? N : Math.ceil(N / 3);
+function gen(pi) {
+var r = rng(pi * 97 + N * 7 + 3), z = P[pi].base * 0.6, o = { sleep: [], mood: [], energy: [], screen: [], cog: [], kd: [], adr: [], kast: [], wr: [], focus: [], fatigue: [], score: [], state: [] };
+for (var i = 0; i < pt; i++) {
+z = 0.6 * z + (r() - 0.5) * 1.3 + P[pi].base * 0.12;
+var kd = clamp(1.02 + 0.16 * z + (r() - 0.5) * 0.25, 0.5, 2);
+o.sleep.push(clamp(7.1 + 0.8 * z + (r() - 0.5) * 0.8, 4.5, 9.8));
+o.mood.push(clamp(6 + 1.2 * z + (r() - 0.5) * 1.6, 1, 10));
+o.energy.push(clamp(5.8 + 1.1 * z + (r() - 0.5) * 1.8, 1, 10));
+o.screen.push(clamp(5.2 - 0.8 * z + (r() - 0.5) * 1.4, 1.5, 10));
+o.cog.push(clamp(62 + 9 * z + (r() - 0.5) * 12, 20, 100));
+o.kd.push(kd); o.adr.push(clamp(78 + 45 * (kd - 1) + (r() - 0.5) * 12, 40, 140));
+o.kast.push(clamp(70 + 22 * (kd - 1) + (r() - 0.5) * 8, 40, 95)); o.wr.push(clamp(50 + 70 * (kd - 1) + (r() - 0.5) * 28, 0, 100));
+o.focus.push(clamp(Math.round(6.5 + 1.4 * z + (r() - 0.5) * 3), 1, 10)); o.fatigue.push(clamp(Math.round(4.5 - 1.3 * z + (r() - 0.5) * 3), 1, 10));
+o.score.push(clamp(64 + 10 * z + (r() - 0.5) * 14, 10, 100)); o.state.push(clamp(60 + 12 * z + (r() - 0.5) * 12, 10, 100));
+}
+return o;
+}
+var data = P.map(function (p, i) { return gen(i); });
+function readiness(o) { var k = o.sleep.length - 1; return Math.round(clamp((o.sleep[k] - 4.5) / 4 * 30 + o.mood[k] * 3 + o.energy[k] * 2.5 + o.cog[k] * 0.3, 0, 100)); }
+var ready = data.map(readiness);
+function stat(v) { return v >= 70 ? ['Готов', 'st st-ok', '#3FD0FF'] : (v >= 55 ? ['Под вопросом', 'st st-mid', '#FFD27A'] : ['Риск', 'st st-bad', '#FF8A3D']); }
+var C27 = 2 * Math.PI * 27;
+var counts = [0, 0, 0];
+var roster = P.map(function (p, i) {
+var o = data[i], k = o.sleep.length - 1, s = stat(ready[i]), on = i === st.sel;
+counts[ready[i] >= 70 ? 0 : (ready[i] >= 55 ? 1 : 2)]++;
+return { nick: p.nick, role: p.role, ready: ready[i], status: s[0], stCls: s[1], color: s[2], dash: (ready[i] / 100 * C27).toFixed(1) + ' ' + C27.toFixed(1),
+sleep: hm(o.sleep[k]).replace(' мин', 'м').replace(' ч ', 'ч '), mood: o.mood[k].toFixed(1), cog: Math.round(o.cog[k]),
+last: 'Активность: ' + (i === 1 ? 'вчера, 23:40' : 'сегодня, ' + pad(9 + i * 2) + ':' + pad((i * 17) % 60)),
+on: on ? 'true' : 'false', cls: 'pc' + (on ? ' pc-on' : ''), pick: function () { self.setState({ sel: i, wDay: 0 }); } };
+});
+var p = P[st.sel], o = data[st.sel];
+var half = Math.floor(pt / 2);
+var sAvg = mean(o.score), sPrev = mean(o.score.slice(0, half)), sNow = mean(o.score.slice(half));
+var iAvg = mean(o.state), iPrev = mean(o.state.slice(0, half)), iNow = mean(o.state.slice(half));
+var typeMul = { all: 1, cog: 1, game: 0.6, week: 0.25 }[st.fType];
+function line(vals) { return vals.map(function (v, i) { return (i ? 'L' : 'M') + (pt === 1 ? 465 : 40 + i * 850 / (pt - 1)).toFixed(1) + ' ' + (180 - v * 1.6).toFixed(1); }).join(' '); }
+var TESTS = { cog: ['Visual Search', 'Go / No-Go', '2-Back', 'Stroop Switch', 'Spatial Span', 'Батарея целиком'], game: ['Игровой · до тренировки', 'Игровой · после тренировки'], week: ['Опросник выгорания', 'Командное взаимодействие'] };
+var pool = st.fType === 'all' ? TESTS.cog.concat(TESTS.game, TESTS.week) : TESTS[st.fType];
+var tr = rng(st.sel * 31 + N), testRows = [];
+for (var i = 0; i < Math.max(4, Math.round(10 * typeMul)); i++) { var idx = Math.min(pt - 1, Math.floor(i * pt / 10)); testRows.push({ date: dl(i * Math.max(1, Math.round(N / 10))), test: pool[Math.floor(tr() * pool.length)], score: Math.round(o.score[pt - 1 - idx]), state: Math.round(o.state[pt - 1 - idx]) }); }
+// game
+var srcMul = { all: 1, prak: 0.55, faceit: 0.3, tour: 0.15 }[st.fSrc];
+var maps = Math.max(1, Math.round(N * 0.8 * srcMul)), rounds = maps * 23, rw = Math.round(rounds * mean(o.wr) / 100 * 0.98 + rounds * 0.01);
+var kills = Math.round(rounds * 0.74 * mean(o.kd) / 1.05), deaths = Math.round(kills / mean(o.kd)), assists = Math.round(rounds * 0.17);
+var mw = Math.round(maps * mean(o.wr) / 100), md = maps > 10 ? 1 : 0, ml = maps - mw - md, pistT = maps * 2, pistW = Math.round(pistT * 0.52);
+var fk = Math.round(rounds * 0.12), fd = Math.round(rounds * 0.11);
+var kd = [{ l: 'Убийства', v: kills }, { l: 'Смерти', v: deaths }, { l: 'Ассисты', v: assists }, { l: 'K/D', v: (kills / Math.max(1, deaths)).toFixed(2) }];
+var an = [['ADR', mean(o.adr).toFixed(1)], ['KPR', (kills / rounds).toFixed(2)], ['Death/round', (deaths / rounds).toFixed(2)], ['AVG KR', (kills / rounds).toFixed(2)], ['AVG KD', mean(o.kd).toFixed(2)], ['KAST', Math.round(mean(o.kast)) + '%'], ['First kills', fk], ['First deaths', fd], ['UDR', (8 + st.sel * 2.3).toFixed(1)], ['Разница опен-дуэлей', sgn(fk - fd, 0)], ['Ср. мультикиллы', (1.2 + st.sel * 0.3).toFixed(1)], ['Выигранные клатчи', Math.round(maps * 0.4)], ['Ср. время ослепления', (1.6 + st.sel * 0.15).toFixed(1) + ' с']].map(function (x) { return { l: x[0], v: x[1] }; });
+var mr = [['Всего матчей', maps], ['Победы', mw], ['Поражения', ml], ['Ничьи', md], ['Win-Rate', Math.round(mw / maps * 100) + '%'], ['Раунды выиграно / всего', rw + ' / ' + rounds], ['Round Win-Rate', Math.round(rw / rounds * 100) + '%'], ['AVG Rounds Won', (rw / maps).toFixed(1)], ['AVG Rounds Lost', ((rounds - rw) / maps).toFixed(1)], ['Пистолетные выиграно / всего', pistW + ' / ' + pistT], ['Pistol Win-Rate', Math.round(pistW / pistT * 100) + '%']].map(function (x) { return { l: x[0], v: x[1] }; });
+// correlation
+var SR = [['Сон', 'sleep'], ['Настроение', 'mood'], ['Энергия', 'energy'], ['Экранное время', 'screen'], ['Когнитивный индекс', 'cog']];
+var GC = [['K/D', 'kd'], ['ADR', 'adr'], ['KAST', 'kast'], ['Win Rate', 'wr']];
+var best = null;
+var cRows = SR.map(function (s) { return { name: s[0], cells: GC.map(function (g) { var r = corr(o[s[1]], o[g[1]]); if (!best || Math.abs(r) > Math.abs(best.r)) best = { r: r, s: s[0], g: g[0] }; var a = (0.12 + Math.abs(r) * 0.7).toFixed(2); return { v: (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2), bg: r >= 0 ? 'rgba(0,140,255,' + a + ')' : 'rgba(255,122,61,' + a + ')' }; }) }; });
+// wheel
+var W = [['Физическое здоровье', 'Здоровье'], ['Эмоциональное состояние', 'Эмоции'], ['Интеллектуальное развитие', 'Интеллект'], ['Духовное развитие', 'Духовность'], ['Профессиональная сфера', 'Карьера'], ['Социальные отношения', 'Отношения'], ['Окружающая среда', 'Окружение'], ['Финансовое благополучие', 'Финансы']];
+var hasW = [true, false, true, true, false, true, false];
+var wr = rng(st.sel * 13 + st.wDay * 7 + 5), wv = W.map(function () { return Math.round(4 + wr() * 6); });
+var CX = 170, RAD = 115;
+function ptW(i, v) { var a = -Math.PI / 2 + i * Math.PI / 4; return [CX + Math.cos(a) * RAD * v / 10, CX + Math.sin(a) * RAD * v / 10]; }
+function poly(vals) { return vals.map(function (v, i) { var q = ptW(i, v); return q[0].toFixed(1) + ',' + q[1].toFixed(1); }).join(' '); }
+function ring(v) { return poly(W.map(function () { return v; })); }
+// food & sleep diaries
+var DISH = ['Овсянка с бананом', 'Куриная грудка с рисом', 'Паста карбонара', 'Цезарь с курицей', 'Гречка с говядиной', 'Протеиновый батончик', 'Омлет с овощами'];
+var fr = rng(st.sel * 41 + N), foodRows = [], fk2 = 0;
+for (var j = 0; j < Math.min(14, N * 2); j++) { var kc = Math.round(250 + fr() * 500); fk2 += kc; foodRows.push({ date: dl(Math.floor(j / 2)) + ', ' + (j % 2 ? '19:' : '13:') + pad(Math.floor(fr() * 59)), name: DISH[Math.floor(fr() * DISH.length)], kcal: kc + ' ккал' }); }
+var sleepRows = o.sleep.slice().reverse().slice(0, 10).map(function (h, k) { var start = 23 * 60 + Math.round((wr() - 0.5) * 90), end = start + h * 60; return { date: dl(k + 1) + ' → ' + dl(k).toLowerCase(), start: pad(Math.floor(start / 60) % 24) + ':' + pad(Math.round(start % 60)), end: pad(Math.floor(end / 60) % 24) + ':' + pad(Math.round(end % 60)), dur: hm(h), cls: h < 7 ? 'st st-bad' : '' }; });
+var start = new Date(today.getTime() - (N - 1) * DAY);
+var commVal = st.comm[st.sel] != null ? st.comm[st.sel] : p.comm;
+var TABS = [['profile', 'Профиль'], ['tests', 'Тесты'], ['game', 'Игра'], ['corr', 'Корреляции'], ['wheel', 'Колесо баланса'], ['food', 'Питание'], ['sleep', 'Сон']];
+return {
+periods: [[7, '7 дней'], [30, '30 дней'], [90, '90 дней']].map(function (x) { var on = st.period === x[0]; return { name: x[1], on: on ? 'true' : 'false', cls: 'chip' + (on ? ' chip-on' : ''), pick: function () { self.setState({ period: x[0] }); } }; }),
+teamSummary: 'Готовы ' + counts[0] + ' · под вопросом ' + counts[1] + ' · риск ' + counts[2],
+roster: roster,
+initials: p.nick.slice(0, 2).toUpperCase(), nick: p.nick, role: p.role,
+lastActivity: roster[st.sel].last.replace('Активность', 'Последняя активность'),
+fType: st.fType, fSrc: st.fSrc,
+onType: function (ev) { self.setState({ fType: ev.target.value }); }, onSrc: function (ev) { self.setState({ fSrc: ev.target.value }); },
+rangeLabel: start.getDate() + ' ' + MON[start.getMonth()] + ' – ' + today.getDate() + ' ' + MON[today.getMonth()],
+avgScore: Math.round(sAvg), scoreD: sgn(sNow - sPrev, 1) + ' за период', scoreDCls: sNow >= sPrev ? 'up' : 'down',
+stateIdx: Math.round(iAvg), stateD: sgn(iNow - iPrev, 1) + ' за период', stateDCls: iNow >= iPrev ? 'up' : 'down',
+focusHigh: o.focus.filter(function (x) { return x >= 8; }).length + ' из ' + pt,
+fatigueHigh: o.fatigue.filter(function (x) { return x >= 8; }).length + ' из ' + pt,
+tabs: TABS.map(function (t) { var on = st.tab === t[0]; return { name: t[1], on: on ? 'true' : 'false', cls: 'tab' + (on ? ' tab-on' : ''), pick: function () { self.setState({ tab: t[0] }); } }; }),
+tProfile: st.tab === 'profile', tTests: st.tab === 'tests', tGame: st.tab === 'game', tCorr: st.tab === 'corr', tWheel: st.tab === 'wheel', tFood: st.tab === 'food', tSleep: st.tab === 'sleep',
+arch: p.arch, archText: p.text, archTags: p.tags,
+roleRows: [['Основная роль', p.roles[0]], ['Вторичная роль', p.roles[1]], ['Предпочтительная сторона', p.roles[2]], ['Сильная фаза', p.roles[3]]].map(function (x) { return { k: x[0], v: x[1] }; }),
+comm: commVal, onComm: function (ev) { var c = Object.assign({}, self.state.comm); c[self.state.sel] = ev.target.value; self.setState({ comm: c }); },
+scorePath: line(o.score), statePath: line(o.state), testsAria: 'Score и State Index игрока ' + p.nick + ' за период',
+testRows: testRows,
+kd: kd, an: an, mr: mr,
+cHead: GC.map(function (g) { return g[0]; }), cRows: cRows,
+corrNote: best ? 'сильнее всего связаны «' + best.s + '» и «' + best.g + '» (r = ' + (best.r >= 0 ? '+' : '−') + Math.abs(best.r).toFixed(2) + '). ' + (best.r >= 0 ? 'Когда первое выше обычного, второе тоже растёт.' : 'Когда первое выше обычного, второе снижается.') : '',
+wDays: [0, 1, 2, 3, 4, 5, 6].map(function (k) { var on = st.wDay === k, d = new Date(today.getTime() - k * DAY); return { name: (k === 0 ? 'Сегодня' : WD[d.getDay()] + ' ' + d.getDate()) + (hasW[k] ? '' : ' · —'), on: on ? 'true' : 'false', cls: 'chip' + (on ? ' chip-on' : ''), pick: function () { self.setState({ wDay: k }); } }; }),
+wHas: hasW[st.wDay], wNone: !hasW[st.wDay],
+ring1: ring(2.5), ring2: ring(5), ring3: ring(7.5), ring4: ring(10),
+spokes: W.map(function (w, i) { var q = ptW(i, 10); return 'M170 170 L' + q[0].toFixed(1) + ' ' + q[1].toFixed(1); }).join(' '),
+wPoly: poly(wv), wAria: 'Колесо баланса: ' + W.map(function (w, i) { return w[1] + ' ' + wv[i]; }).join(', '),
+wLabels: W.map(function (w, i) { var a = -Math.PI / 2 + i * Math.PI / 4; return { t: w[1], x: ((CX + Math.cos(a) * (RAD + 30)) / 340 * 100).toFixed(1) + '%', y: ((CX + Math.sin(a) * (RAD + 22)) / 340 * 100).toFixed(1) + '%' }; }),
+wList: W.map(function (w, i) { return { n: w[0], v: wv[i] }; }),
+foodSummary: 'Записей: ' + foodRows.length + ' · в среднем ' + Math.round(fk2 / Math.max(1, Math.min(7, N))) + ' ккал в день',
+foodRows: foodRows,
+sleepSummary: 'Средняя продолжительность ' + hm(mean(o.sleep)) + ' · ночей короче 7 ч: ' + o.sleep.filter(function (h) { return h < 7; }).length + ' из ' + pt,
+sleepRows: sleepRows
+};
+}
+renderVals() { var r = this._rvBase() || {}; var n = this._navVals(); for (var k in n) r[k] = n[k]; return r; }
+_navVals() {
+var FILE = 'Players.dc.html', KIND = 'staff', role = KIND;
+if (KIND === 'shared') {
+var pr = this.props.role;
+if (pr === 'player' || pr === 'staff') role = pr;
+else { role = 'player'; try { if (window.localStorage.getItem('crm.role') === 'staff') role = 'staff'; } catch (e) {} }
+} else { try { window.localStorage.setItem('crm.role', KIND); } catch (e) {} }
+var IC = {
+overview: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+calendar: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4',
+tests: 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9',
+mood: 'M13 2L4 14h7l-1 8 9-12h-7z',
+recovery: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8zM3.5 12h4l2-3 3 6 2-3h6',
+stats: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+game: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 3v3M12 18v3M3 12h3M18 12h3',
+players: 'M9 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM2.5 20c.8-3.4 3.3-5 6.5-5s5.7 1.6 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.2 3.5 5',
+lineups: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
+tariffs: 'M3 6h18v12H3zM3 10h18M7 15h4',
+diary: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6'
+};
+var G = role === 'staff' ? [
+['', [['Обзор', 'TeamOverview.dc.html', 'overview'], ['Календарь', 'StaffCalendar.dc.html', 'calendar']]],
+['Команда', [['Игроки', 'Players.dc.html', 'players', ['TeamNutrition.dc.html']], ['Раскидки и скрипты', 'Lineups.dc.html', 'lineups']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+] : [
+['', [['Обзор', 'Main.dc.html', 'overview'], ['Календарь', 'Calendar.dc.html', 'calendar'], ['Дневник CS2', 'Diary.dc.html', 'diary']]],
+['Состояние', [['Тесты', 'Tests.dc.html', 'tests', ['TestRunner.dc.html']], ['Настроение и энергия', 'MoodEnergy.dc.html', 'mood'], ['Восстановление', 'Recovery.dc.html', 'recovery']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+];
+var staff = role === 'staff', onTar = FILE === 'Tariffs.dc.html', onProf = FILE === 'Profile.dc.html';
+return {
+navLabel: staff ? 'Меню Staff' : 'Основное меню', navHome: staff ? 'TeamOverview.dc.html' : 'Main.dc.html',
+navGroups: G.map(function (g) { return { title: g[0], hasTitle: !!g[0], items: g[1].map(function (it) {
+var on = it[1] === FILE || (it[3] && it[3].indexOf(FILE) >= 0);
+return { name: it[0], href: it[1], icon: IC[it[2]], cls: 'sb-item' + (on ? ' sb-on' : ''), cur: on ? 'page' : 'false' }; }) }; }),
+navHasExtra: !staff, navExtraName: 'Тарифы', navExtraHref: 'Tariffs.dc.html', navExtraIcon: IC.tariffs,
+navExtraCls: 'sb-item' + (onTar ? ' sb-on' : ''), navExtraCur: onTar ? 'page' : 'false',
+navCardCls: 'sb-card' + (onProf ? ' sb-card-on' : ''), navCardCur: onProf ? 'page' : 'false',
+navIni: staff ? 'CO' : 'NI', navName: staff ? 'Coach' : 'NICKNAME12345', navRole: staff ? 'Staff · Atlant Esports' : 'Игрок · Solo',
+navAvBg: staff ? 'linear-gradient(135deg, #7A4DFF, #B07CFF)' : 'linear-gradient(135deg, #0066FF, #00C8FF)',
+navSwitchHref: staff ? 'Main.dc.html' : 'TeamOverview.dc.html', navSwitchText: staff ? 'Демо: открыть как игрок' : 'Демо: открыть как Staff'
+};
+}
+}
+</script>
+</body>
+</html>

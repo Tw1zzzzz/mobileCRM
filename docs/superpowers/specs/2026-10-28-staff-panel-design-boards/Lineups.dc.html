@@ -1,0 +1,442 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Performance CRM — Раскидки и скрипты (Staff)</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#070B17}
+a{color:#3FD0FF}a:hover{color:#8BE4FF}
+.card{padding:24px;border-radius:24px;background:rgba(15,21,40,.82);border:1px solid rgba(120,150,220,.12);display:flex;flex-direction:column;gap:18px;min-width:0;box-sizing:border-box}
+.card h2{margin:0;font-size:22px;font-weight:700}
+.sub{font-size:14px;color:#A3AECB;line-height:1.45}
+.eyebrow{font-size:12px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:#7FE0FF}
+.rail-a{width:44px;height:44px;border-radius:12px;display:flex;align-items:center;justify-content:center;color:#A3AECB;text-decoration:none}
+.rail-a:hover{background:#141B30;color:#FFFFFF}
+.rail-on{color:#FFFFFF;background:linear-gradient(135deg,#0066FF,#00B4F0);box-shadow:0 6px 20px rgba(0,110,255,.35)}
+.rail-on:hover{color:#FFFFFF;background:linear-gradient(135deg,#0066FF,#00B4F0)}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid rgba(120,150,220,.18);background:#141B30;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer;white-space:nowrap;text-decoration:none;box-sizing:border-box}
+.chip:hover{color:#FFFFFF;border-color:rgba(63,208,255,.4)}
+.chip-on{background:linear-gradient(90deg,#0066FF,#00B4F0);border-color:transparent;color:#FFFFFF;font-weight:600}
+.chip-on:hover{color:#FFFFFF}
+.st{display:inline-flex;align-items:center;gap:6px;padding:4px 10px;border-radius:999px;font-size:12px;font-weight:700;white-space:nowrap}
+.st-ok{background:rgba(63,208,255,.14);color:#7FE0FF}
+.st-mid{background:rgba(255,194,61,.14);color:#FFD27A}
+.st-bad{background:rgba(255,122,61,.14);color:#FFA27A}
+.st-mute{background:rgba(120,150,220,.12);color:#A3AECB}
+.st-staff{background:rgba(176,124,255,.16);color:#C9A6FF}
+.av{flex:0 0 auto;border-radius:14px;background:linear-gradient(135deg,#0066FF,#00C8FF);display:flex;align-items:center;justify-content:center;font-weight:800;color:#FFFFFF}
+.tabs{display:flex;gap:4px;padding:5px;border-radius:14px;background:#141B30;border:1px solid rgba(120,150,220,.14);overflow-x:auto}
+.tab{flex:0 0 auto;min-height:42px;padding:0 18px;border:0;border-radius:10px;background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;text-decoration:none}
+.tab:hover{color:#FFFFFF}
+.tab-on{background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF}
+.tab-on:hover{color:#FFFFFF}
+.kpi{display:flex;flex-direction:column;gap:6px;padding:16px 18px;border-radius:16px;background:#141B30;min-width:0}
+.kpi > span:first-child{font-size:13px;color:#8A97B8}
+.kpi > span:nth-child(2){font-size:26px;font-weight:800;font-variant-numeric:tabular-nums}
+.kpi > span:nth-child(3){font-size:12px;color:#A3AECB}
+.row{display:grid;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid rgba(120,150,220,.1);font-size:14px;font-variant-numeric:tabular-nums}
+.row:hover{background:rgba(30,39,64,.45)}
+.rhead{font-size:12px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:#8A97B8;background:#141B30}
+.rhead:hover{background:#141B30}
+.tbl{border-radius:16px;border:1px solid rgba(120,150,220,.14);background:#0F1528;overflow-x:auto}
+.btn-primary{min-height:46px;padding:0 20px;border:0;border-radius:12px;background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF;font-family:inherit;font-size:15px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 22px rgba(0,120,255,.35);text-decoration:none;box-sizing:border-box;white-space:nowrap}
+.btn-primary:hover{filter:brightness(1.08);color:#FFFFFF}
+.btn-primary[disabled]{opacity:.4;cursor:not-allowed;filter:none;box-shadow:none}
+.btn-ghost{min-height:42px;padding:0 14px;border-radius:12px;border:1px solid rgba(120,150,220,.2);background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;box-sizing:border-box;white-space:nowrap}
+.btn-ghost:hover{background:#1E2740;color:#FFFFFF}
+.btn-ghost[disabled]{opacity:.45;cursor:not-allowed;background:transparent}
+.btn-danger{min-height:42px;padding:0 14px;border-radius:12px;border:1px solid rgba(255,122,61,.45);background:rgba(255,122,61,.08);color:#FFA27A;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer}
+.btn-danger:hover{background:rgba(255,122,61,.18)}
+.icon-btn{width:42px;height:42px;border-radius:12px;border:1px solid rgba(120,150,220,.16);background:transparent;color:#C3CCE2;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto;font-family:inherit;text-decoration:none}
+.icon-btn:hover{background:#1E2740;color:#FFFFFF}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld > label,.fld > .lbl{font-size:13px;font-weight:600;color:#A3AECB}
+.inp{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border-radius:12px;border:1px solid rgba(120,150,220,.2);background:#10172B;color:#F2F5FB;font-family:inherit;font-size:15px;color-scheme:dark}
+textarea.inp{min-height:96px;padding:12px 14px;line-height:1.45;resize:vertical}
+.inp:focus{outline:2px solid #3FD0FF;outline-offset:0;border-color:transparent}
+.inp-bad{border-color:rgba(255,122,61,.7)}
+.err{font-size:13px;font-weight:600;color:#FFA27A}
+.ok{font-size:13px;font-weight:600;color:#7FE0FF}
+.overlay{position:fixed;inset:0;z-index:50;background:rgba(4,7,16,.74);display:flex;align-items:center;justify-content:center;padding:16px;box-sizing:border-box}
+.dlg{width:100%;max-width:560px;max-height:100%;overflow-y:auto;box-sizing:border-box;padding:26px;border-radius:24px;background:#0F1528;border:1px solid rgba(63,208,255,.3);box-shadow:0 30px 80px rgba(0,0,0,.6);display:flex;flex-direction:column;gap:18px}
+.dlg h2{margin:0;font-size:22px}
+.toast{position:fixed;left:50%;bottom:28px;transform:translateX(-50%);z-index:60;padding:14px 20px;border-radius:14px;background:#141B30;border:1px solid rgba(63,208,255,.4);box-shadow:0 20px 50px rgba(0,0,0,.5);font-size:14px;font-weight:600;color:#F2F5FB;display:flex;align-items:center;gap:10px;max-width:calc(100% - 32px);box-sizing:border-box}
+.bar{height:10px;border-radius:5px;background:#1E2740;overflow:hidden;position:relative}
+.bar-in{height:100%;border-radius:5px}
+.nav-item:hover{background:rgba(30,39,64,.8);color:#FFFFFF}
+.empty{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:28px 16px;border-radius:16px;border:1px dashed rgba(120,150,220,.25);color:#8A97B8;font-size:14px;text-align:center}
+
+.lu{display:flex;flex-direction:column;gap:0;border-radius:20px;border:1px solid rgba(120,150,220,.14);background:rgba(15,21,40,.88);color:#F2F5FB;font-family:inherit;text-align:left;cursor:pointer;overflow:hidden;min-width:0;padding:0}
+.lu:hover{border-color:rgba(63,208,255,.45)}
+.lu-on{border-color:rgba(63,208,255,.8);box-shadow:0 12px 30px rgba(0,110,255,.25)}
+.thumb{position:relative;height:118px;display:flex;align-items:center;justify-content:center;overflow:hidden}
+.thumb::after{content:'';position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.05) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.05) 1px,transparent 1px);background-size:22px 22px}
+.side{position:absolute;top:10px;left:10px;z-index:1;padding:3px 8px;border-radius:7px;font-size:11px;font-weight:800;letter-spacing:.06em}
+.side-T{background:rgba(255,170,61,.2);color:#FFC98A}.side-CT{background:rgba(63,160,255,.22);color:#9CCBFF}
+.star{position:absolute;top:8px;right:8px;z-index:1;width:34px;height:34px;border-radius:10px;border:0;background:rgba(7,11,23,.55);color:#8A97B8;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center}
+.star-on{color:#FFD27A}
+.vid{position:absolute;bottom:10px;right:10px;z-index:1;display:inline-flex;align-items:center;gap:5px;padding:3px 8px;border-radius:7px;background:rgba(7,11,23,.6);font-size:11px;font-weight:700;color:#C3CCE2}
+.seg{display:inline-flex;gap:4px;padding:4px;border-radius:12px;background:#141B30;border:1px solid rgba(120,150,220,.14)}
+.seg button{min-height:34px;padding:0 14px;border:0;border-radius:9px;background:transparent;color:#C3CCE2;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer}
+.seg button.on{background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF}
+.step{display:flex;gap:12px;align-items:flex-start;font-size:14px;color:#D5DCEC;line-height:1.45}
+.step b{flex:0 0 auto;width:26px;height:26px;border-radius:8px;background:#1E2740;color:#7FE0FF;font-size:13px;display:flex;align-items:center;justify-content:center}
+.chip-sm{min-height:34px;padding:0 12px;font-size:13px}
+
+.sb-item{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:12px;text-decoration:none;color:#C3CCE2;font-size:15px;font-weight:500}
+.sb-item:hover{background:rgba(30,39,64,.8);color:#FFFFFF}
+.sb-item:focus-visible{outline:2px solid #3FD0FF;outline-offset:2px}
+.sb-on,.sb-on:hover{color:#FFFFFF;background:linear-gradient(90deg,rgba(0,102,255,.9),rgba(0,200,255,.75));box-shadow:0 6px 20px rgba(0,110,255,.35)}
+.sb-h{padding:0 12px;margin:6px 0 2px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6F7C9C}
+.sb-card{padding:12px;border-radius:16px;background:rgba(23,31,52,.9);border:1px solid rgba(120,150,220,.14);display:flex;align-items:center;gap:12px;text-decoration:none;color:#F2F5FB}
+.sb-card:hover{border-color:rgba(63,208,255,.45);color:#F2F5FB}
+.sb-card-on{border-color:rgba(63,208,255,.7);background:linear-gradient(160deg,rgba(0,102,255,.25),rgba(23,31,52,.95) 70%)}
+.sb-switch{display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;border-radius:12px;border:1px dashed rgba(120,150,220,.3);color:#A3AECB;font-size:13px;font-weight:600;text-decoration:none}
+.sb-switch:hover{color:#FFFFFF;border-color:rgba(63,208,255,.5)}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #070B17; background-image: radial-gradient(900px 520px at 18% -8%, rgba(0,102,255,0.55), rgba(0,102,255,0) 70%), radial-gradient(520px 380px at 2% 10%, rgba(0,200,255,0.35), rgba(0,200,255,0) 70%); font-family: 'Onest', system-ui, sans-serif; color: #F2F5FB; display: flex; flex-wrap: wrap; align-items: stretch">
+<nav aria-label="{{navLabel}}" style="flex: 1 1 260px; max-width: 100%; box-sizing: border-box; padding: 28px 20px; display: flex; flex-direction: column; gap: 20px; background: rgba(9,14,30,0.72); border-right: 1px solid rgba(120,150,220,0.12)">
+<a href="{{navHome}}" style="display: flex; align-items: center; gap: 12px; padding: 0 8px 8px; text-decoration: none; color: #F2F5FB">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #0066FF, #00C8FF); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,120,255,0.45)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19L10 5l4 9 2-4 4 9"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A97B8">Atlant Technology</span><span style="font-size: 16px; font-weight: 700">Performance CRM</span></span>
+</a>
+<sc-for list="{{navGroups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{ false }}"><span class="sb-h">{{g.title}}</span></sc-if>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="2"><a href="{{it.href}}" class="{{it.cls}}" aria-current="{{it.cur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.icon}}"></path></svg>{{it.name}}</a></sc-for>
+</div>
+</sc-for>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+<sc-if value="{{navHasExtra}}" hint-placeholder-val="{{ true }}"><a href="{{navExtraHref}}" class="{{navExtraCls}}" aria-current="{{navExtraCur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{navExtraIcon}}"></path></svg>{{navExtraName}}</a></sc-if>
+<a href="Profile.dc.html" class="{{navCardCls}}" aria-label="Профиль и настройки" aria-current="{{navCardCur}}">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: {{navAvBg}}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #FFFFFF">{{navIni}}</span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0"><span style="font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{navName}}</span><span style="font-size: 12px; color: #A3AECB">{{navRole}}</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A3AECB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
+</a>
+<a href="{{navSwitchHref}}" class="sb-switch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>{{navSwitchText}}</a>
+</div>
+</nav>
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px clamp(16px, 3vw, 40px) 48px; display: flex; flex-direction: column; gap: 24px">
+
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<div style="display: flex; flex-direction: column; gap: 6px; flex: 1 1 auto">
+<span style="display: flex; align-items: center; gap: 10px"><span class="st st-staff">Staff</span><span style="font-size: 14px; color: #A3AECB">Atlant Esports · база команды, видна всем игрокам</span></span>
+<h1 style="margin: 0; font-size: clamp(32px, 4vw, 52px); line-height: 1.05; font-weight: 800; letter-spacing: -0.01em; text-transform: uppercase">Раскидки и скрипты</h1>
+</div>
+<button class="btn-ghost" style="min-height: 46px" onClick="{{newLineup}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Раскидка</button>
+<button class="btn-primary" onClick="{{newScript}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Скрипт</button>
+</header>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px">
+<sc-for list="{{counters}}" as="c" hint-placeholder-count="4"><div class="kpi" style="background: rgba(15,21,40,0.82); border: 1px solid rgba(120,150,220,0.12); border-radius: 18px"><span>{{c.label}}</span><span>{{c.value}}</span></div></sc-for>
+</div>
+
+<div style="display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start">
+
+<div style="flex: 1.5 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; flex-direction: column; gap: 12px; padding: 18px; border-radius: 20px; background: rgba(15,21,40,0.82); border: 1px solid rgba(120,150,220,0.12)">
+<div style="position: relative">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#8A97B8" stroke-width="2" stroke-linecap="round" aria-hidden="true" style="position: absolute; left: 14px; top: 50%; transform: translateY(-50%)"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-3.5-3.5"></path></svg>
+<input class="inp" type="search" aria-label="Поиск по базе" placeholder="Поиск: название, карта, описание" value="{{q}}" onChange="{{onQ}}" style="padding-left: 42px">
+</div>
+<div role="group" aria-label="Карта" style="display: flex; gap: 8px; flex-wrap: wrap">
+<sc-for list="{{maps}}" as="m" hint-placeholder-count="8"><button class="{{m.cls}}" aria-pressed="{{m.on}}" onClick="{{m.pick}}">{{m.name}}<span style="opacity: 0.6; font-size: 12px">{{m.n}}</span></button></sc-for>
+</div>
+<div style="display: flex; gap: 12px; flex-wrap: wrap; align-items: center">
+<div role="group" aria-label="Тип" style="display: flex; gap: 8px; flex-wrap: wrap; flex: 1 1 auto">
+<sc-for list="{{types}}" as="t" hint-placeholder-count="6"><button class="{{t.cls}}" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button></sc-for>
+</div>
+<div class="seg" role="group" aria-label="Сторона"><sc-for list="{{sides}}" as="s" hint-placeholder-count="3"><button class="{{s.cls}}" aria-pressed="{{s.on}}" onClick="{{s.pick}}">{{s.name}}</button></sc-for></div>
+<button class="{{favCls}}" aria-pressed="{{favOn}}" onClick="{{toggleFav}}">★ Избранное</button>
+</div>
+</div>
+
+<span style="font-size: 14px; color: #A3AECB">{{foundText}}</span>
+<sc-if value="{{hasItems}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); gap: 14px">
+<sc-for list="{{items}}" as="it" hint-placeholder-count="6">
+<div class="{{it.cls}}" role="button" tabindex="0" aria-pressed="{{it.on}}" onClick="{{it.pick}}">
+<div class="thumb" style="background: {{it.bg}}">
+<span class="{{it.sideCls}}">{{it.side}}</span>
+<button class="{{it.starCls}}" aria-label="{{it.starLabel}}" onClick="{{it.star}}">★</button>
+<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="{{it.ic}}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: relative; z-index: 1"><path d="{{it.icon}}"></path></svg>
+<sc-if value="{{it.hasVideo}}" hint-placeholder-val="{{ true }}"><span class="vid">▶ Видео</span></sc-if>
+</div>
+<div style="padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 15px; font-weight: 700; line-height: 1.3">{{it.title}}</span>
+<span style="font-size: 13px; color: #A3AECB">{{it.meta}}</span>
+<span style="font-size: 12px; color: #8A97B8">{{it.author}}</span>
+</div>
+</div>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{noItems}}" hint-placeholder-val="{{ false }}"><div class="empty">Ничего не найдено. Сбросьте фильтры или добавьте запись<button class="btn-ghost" onClick="{{resetF}}">Сбросить фильтры</button></div></sc-if>
+</div>
+
+<!-- Detail -->
+<aside aria-label="Выбранная запись" style="flex: 1 1 380px; min-width: 0; position: sticky; top: 16px">
+<sc-if value="{{hasSel}}" hint-placeholder-val="{{ true }}">
+<section class="card" style="padding: 0; gap: 0; overflow: hidden">
+<div class="thumb" style="height: 200px; background: {{d_bg}}">
+<span class="{{d_sideCls}}">{{d_side}}</span>
+<svg width="64" height="64" viewBox="0 0 24 24" fill="none" stroke="{{d_ic}}" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="position: relative; z-index: 1"><path d="{{d_icon}}"></path></svg>
+</div>
+<div style="padding: 22px 24px 24px; display: flex; flex-direction: column; gap: 16px">
+<div style="display: flex; gap: 8px; flex-wrap: wrap"><span class="st st-ok">{{d_type}}</span><span class="st st-mute">{{d_map}}</span><span class="st st-mute">{{d_sideFull}}</span></div>
+<h2 style="margin: 0; font-size: 24px; line-height: 1.2">{{d_title}}</h2>
+<sc-if value="{{d_hasVideo}}" hint-placeholder-val="{{ true }}"><a href="{{d_video}}" target="_blank" rel="noopener" class="btn-primary" style="align-self: flex-start"><svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 5l12 7-12 7z"></path></svg>Смотреть видео</a></sc-if>
+<sc-if value="{{d_noVideo}}" hint-placeholder-val="{{ false }}"><span style="font-size: 13px; color: #8A97B8">Видео не добавлено</span></sc-if>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span class="eyebrow">{{d_descLabel}}</span>
+<sc-for list="{{d_steps}}" as="s" hint-placeholder-count="2"><div class="step"><b>{{s.n}}</b><span>{{s.t}}</span></div></sc-for>
+</div>
+<span style="font-size: 13px; color: #8A97B8">{{d_author}}</span>
+<div style="height: 1px; background: rgba(120,150,220,0.14)"></div>
+<sc-if value="{{d_confirmOff}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button class="btn-ghost" onClick="{{d_star}}">{{d_starText}}</button>
+<button class="btn-ghost" onClick="{{d_edit}}">Редактировать</button>
+<button class="btn-danger" onClick="{{d_askDel}}">Удалить</button>
+</div>
+</sc-if>
+<sc-if value="{{d_confirmOn}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 10px; padding: 14px; border-radius: 14px; background: rgba(255,122,61,0.06); border: 1px dashed rgba(255,122,61,0.4)">
+<span style="font-size: 14px; color: #D5DCEC">Удалить «{{d_title}}»? Запись пропадёт у всех игроков команды</span>
+<div style="display: flex; gap: 8px"><button class="btn-danger" onClick="{{d_del}}">Удалить</button><button class="btn-ghost" onClick="{{d_cancelDel}}">Отмена</button></div>
+</div>
+</sc-if>
+</div>
+</section>
+</sc-if>
+<sc-if value="{{noSel}}" hint-placeholder-val="{{ false }}"><div class="empty" style="min-height: 240px">Выберите запись, чтобы посмотреть детали</div></sc-if>
+</aside>
+</div>
+</main>
+
+<sc-if value="{{fOpen}}" hint-placeholder-val="{{ false }}">
+<div class="overlay">
+<div class="dlg" role="dialog" aria-modal="true" aria-labelledby="f-h">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px"><h2 id="f-h">{{fTitle}}</h2><button class="icon-btn" aria-label="Закрыть" onClick="{{fClose}}">✕</button></div>
+<div class="fld"><label for="f-name">Название *</label><input id="f-name" class="{{fNameCls}}" type="text" placeholder="{{fNamePh}}" value="{{fName}}" onChange="{{onFName}}"></div>
+<div class="fld"><span class="lbl">Тип</span><div style="display: flex; gap: 8px; flex-wrap: wrap"><sc-for list="{{fTypes}}" as="t" hint-placeholder-count="5"><button class="{{t.cls}}" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button></sc-for></div></div>
+<div class="fld"><span class="lbl">Карта</span><div style="display: flex; gap: 8px; flex-wrap: wrap"><sc-for list="{{fMaps}}" as="m" hint-placeholder-count="7"><button class="{{m.cls}}" aria-pressed="{{m.on}}" onClick="{{m.pick}}">{{m.name}}</button></sc-for></div></div>
+<div class="fld"><span class="lbl">Сторона</span><div class="seg" style="align-self: flex-start"><sc-for list="{{fSides}}" as="s" hint-placeholder-count="2"><button class="{{s.cls}}" aria-pressed="{{s.on}}" onClick="{{s.pick}}">{{s.name}}</button></sc-for></div></div>
+<div class="fld"><label for="f-desc">{{fDescLabel}}</label><textarea id="f-desc" class="inp" placeholder="{{fDescPh}}" value="{{fDesc}}" onChange="{{onFDesc}}"></textarea><span style="font-size: 12px; color: #8A97B8">Каждый шаг — с новой строки</span></div>
+<div class="fld"><label for="f-vid">Ссылка на видео</label><input id="f-vid" class="{{fVidCls}}" type="url" placeholder="https://" value="{{fVid}}" onChange="{{onFVid}}"></div>
+<sc-if value="{{fHasErr}}" hint-placeholder-val="{{ false }}"><span class="err" role="alert">{{fErr}}</span></sc-if>
+<button class="btn-primary" style="min-height: 52px" onClick="{{fSave}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"></path></svg>Сохранить</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{hasToast}}" hint-placeholder-val="{{ false }}"><div class="toast" role="status">{{toast}}</div></sc-if>
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview": {"width": 1440, "height": 1500}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+var L = [
+{ id: 1, title: 'Смок в окно с T-спавна', type: 'smoke', map: 'Mirage', side: 'T', fav: true, video: 'https://youtu.be/', author: 'Coach', days: 2, desc: 'Встать в угол у ящика на T-спавне\nПрицел на верхний край антенны\nПрыжок с броском (jumpthrow)' },
+{ id: 2, title: 'Флешка на выход B-апартаментов', type: 'flash', map: 'Mirage', side: 'T', fav: false, video: '', author: 'vexa', days: 3, desc: 'Из апартаментов, у второго окна\nБросок через стену на отскок от потолка\nKairo выходит сразу после хлопка' },
+{ id: 3, title: 'Молотов в дарк на банане', type: 'molotov', map: 'Inferno', side: 'CT', fav: true, video: 'https://youtu.be/', author: 'Coach', days: 4, desc: 'С CT-спавна по прямой\nБросок с прыжком\nВыжигает дарк до 20 секунды раунда' },
+{ id: 4, title: 'Дефолт B-сайт Inferno', type: 'script', map: 'Inferno', side: 'T', fav: false, video: '', author: 'Coach', days: 5, desc: 'Kairo — флешка в банан, первый выход\nm1rage — смок CT и молотов в дарк\nvexa — даёт сигнал на заход на 1:15\nfrost — держит мид с AWP, поздний заход\nzeNN — лурк через аппсы' },
+{ id: 5, title: 'Смок на outside', type: 'smoke', map: 'Nuke', side: 'T', fav: false, video: 'https://youtu.be/', author: 'Blitz', days: 6, desc: 'Из-за красного контейнера\nПрицел на трубу на крыше\nБросок стоя' },
+{ id: 6, title: 'Ретейк A Ancient', type: 'script', map: 'Ancient', side: 'CT', fav: true, video: '', author: 'Coach', days: 6, desc: 'Сбор на CT: смок в донат, флеш от Frost\nzeNN — заход через храм\nvexa — ротация с B за 15 секунд\nОбщий заход по флешке в 0:40' },
+{ id: 7, title: 'Флешка на A-мейн', type: 'flash', map: 'Ancient', side: 'T', fav: false, video: '', author: 'm1rage', days: 8, desc: 'От T-рампы, левый угол\nЛевая кнопка, без прыжка' },
+{ id: 8, title: 'HE в бокс на B', type: 'he', map: 'Anubis', side: 'T', fav: false, video: '', author: 'Kairo', days: 9, desc: 'С канала, у стены\nДобивает игрока в боксе после молотова' },
+{ id: 9, title: 'Смок CT-кросс', type: 'smoke', map: 'Dust2', side: 'T', fav: false, video: 'https://youtu.be/', author: 'Coach', days: 11, desc: 'Из-за двойных дверей на T-спавне\nПрицел на угол здания\nJumpthrow' },
+{ id: 10, title: 'Молотов на ивент', type: 'molotov', map: 'Train', side: 'CT', fav: false, video: '', author: 'frost', days: 14, desc: 'С CT-спавна поверх вагонов\nБросок стоя на правую кнопку' }
+];
+this.state = { list: L, nextId: 11, q: '', map: 'all', type: 'all', side: 'all', favOnly: false, sel: 1, confirm: false, form: null, err: '', toast: '' };
+this.tm = [];
+}
+flash(t) { var self = this; this.setState({ toast: t }); this.tm.forEach(clearTimeout); this.tm = [setTimeout(function () { self.setState({ toast: '' }); }, 2400)]; }
+_rvBase() {
+var self = this, st = this.state;
+var DAY = 86400000;
+var MON = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+var MONF = ['января', 'февраля', 'марта', 'апреля', 'мая', 'июня', 'июля', 'августа', 'сентября', 'октября', 'ноября', 'декабря'];
+var WD = ['вс', 'пн', 'вт', 'ср', 'чт', 'пт', 'сб'];
+var WDF = ['воскресенье', 'понедельник', 'вторник', 'среда', 'четверг', 'пятница', 'суббота'];
+function rng(seed) { var s = seed % 2147483647; if (s <= 0) s += 2147483646; return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function mean(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; }
+function pad(n) { return (n < 10 ? '0' : '') + n; }
+function hm(h) { var hh = Math.floor(h), mm = Math.round((h - hh) * 60); if (mm === 60) { hh++; mm = 0; } return hh + 'ч ' + pad(mm) + 'м'; }
+function corr(a, b) { var ma = mean(a), mb = mean(b), sxy = 0, sxx = 0, syy = 0; for (var i = 0; i < a.length; i++) { var dx = a[i] - ma, dy = b[i] - mb; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; } return sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0; }
+function sgn(v, d) { var r = Number(v.toFixed(d)); return (r > 0 ? '+' : (r < 0 ? '−' : '±')) + Math.abs(r).toFixed(d); }
+function fmt1(v) { return v.toFixed(1).replace('.', ','); }
+function fmt2(v) { return v.toFixed(2).replace('.', ','); }
+function plural(n, a, b, c) { var m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c); }
+var today = new Date(); today.setHours(0, 0, 0, 0);
+function dl(i) { var d = new Date(today.getTime() - i * DAY); return i === 0 ? 'Сегодня' : (i === 1 ? 'Вчера' : d.getDate() + ' ' + MON[d.getMonth()]); }
+var P = [
+{ nick: 'vexa', name: 'Илья Воронов', role: 'IGL', base: 0.4, elo: 2840 },
+{ nick: 'frost', name: 'Артём Морозов', role: 'AWPer', base: -0.6, elo: 2710 },
+{ nick: 'Kairo', name: 'Кирилл Орлов', role: 'Entry', base: 0.9, elo: 2590 },
+{ nick: 'm1rage', name: 'Максим Радов', role: 'Support', base: 0.1, elo: 2655 },
+{ nick: 'zeNN', name: 'Денис Зенин', role: 'Lurker', base: -0.2, elo: 2760 }
+];
+P.forEach(function (p) { p.ini = p.nick.replace(/[^A-Za-z0-9]/g, '').slice(0, 2).toUpperCase(); });
+function gen(pi, N) {
+var pt = N <= 31 ? N : Math.ceil(N / 3);
+var r = rng(pi * 97 + N * 7 + 3), z = P[pi].base * 0.6, o = { sleep: [], mood: [], energy: [], screen: [], cog: [], kd: [], adr: [], kast: [], wr: [], focus: [], fatigue: [], score: [], state: [] };
+for (var i = 0; i < pt; i++) {
+z = 0.6 * z + (r() - 0.5) * 1.3 + P[pi].base * 0.12;
+var kd = clamp(1.02 + 0.16 * z + (r() - 0.5) * 0.25, 0.5, 2);
+o.sleep.push(clamp(7.1 + 0.8 * z + (r() - 0.5) * 0.8, 4.5, 9.8));
+o.mood.push(clamp(6 + 1.2 * z + (r() - 0.5) * 1.6, 1, 10));
+o.energy.push(clamp(5.8 + 1.1 * z + (r() - 0.5) * 1.8, 1, 10));
+o.screen.push(clamp(5.2 - 0.8 * z + (r() - 0.5) * 1.4, 1.5, 10));
+o.cog.push(clamp(62 + 9 * z + (r() - 0.5) * 12, 20, 100));
+o.kd.push(kd); o.adr.push(clamp(78 + 45 * (kd - 1) + (r() - 0.5) * 12, 40, 140));
+o.kast.push(clamp(70 + 22 * (kd - 1) + (r() - 0.5) * 8, 40, 95)); o.wr.push(clamp(50 + 70 * (kd - 1) + (r() - 0.5) * 28, 0, 100));
+o.focus.push(clamp(Math.round(6.5 + 1.4 * z + (r() - 0.5) * 3), 1, 10)); o.fatigue.push(clamp(Math.round(4.5 - 1.3 * z + (r() - 0.5) * 3), 1, 10));
+o.score.push(clamp(64 + 10 * z + (r() - 0.5) * 14, 10, 100)); o.state.push(clamp(60 + 12 * z + (r() - 0.5) * 12, 10, 100));
+}
+return o;
+}
+function readinessAt(o, k) { return Math.round(clamp((o.sleep[k] - 4.5) / 4 * 30 + o.mood[k] * 3 + o.energy[k] * 2.5 + o.cog[k] * 0.3, 0, 100)); }
+function readiness(o) { return readinessAt(o, o.sleep.length - 1); }
+function rstat(v) { return v >= 70 ? ['Готов', 'st st-ok', '#3FD0FF'] : (v >= 55 ? ['Под вопросом', 'st st-mid', '#FFD27A'] : ['Риск', 'st st-bad', '#FF8A3D']); }
+
+var MAPS = ['Mirage', 'Inferno', 'Nuke', 'Ancient', 'Anubis', 'Dust2', 'Train'];
+var MAPC = { Mirage: '232,170,80', Inferno: '214,96,64', Nuke: '64,190,190', Ancient: '90,170,110', Anubis: '110,140,230', Dust2: '210,180,110', Train: '150,160,180' };
+var T = { smoke: ['Смок', 'M7 18h10a4 4 0 0 0 .5-8 5.5 5.5 0 0 0-10.6-1.2A4.5 4.5 0 0 0 7 18z', '#D5DCEC'],
+flash: ['Флешка', 'M12 2v4M12 18v4M2 12h4M18 12h4M5 5l3 3M16 16l3 3M5 19l3-3M16 8l3-3M12 9a3 3 0 1 0 0 6a3 3 0 0 0 0-6z', '#FFF0A0'],
+molotov: ['Молотов', 'M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 1.5-5 3-6 0 2 1 3 2 3 0-3-1-5 1-9z', '#FF9A5A'],
+he: ['HE', 'M12 8a6 6 0 1 0 0 12a6 6 0 0 0 0-12zM10 8V5h4v3M14 5l3-2', '#7FE0FF'],
+script: ['Скрипт', 'M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01', '#C9A6FF'] };
+var TK = ['smoke', 'flash', 'molotov', 'he', 'script'];
+function bg(m) { return 'linear-gradient(135deg, rgba(' + MAPC[m] + ',0.42), rgba(16,23,43,0.95) 75%)'; }
+function when(d) { return d === 0 ? 'сегодня' : (d === 1 ? 'вчера' : dl(d)); }
+var L = st.list, q = st.q.trim().toLowerCase();
+var base = L.filter(function (x) { return (st.type === 'all' || x.type === st.type) && (st.side === 'all' || x.side === st.side) && (!st.favOnly || x.fav) && (!q || (x.title + ' ' + x.map + ' ' + x.desc).toLowerCase().indexOf(q) >= 0); });
+var shown = base.filter(function (x) { return st.map === 'all' || x.map === st.map; });
+var sel = L.filter(function (x) { return x.id === st.sel; })[0];
+function upd(id, patch) { return self.state.list.map(function (x) { return x.id === id ? Object.assign({}, x, patch) : x; }); }
+var f = st.form;
+var maps = [['all', 'Все']].concat(MAPS.map(function (m) { return [m, m]; }));
+var R = {
+newLineup: function () { self.setState({ form: { id: null, title: '', type: 'smoke', map: st.map !== 'all' ? st.map : 'Mirage', side: 'T', desc: '', video: '' }, err: '' }); },
+newScript: function () { self.setState({ form: { id: null, title: '', type: 'script', map: st.map !== 'all' ? st.map : 'Mirage', side: 'T', desc: '', video: '' }, err: '' }); },
+counters: [
+{ label: 'Всего записей', value: L.length },
+{ label: 'Раскидок', value: L.filter(function (x) { return x.type !== 'script'; }).length },
+{ label: 'Скриптов', value: L.filter(function (x) { return x.type === 'script'; }).length },
+{ label: 'В избранном', value: L.filter(function (x) { return x.fav; }).length }
+],
+q: st.q, onQ: function (ev) { self.setState({ q: ev.target.value }); },
+maps: maps.map(function (m) { var on = st.map === m[0], n = m[0] === 'all' ? base.length : base.filter(function (x) { return x.map === m[0]; }).length; return { name: m[1], n: n, on: on ? 'true' : 'false', cls: 'chip chip-sm' + (on ? ' chip-on' : ''), pick: function () { self.setState({ map: m[0] }); } }; }),
+types: [['all', 'Все типы']].concat(TK.map(function (k) { return [k, T[k][0]]; })).map(function (t) { var on = st.type === t[0]; return { name: t[1], on: on ? 'true' : 'false', cls: 'chip chip-sm' + (on ? ' chip-on' : ''), pick: function () { self.setState({ type: t[0] }); } }; }),
+sides: [['all', 'Обе'], ['T', 'T'], ['CT', 'CT']].map(function (s) { var on = st.side === s[0]; return { name: s[1], on: on ? 'true' : 'false', cls: on ? 'on' : '', pick: function () { self.setState({ side: s[0] }); } }; }),
+favOn: st.favOnly ? 'true' : 'false', favCls: 'chip chip-sm' + (st.favOnly ? ' chip-on' : ''), toggleFav: function () { self.setState({ favOnly: !self.state.favOnly }); },
+foundText: shown.length + ' ' + plural(shown.length, 'запись', 'записи', 'записей') + (st.map !== 'all' ? ' на ' + st.map : ''),
+hasItems: shown.length > 0, noItems: shown.length === 0,
+resetF: function () { self.setState({ q: '', map: 'all', type: 'all', side: 'all', favOnly: false }); },
+items: shown.map(function (x) { var on = sel && x.id === sel.id; return {
+title: x.title, meta: x.map + ' · ' + x.side + ' · ' + T[x.type][0], author: x.author + ' · ' + when(x.days),
+bg: bg(x.map), icon: T[x.type][1], ic: T[x.type][2], side: x.side, sideCls: 'side side-' + x.side, hasVideo: !!x.video,
+cls: 'lu' + (on ? ' lu-on' : ''), on: on ? 'true' : 'false', pick: function () { self.setState({ sel: x.id, confirm: false }); },
+starCls: 'star' + (x.fav ? ' star-on' : ''), starLabel: x.fav ? 'Убрать из избранного' : 'В избранное',
+star: function (ev) { if (ev && ev.stopPropagation) ev.stopPropagation(); self.setState({ list: upd(x.id, { fav: !x.fav }) }); } }; }),
+hasSel: !!sel, noSel: !sel,
+d: sel ? { title: sel.title, type: T[sel.type][0], map: sel.map, side: sel.side, sideFull: sel.side === 'T' ? 'Атака (T)' : 'Защита (CT)', sideCls: 'side side-' + sel.side,
+bg: bg(sel.map), icon: T[sel.type][1], ic: T[sel.type][2], hasVideo: !!sel.video, noVideo: !sel.video, video: sel.video || '#',
+descLabel: sel.type === 'script' ? 'Шаги скрипта' : 'Как бросать',
+steps: sel.desc.split('\n').filter(function (s) { return s.trim(); }).map(function (s, i) { return { n: i + 1, t: s }; }),
+author: 'Добавил ' + sel.author + ' · ' + when(sel.days) + ' · видно всем игрокам команды',
+starText: sel.fav ? '★ В избранном' : '☆ В избранное', star: function () { self.setState({ list: upd(sel.id, { fav: !sel.fav }) }); },
+edit: function () { self.setState({ form: Object.assign({}, sel), err: '' }); },
+confirmOn: st.confirm, confirmOff: !st.confirm,
+askDel: function () { self.setState({ confirm: true }); }, cancelDel: function () { self.setState({ confirm: false }); },
+del: function () { var rest = self.state.list.filter(function (x) { return x.id !== sel.id; }); self.setState({ list: rest, sel: rest.length ? rest[0].id : null, confirm: false }); self.flash('Запись удалена'); }
+} : { steps: [] },
+fOpen: !!f,
+fTitle: f ? (f.id ? 'Редактирование' : (f.type === 'script' ? 'Новый скрипт' : 'Новая раскидка')) : '',
+fClose: function () { self.setState({ form: null }); },
+fName: f ? f.title : '', fNamePh: f && f.type === 'script' ? 'Например, Дефолт B-сайт' : 'Например, Смок в окно',
+fNameCls: 'inp' + (st.err && f && !f.title.trim() ? ' inp-bad' : ''),
+onFName: function (ev) { self.setState({ form: Object.assign({}, self.state.form, { title: ev.target.value }), err: '' }); },
+fTypes: TK.map(function (k) { var on = f && f.type === k; return { name: T[k][0], on: on ? 'true' : 'false', cls: 'chip chip-sm' + (on ? ' chip-on' : ''), pick: function () { self.setState({ form: Object.assign({}, self.state.form, { type: k }) }); } }; }),
+fMaps: MAPS.map(function (m) { var on = f && f.map === m; return { name: m, on: on ? 'true' : 'false', cls: 'chip chip-sm' + (on ? ' chip-on' : ''), pick: function () { self.setState({ form: Object.assign({}, self.state.form, { map: m }) }); } }; }),
+fSides: ['T', 'CT'].map(function (s) { var on = f && f.side === s; return { name: s, on: on ? 'true' : 'false', cls: on ? 'on' : '', pick: function () { self.setState({ form: Object.assign({}, self.state.form, { side: s }) }); } }; }),
+fDescLabel: f && f.type === 'script' ? 'Шаги скрипта и роли' : 'Описание: откуда и как бросать',
+fDescPh: f && f.type === 'script' ? 'Kairo — флешка в банан, первый выход' : 'Встать у ящика, прицел на антенну, jumpthrow',
+fDesc: f ? f.desc : '', onFDesc: function (ev) { self.setState({ form: Object.assign({}, self.state.form, { desc: ev.target.value }) }); },
+fVid: f ? f.video : '', fVidCls: 'inp' + (st.err && f && f.video && !/^https?:\/\//.test(f.video) ? ' inp-bad' : ''),
+onFVid: function (ev) { self.setState({ form: Object.assign({}, self.state.form, { video: ev.target.value.trim() }), err: '' }); },
+fHasErr: !!st.err, fErr: st.err,
+fSave: function () {
+var s = self.state, x = s.form;
+if (!x.title.trim()) { self.setState({ err: 'Заполните название' }); return; }
+if (x.video && !/^https?:\/\/\S+\.\S+/.test(x.video)) { self.setState({ err: 'Ссылка на видео должна начинаться с https://' }); return; }
+if (x.id) { self.setState({ list: s.list.map(function (y) { return y.id === x.id ? Object.assign({}, x, { title: x.title.trim() }) : y; }), form: null }); self.flash('Изменения сохранены'); return; }
+var n = Object.assign({}, x, { id: s.nextId, title: x.title.trim(), author: 'Coach', days: 0, fav: false });
+self.setState({ list: [n].concat(s.list), nextId: s.nextId + 1, sel: n.id, form: null, map: 'all', type: 'all', side: 'all', favOnly: false, q: '' });
+self.flash(x.type === 'script' ? 'Скрипт добавлен — игроки увидят его в дневнике' : 'Раскидка добавлена — игроки увидят её в дневнике');
+},
+hasToast: !!st.toast, toast: st.toast
+};
+Object.keys(R.d).forEach(function (k) { R['d_' + k] = R.d[k]; });
+return R;
+}
+renderVals() { var r = this._rvBase() || {}; var n = this._navVals(); for (var k in n) r[k] = n[k]; return r; }
+_navVals() {
+var FILE = 'Lineups.dc.html', KIND = 'staff', role = KIND;
+if (KIND === 'shared') {
+var pr = this.props.role;
+if (pr === 'player' || pr === 'staff') role = pr;
+else { role = 'player'; try { if (window.localStorage.getItem('crm.role') === 'staff') role = 'staff'; } catch (e) {} }
+} else { try { window.localStorage.setItem('crm.role', KIND); } catch (e) {} }
+var IC = {
+overview: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+calendar: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4',
+tests: 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9',
+mood: 'M13 2L4 14h7l-1 8 9-12h-7z',
+recovery: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8zM3.5 12h4l2-3 3 6 2-3h6',
+stats: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+game: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 3v3M12 18v3M3 12h3M18 12h3',
+players: 'M9 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM2.5 20c.8-3.4 3.3-5 6.5-5s5.7 1.6 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.2 3.5 5',
+lineups: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
+tariffs: 'M3 6h18v12H3zM3 10h18M7 15h4',
+diary: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6'
+};
+var G = role === 'staff' ? [
+['', [['Обзор', 'TeamOverview.dc.html', 'overview'], ['Календарь', 'StaffCalendar.dc.html', 'calendar']]],
+['Команда', [['Игроки', 'Players.dc.html', 'players', ['TeamNutrition.dc.html']], ['Раскидки и скрипты', 'Lineups.dc.html', 'lineups']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+] : [
+['', [['Обзор', 'Main.dc.html', 'overview'], ['Календарь', 'Calendar.dc.html', 'calendar'], ['Дневник CS2', 'Diary.dc.html', 'diary']]],
+['Состояние', [['Тесты', 'Tests.dc.html', 'tests', ['TestRunner.dc.html']], ['Настроение и энергия', 'MoodEnergy.dc.html', 'mood'], ['Восстановление', 'Recovery.dc.html', 'recovery']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+];
+var staff = role === 'staff', onTar = FILE === 'Tariffs.dc.html', onProf = FILE === 'Profile.dc.html';
+return {
+navLabel: staff ? 'Меню Staff' : 'Основное меню', navHome: staff ? 'TeamOverview.dc.html' : 'Main.dc.html',
+navGroups: G.map(function (g) { return { title: g[0], hasTitle: !!g[0], items: g[1].map(function (it) {
+var on = it[1] === FILE || (it[3] && it[3].indexOf(FILE) >= 0);
+return { name: it[0], href: it[1], icon: IC[it[2]], cls: 'sb-item' + (on ? ' sb-on' : ''), cur: on ? 'page' : 'false' }; }) }; }),
+navHasExtra: !staff, navExtraName: 'Тарифы', navExtraHref: 'Tariffs.dc.html', navExtraIcon: IC.tariffs,
+navExtraCls: 'sb-item' + (onTar ? ' sb-on' : ''), navExtraCur: onTar ? 'page' : 'false',
+navCardCls: 'sb-card' + (onProf ? ' sb-card-on' : ''), navCardCur: onProf ? 'page' : 'false',
+navIni: staff ? 'CO' : 'NI', navName: staff ? 'Coach' : 'NICKNAME12345', navRole: staff ? 'Staff · Atlant Esports' : 'Игрок · Solo',
+navAvBg: staff ? 'linear-gradient(135deg, #7A4DFF, #B07CFF)' : 'linear-gradient(135deg, #0066FF, #00C8FF)',
+navSwitchHref: staff ? 'Main.dc.html' : 'TeamOverview.dc.html', navSwitchText: staff ? 'Демо: открыть как игрок' : 'Демо: открыть как Staff'
+};
+}
+}
+
+</script>
+</body>
+</html>

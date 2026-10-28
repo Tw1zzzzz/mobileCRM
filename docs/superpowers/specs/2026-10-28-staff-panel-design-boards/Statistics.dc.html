@@ -1,0 +1,804 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Performance CRM — Статистика</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#070B17}
+a{color:#3FD0FF}a:hover{color:#8BE4FF}
+.card{padding:24px;border-radius:24px;background:rgba(15,21,40,.82);border:1px solid rgba(120,150,220,.12);display:flex;flex-direction:column;gap:18px;min-width:0}
+.card h2{margin:0;font-size:22px;font-weight:700}
+.sub{font-size:14px;color:#A3AECB}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid rgba(120,150,220,.18);background:#141B30;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.chip:hover{color:#FFFFFF;border-color:rgba(63,208,255,.4)}
+.chip-on{background:linear-gradient(90deg,#0066FF,#00B4F0);border-color:transparent;color:#FFFFFF;font-weight:600}
+.mchip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 14px;border-radius:12px;border:1px solid rgba(120,150,220,.18);background:#10172B;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.mchip:hover{color:#FFFFFF;border-color:rgba(63,208,255,.4)}
+.mchip-on{background:rgba(63,208,255,.14);border-color:rgba(63,208,255,.55);color:#FFFFFF;font-weight:600}
+.mchip-on-g{background:rgba(255,170,60,.14);border-color:rgba(255,170,60,.55);color:#FFFFFF;font-weight:600}
+.dot{width:8px;height:8px;border-radius:50%}
+.modebar{position:sticky;top:0;z-index:5;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,260px),1fr));gap:8px;padding:8px;border-radius:20px;background:rgba(10,15,32,.92);border:1px solid rgba(120,150,220,.16);backdrop-filter:blur(10px);box-shadow:0 12px 30px rgba(0,0,0,.35)}
+.mode{display:flex;align-items:center;gap:14px;min-height:64px;padding:10px 16px;border:0;border-radius:14px;background:transparent;color:#C3CCE2;font-family:inherit;text-align:left;cursor:pointer}
+.mode:hover{background:#141B30;color:#FFFFFF}
+.mode-on{background:linear-gradient(135deg,#0066FF,#00B4F0);color:#FFFFFF;box-shadow:0 8px 24px rgba(0,110,255,.35)}
+.mode-on:hover{background:linear-gradient(135deg,#0066FF,#00B4F0)}
+.mode-ico{flex:0 0 auto;width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(255,255,255,.08)}
+.kpi{position:relative;padding:18px;border-radius:18px;background:rgba(15,21,40,.88);border:1px solid rgba(120,150,220,.12);display:flex;flex-direction:column;gap:10px;min-width:0}
+.kpi-low{border-color:rgba(255,122,61,.55);background:linear-gradient(160deg,rgba(255,122,61,.12),rgba(15,21,40,.9) 60%)}
+.kpi-ico{width:40px;height:40px;border-radius:12px;display:flex;align-items:center;justify-content:center;background:rgba(63,208,255,.12);color:#7FE0FF}
+.kpi-low .kpi-ico{background:rgba(255,122,61,.14);color:#FFA27A}
+.kpi-val{font-size:30px;font-weight:800;line-height:1;font-variant-numeric:tabular-nums}
+.kpi-lbl{font-size:13px;color:#8A97B8}
+.flag{position:absolute;top:16px;right:16px;padding:4px 10px;border-radius:999px;background:rgba(255,122,61,.16);color:#FFA27A;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase}
+.delta{font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
+.up{color:#7FE0FF}.down{color:#FFA27A}.flat{color:#8A97B8}
+.tog{display:inline-flex;align-items:center;gap:10px;min-height:40px;padding:0 14px;border-radius:12px;border:1px solid rgba(120,150,220,.18);background:#141B30;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.tog:hover{color:#FFFFFF}
+.tog-off{opacity:.5;text-decoration:line-through}
+.sw{width:14px;height:4px;border-radius:2px}
+.xl{display:flex;justify-content:space-between;padding:0 0 0 2.5%;font-size:12px;color:#7D89A8;font-variant-numeric:tabular-nums}
+.test{display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:18px;background:#141B30;border:1px solid rgba(120,150,220,.12);min-width:0}
+.rl{position:absolute;transform:translate(-50%,-50%);font-size:12px;font-weight:600;color:#C3CCE2;white-space:nowrap;text-align:center}
+.segwrap{display:flex;gap:4px;padding:5px;border-radius:14px;background:#141B30;border:1px solid rgba(120,150,220,.14);max-width:100%;overflow-x:auto}
+.seg-btn{flex:1 1 0;min-height:42px;padding:0 14px;border:0;border-radius:10px;background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.seg-btn:hover{color:#FFFFFF}
+.seg-on{background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF}
+.stat{display:flex;flex-direction:column;gap:2px;padding:14px 16px;border-radius:14px;background:#141B30;min-width:0}
+.stat span:first-child{font-size:12px;color:#8A97B8}
+.stat span:last-child{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.inp{box-sizing:border-box;min-height:44px;padding:0 12px;border-radius:12px;border:1px solid rgba(63,208,255,.35);background:rgba(63,208,255,.06);color:#F2F5FB;font-family:inherit;font-size:15px;font-weight:600;color-scheme:dark}
+.inp:focus{outline:2px solid #3FD0FF;border-color:transparent}
+.link{display:flex;flex-direction:column;gap:12px;padding:18px;border-radius:18px;background:#141B30;border:1px solid rgba(120,150,220,.12)}
+.rbar{position:relative;height:10px;border-radius:5px;background:#1E2740}
+.rbar::after{content:'';position:absolute;left:50%;top:-3px;width:2px;height:16px;background:#5E6A8A}
+.rfill{position:absolute;top:0;height:100%;border-radius:5px}
+.rpos{background:linear-gradient(90deg,#0066FF,#3FD0FF)}.rneg{background:linear-gradient(90deg,#FF7A3D,#FFAA3C)}
+.mx{display:grid;gap:4px}
+.mxc{padding:10px 6px;border-radius:8px;text-align:center;font-size:13px;font-weight:700;font-variant-numeric:tabular-nums;color:#FFFFFF}
+.mxh{padding:10px 6px;font-size:12px;font-weight:600;color:#A3AECB;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mxr{padding:10px 8px;font-size:12px;font-weight:600;color:#A3AECB;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.btn-primary{min-height:46px;padding:0 20px;border:0;border-radius:12px;background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF;font-family:inherit;font-size:15px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 8px 22px rgba(0,120,255,.35);text-decoration:none}
+.btn-primary:hover{filter:brightness(1.08);color:#FFFFFF}
+.btn-ghost{min-height:42px;padding:0 16px;border-radius:12px;border:1px solid rgba(120,150,220,.2);background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:8px}
+.btn-ghost:hover{background:#1E2740;color:#FFFFFF}
+.ai{display:flex;flex-direction:column;gap:8px;padding:16px;border-radius:16px;background:#141B30;border:1px solid rgba(120,150,220,.12)}
+.ai span:first-child{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7FE0FF}
+.ai span:last-child{font-size:14px;line-height:1.5;color:#D5DCEC}
+
+.sb-item{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:12px;text-decoration:none;color:#C3CCE2;font-size:15px;font-weight:500}
+.sb-item:hover{background:rgba(30,39,64,.8);color:#FFFFFF}
+.sb-item:focus-visible{outline:2px solid #3FD0FF;outline-offset:2px}
+.sb-on,.sb-on:hover{color:#FFFFFF;background:linear-gradient(90deg,rgba(0,102,255,.9),rgba(0,200,255,.75));box-shadow:0 6px 20px rgba(0,110,255,.35)}
+.sb-h{padding:0 12px;margin:6px 0 2px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6F7C9C}
+.sb-card{padding:12px;border-radius:16px;background:rgba(23,31,52,.9);border:1px solid rgba(120,150,220,.14);display:flex;align-items:center;gap:12px;text-decoration:none;color:#F2F5FB}
+.sb-card:hover{border-color:rgba(63,208,255,.45);color:#F2F5FB}
+.sb-card-on{border-color:rgba(63,208,255,.7);background:linear-gradient(160deg,rgba(0,102,255,.25),rgba(23,31,52,.95) 70%)}
+.sb-switch{display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;border-radius:12px;border:1px dashed rgba(120,150,220,.3);color:#A3AECB;font-size:13px;font-weight:600;text-decoration:none}
+.sb-switch:hover{color:#FFFFFF;border-color:rgba(63,208,255,.5)}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #070B17; background-image: radial-gradient(900px 520px at 18% -8%, rgba(0,102,255,0.55), rgba(0,102,255,0) 70%), radial-gradient(520px 380px at 2% 10%, rgba(0,200,255,0.35), rgba(0,200,255,0) 70%); font-family: 'Onest', system-ui, sans-serif; color: #F2F5FB; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="{{navLabel}}" style="flex: 1 1 260px; max-width: 100%; box-sizing: border-box; padding: 28px 20px; display: flex; flex-direction: column; gap: 20px; background: rgba(9,14,30,0.72); border-right: 1px solid rgba(120,150,220,0.12)">
+<a href="{{navHome}}" style="display: flex; align-items: center; gap: 12px; padding: 0 8px 8px; text-decoration: none; color: #F2F5FB">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #0066FF, #00C8FF); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,120,255,0.45)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19L10 5l4 9 2-4 4 9"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A97B8">Atlant Technology</span><span style="font-size: 16px; font-weight: 700">Performance CRM</span></span>
+</a>
+<sc-for list="{{navGroups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{ false }}"><span class="sb-h">{{g.title}}</span></sc-if>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="2"><a href="{{it.href}}" class="{{it.cls}}" aria-current="{{it.cur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.icon}}"></path></svg>{{it.name}}</a></sc-for>
+</div>
+</sc-for>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+<sc-if value="{{navHasExtra}}" hint-placeholder-val="{{ true }}"><a href="{{navExtraHref}}" class="{{navExtraCls}}" aria-current="{{navExtraCur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{navExtraIcon}}"></path></svg>{{navExtraName}}</a></sc-if>
+<a href="Profile.dc.html" class="{{navCardCls}}" aria-label="Профиль и настройки" aria-current="{{navCardCur}}">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: {{navAvBg}}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #FFFFFF">{{navIni}}</span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0"><span style="font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{navName}}</span><span style="font-size: 12px; color: #A3AECB">{{navRole}}</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A3AECB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
+</a>
+<a href="{{navSwitchHref}}" class="sb-switch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>{{navSwitchText}}</a>
+</div>
+</nav>
+
+<main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px clamp(16px, 3vw, 40px) 48px; display: flex; flex-direction: column; gap: 24px">
+
+<!-- Top bar -->
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<div style="flex: 1 1 auto"></div>
+<a href="Calendar.dc.html" style="display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 14px; background: rgba(23,31,52,0.85); border: 1px solid rgba(120,150,220,0.14); text-decoration: none; color: #F2F5FB; min-width: 0; flex: 0 1 380px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3FD0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto">
+<span style="font-size: 14px; font-weight: 600">Разбор демо <span style="font-weight: 500; color: #7FE0FF">17:00</span></span>
+<span style="font-size: 13px; color: #A3AECB">След. тренировка <span style="color: #C3CCE2">19:00</span></span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A3AECB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg>
+</a>
+<div role="img" aria-label="Серия: 23 дня подряд" style="height: 48px; padding: 0 14px; box-sizing: border-box; border-radius: 14px; background: rgba(23,31,52,0.85); border: 1px solid rgba(120,150,220,0.14); display: flex; align-items: center; gap: 8px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8A3D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 1.5-5 3-6 0 2 1 3 2 3 0-3-1-5 1-9z"></path></svg>
+<span style="font-size: 16px; font-weight: 700">23</span>
+</div>
+<button aria-label="Уведомления: 11 новых" style="position: relative; width: 48px; height: 48px; border-radius: 14px; border: 1px solid rgba(120,150,220,0.14); background: rgba(23,31,52,0.85); color: #F2F5FB; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+<span style="position: absolute; top: 6px; right: 6px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: #FF7A3D; color: #1A0A00; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">11</span>
+</button>
+</header>
+
+<!-- Hero + shared period -->
+<section style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 10px; flex: 1 1 420px; min-width: 0">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(63,208,255,0.12); border: 1px solid rgba(63,208,255,0.3); color: #7FE0FF; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase">Все модули в одном месте</span>
+<h1 style="margin: 0; font-size: clamp(32px, 4vw, 52px); line-height: 1.05; font-weight: 800; letter-spacing: -0.01em; text-transform: uppercase">Статистика</h1>
+<p style="margin: 0; font-size: 18px; line-height: 1.45; color: #C3CCE2; max-width: 640px">Как менялись состояние и форма — и как это связано с игрой.</p>
+</div>
+<div style="display: flex; flex-direction: column; align-items: flex-end; gap: 10px; flex: 0 1 auto; max-width: 100%">
+<div role="group" aria-label="Период анализа" style="display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end">
+<sc-for list="{{periods}}" as="p" hint-placeholder-count="5"><button class="{{p.cls}}" aria-pressed="{{p.on}}" onClick="{{p.pick}}">{{p.name}}</button></sc-for>
+</div>
+<sc-if value="{{isCustom}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; align-items: center; gap: 8px">
+<label for="p-from" style="font-size: 13px; color: #A3AECB">с</label><input id="p-from" class="inp" type="date" value="{{cFrom}}" onChange="{{onFrom}}">
+<label for="p-to" style="font-size: 13px; color: #A3AECB">по</label><input id="p-to" class="inp" type="date" value="{{cTo}}" onChange="{{onTo}}">
+</div>
+</sc-if>
+<span style="font-size: 13px; color: #8A97B8">{{rangeLabel}} · период общий для обоих режимов</span>
+</div>
+</section>
+
+<!-- Sticky mode switch -->
+<div role="tablist" aria-label="Режим" class="modebar">
+<button role="tab" class="{{mOverCls}}" aria-selected="{{isOverview}}" onClick="{{toOverview}}">
+<span class="mode-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Обзор показателей</span><span style="font-size: 13px; opacity: 0.8">Средние значения и динамика по модулям</span></span>
+</button>
+<button role="tab" class="{{mCorrCls}}" aria-selected="{{isCorr}}" onClick="{{toCorr}}">
+<span class="mode-ico"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="17" r="2"></circle><circle cx="11" cy="11" r="2"></circle><circle cx="17" cy="14" r="2"></circle><circle cx="19" cy="6" r="2"></circle><path d="M3 21L21 3"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 16px; font-weight: 700">Корреляционный анализ</span><span style="font-size: 13px; opacity: 0.8">Что из состояния влияет на игру</span></span>
+</button>
+</div>
+
+<sc-if value="{{isEmpty}}" hint-placeholder-val="{{ false }}">
+<section class="card" style="align-items: center; text-align: center; padding: 56px 24px">
+<span style="width: 64px; height: 64px; border-radius: 20px; background: rgba(63,208,255,0.12); color: #7FE0FF; display: flex; align-items: center; justify-content: center">
+<svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>
+<h2>Пока нет данных за этот период</h2>
+<p class="sub" style="margin: 0; max-width: 460px">Пройдите ежедневные тесты, отметьте настроение и энергию или внесите игру — графики появятся здесь автоматически.</p>
+<a href="MoodEnergy.dc.html" class="btn-primary">Отметить состояние</a>
+</section>
+</sc-if>
+
+<!-- ================= OVERVIEW ================= -->
+<sc-if value="{{showOverview}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 190px), 1fr)); gap: 14px">
+<sc-for list="{{kpis}}" as="k" hint-placeholder-count="5">
+<div class="{{k.cls}}">
+<sc-if value="{{k.low}}" hint-placeholder-val="{{ false }}"><span class="flag">Проседает</span></sc-if>
+<span class="kpi-ico">
+<sc-if value="{{k.iMood}}" hint-placeholder-val="{{ true }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><path d="M8.5 14.5c.9 1.2 2.1 1.8 3.5 1.8s2.6-.6 3.5-1.8M9 9.5h.01M15 9.5h.01"></path></svg></sc-if>
+<sc-if value="{{k.iEnergy}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M13 2L4 14h7l-1 8 9-12h-7z"></path></svg></sc-if>
+<sc-if value="{{k.iSleep}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg></sc-if>
+<sc-if value="{{k.iTests}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h4l3-8 4 16 3-8h4"></path></svg></sc-if>
+<sc-if value="{{k.iDays}}" hint-placeholder-val="{{ false }}"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4M8 15l2.5 2.5L16 13"></path></svg></sc-if>
+</span>
+<span class="kpi-lbl">{{k.label}}</span>
+<span class="kpi-val">{{k.value}}</span>
+<span class="{{k.dCls}}">{{k.delta}}</span>
+</div>
+</sc-for>
+</div>
+
+<!-- Mood & energy -->
+<section class="card">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Настроение и энергия</h2><span class="sub">Средние значения по дням, шкала 1–10. Нажмите на линию в легенде, чтобы скрыть её</span></div>
+<div style="display: flex; gap: 8px; flex-wrap: wrap">
+<button class="{{tMoodCls}}" aria-pressed="{{showMood}}" onClick="{{toggleMood}}"><span class="sw" style="background: #3FD0FF"></span>Настроение · {{moodAvg}}</button>
+<button class="{{tEnergyCls}}" aria-pressed="{{showEnergy}}" onClick="{{toggleEnergy}}"><span class="sw" style="background: #FFAA3C"></span>Энергия · {{energyAvg}}</button>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<svg viewBox="0 0 900 240" width="100%" role="img" aria-label="{{moodAria}}">
+<defs><linearGradient id="mFill" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#3FD0FF" stop-opacity="0.28"></stop><stop offset="1" stop-color="#3FD0FF" stop-opacity="0"></stop></linearGradient></defs>
+<g stroke="#26304A" stroke-width="1"><line x1="40" y1="20" x2="890" y2="20"></line><line x1="40" y1="70" x2="890" y2="70"></line><line x1="40" y1="120" x2="890" y2="120"></line><line x1="40" y1="170" x2="890" y2="170"></line><line x1="40" y1="220" x2="890" y2="220"></line></g>
+<g fill="#7D89A8" font-size="12" font-family="Onest, sans-serif"><text x="8" y="24">10</text><text x="14" y="74">8</text><text x="14" y="124">6</text><text x="14" y="174">4</text><text x="14" y="224">2</text></g>
+<path d="{{moodArea}}" fill="url(#mFill)"></path>
+<path d="{{moodPath}}" fill="none" stroke="#3FD0FF" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"></path>
+<path d="{{energyPath}}" fill="none" stroke="#FFAA3C" stroke-width="3" stroke-dasharray="8 6" stroke-linejoin="round" stroke-linecap="round"></path>
+</svg>
+<div class="xl"><sc-for list="{{xLabels}}" as="x" hint-placeholder-count="6"><span>{{x}}</span></sc-for></div>
+</div>
+</section>
+
+<!-- Recovery & lifestyle with charts -->
+<section class="card">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Восстановление и образ жизни</h2><span class="sub">Выберите показатель — ниже его значения по дням за период</span></div>
+<div role="tablist" aria-label="Показатель" class="segwrap">
+<sc-for list="{{lifeTabs}}" as="t" hint-placeholder-count="3"><button role="tab" class="{{t.cls}}" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button></sc-for>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px">
+<sc-for list="{{lifeStats}}" as="s" hint-placeholder-count="4"><div class="stat"><span>{{s.l}}</span><span class="{{s.cls}}">{{s.v}}</span></div></sc-for>
+</div>
+<div style="display: flex; flex-direction: column; gap: 6px">
+<div style="position: relative"><svg viewBox="0 0 900 200" width="100%" role="img" aria-label="{{lifeAria}}">
+<defs><linearGradient id="lBar" x1="0" y1="1" x2="0" y2="0"><stop offset="0" stop-color="#0066FF"></stop><stop offset="1" stop-color="#00C8FF"></stop></linearGradient></defs>
+<g stroke="#26304A" stroke-width="1"><line x1="40" y1="20" x2="890" y2="20"></line><line x1="40" y1="100" x2="890" y2="100"></line><line x1="40" y1="180" x2="890" y2="180"></line></g>
+<g fill="#7D89A8" font-size="12" font-family="Onest, sans-serif"><text x="4" y="184">0</text></g>
+<path d="{{lifeBars}}" fill="url(#lBar)"></path>
+<line x1="40" y1="{{normY}}" x2="890" y2="{{normY}}" stroke="#FFAA3C" stroke-width="2" stroke-dasharray="6 6"></line>
+</svg><span aria-hidden="true" style="position: absolute; left: 0.44%; top: 10.00%; transform: translateY(-50%); font-size: 12px; color: #7D89A8; font-family: Onest, sans-serif">{{lifeMax}}</span><span aria-hidden="true" style="position: absolute; left: 0.44%; top: 50.00%; transform: translateY(-50%); font-size: 12px; color: #7D89A8; font-family: Onest, sans-serif">{{lifeMid}}</span></div>
+<div style="display: flex; flex-wrap: wrap; justify-content: space-between; gap: 10px">
+<div class="xl" style="flex: 1 1 auto"><sc-for list="{{xLabels}}" as="x" hint-placeholder-count="6"><span>{{x}}</span></sc-for></div>
+</div>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #A3AECB"><span style="width: 18px; border-top: 2px dashed #FFAA3C"></span>{{normLabel}}</span>
+</div>
+</section>
+
+<!-- Cognitive form -->
+<section class="card">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Когнитивная форма</h2><span class="sub">Результаты когнитивных тестов — у каждого теста свой график, потому что шкалы разные</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 250px), 1fr)); gap: 14px">
+<sc-for list="{{tests}}" as="t" hint-placeholder-count="4">
+<article class="test">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<span style="display: flex; align-items: center; gap: 10px; font-size: 16px; font-weight: 700"><span style="background: {{t.color}}; width: 10px; height: 10px; border-radius: 3px"></span>{{t.name}}</span>
+<span class="{{t.dCls}}">{{t.delta}}</span>
+</div>
+<span style="font-size: 13px; line-height: 1.4; color: #8A97B8">{{t.desc}}</span>
+<svg viewBox="0 0 240 70" width="100%" role="img" aria-label="{{t.aria}}" preserveAspectRatio="none" style="height: 70px">
+<line x1="0" y1="66" x2="240" y2="66" stroke="#26304A"></line>
+<path d="{{t.path}}" fill="none" stroke="{{t.color}}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+</svg>
+<div style="display: flex; justify-content: space-between; gap: 10px">
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 12px; color: #8A97B8">Средний score</span><span style="font-size: 20px; font-weight: 800">{{t.avg}}</span></span>
+<span style="display: flex; flex-direction: column; gap: 2px; align-items: flex-end"><span style="font-size: 12px; color: #8A97B8">Попыток</span><span style="font-size: 20px; font-weight: 800">{{t.attempts}}</span></span>
+</div>
+</article>
+</sc-for>
+</div>
+</section>
+
+<!-- Balance wheel -->
+<section class="card">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Колесо баланса</h2><span class="sub">Средние оценки сфер жизни, 0–10</span></div>
+<div style="display: flex; gap: 16px; font-size: 13px; color: #A3AECB">
+<span style="display: flex; align-items: center; gap: 8px"><span style="background: #3FD0FF; height: 10px; width: 10px; border-radius: 3px"></span>Этот период</span>
+<span style="display: flex; align-items: center; gap: 8px"><span style="width: 14px; border-top: 2px dashed #8A97B8"></span>Предыдущий</span>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 24px">
+<div style="position: relative; width: 340px; max-width: 100%; aspect-ratio: 1 / 1; margin: 0 auto">
+<svg viewBox="0 0 340 340" width="100%" height="100%" role="img" aria-label="{{radarAria}}">
+<g fill="none" stroke="#26304A" stroke-width="1"><polygon points="{{ring1}}"></polygon><polygon points="{{ring2}}"></polygon><polygon points="{{ring3}}"></polygon><polygon points="{{ring4}}"></polygon><path d="{{spokes}}"></path></g>
+<polygon points="{{radarPrev}}" fill="none" stroke="#8A97B8" stroke-width="1.5" stroke-dasharray="5 5"></polygon>
+<polygon points="{{radarCur}}" fill="rgba(63,208,255,0.18)" stroke="#3FD0FF" stroke-width="2.5" stroke-linejoin="round"></polygon>
+</svg>
+<sc-for list="{{radarLabels}}" as="l" hint-placeholder-count="8"><span class="rl" style="left: {{l.x}}; top: {{l.y}}">{{l.short}}</span></sc-for>
+</div>
+<div style="flex: 1 1 280px; min-width: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 6px">
+<sc-for list="{{wheel}}" as="w" hint-placeholder-count="8">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 8px 12px; border-radius: 10px; background: #141B30">
+<span style="font-size: 13px; color: #C3CCE2; min-width: 0">{{w.name}}</span>
+<span style="display: flex; align-items: baseline; gap: 8px; white-space: nowrap"><span style="font-size: 15px; font-weight: 700">{{w.val}}</span><span class="{{w.dCls}}" style="font-size: 12px">{{w.delta}}</span></span>
+</div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<!-- CTA to correlation -->
+<section class="card" style="flex-direction: row; flex-wrap: wrap; align-items: center; justify-content: space-between; background: linear-gradient(135deg, rgba(0,102,255,0.24), rgba(15,21,40,0.9) 60%); border-color: rgba(63,208,255,0.3)">
+<div style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 360px">
+<h2>Как это влияет на игру?</h2>
+<span class="sub">{{ctaText}}</span>
+</div>
+<button class="btn-primary" onClick="{{toCorr}}">Открыть корреляционный анализ
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6"></path></svg></button>
+</section>
+</div>
+</sc-if>
+
+<!-- ================= CORRELATION ================= -->
+<sc-if value="{{showLocked}}" hint-placeholder-val="{{ false }}">
+<section class="card" style="align-items: center; text-align: center; padding: 56px 24px; background: linear-gradient(160deg, rgba(0,102,255,0.22), rgba(15,21,40,0.92) 60%); border-color: rgba(63,208,255,0.3)">
+<span style="width: 64px; height: 64px; border-radius: 20px; background: linear-gradient(135deg, #0066FF, #00C8FF); display: flex; align-items: center; justify-content: center">
+<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"></rect><path d="M8 11V7a4 4 0 0 1 8 0v4"></path></svg></span>
+<h2>Корреляционный анализ — в подписке</h2>
+<p class="sub" style="margin: 0; max-width: 480px">Покажем, как сон, настроение, экранное время и когнитивная форма связаны с ELO, K/D и победами — с понятными примерами на ваших данных.</p>
+<a href="#" class="btn-primary">Посмотреть тарифы</a>
+</section>
+</sc-if>
+
+<sc-if value="{{showCorr}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 24px">
+
+<!-- Metric picker -->
+<section class="card">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Выберите метрики для сравнения</h2><span class="sub">Слева состояние, справа игра. Выбрано {{selCount}} из 8</span></div>
+<button class="btn-ghost" onClick="{{resetSel}}">Сбросить выбор</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr)); gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #7FE0FF"><span class="dot" style="background: #3FD0FF"></span>Состояние</span>
+<div role="group" aria-label="Метрики состояния" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{stateChips}}" as="c" hint-placeholder-count="7"><button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.name}}</button></sc-for>
+</div>
+</div>
+<div style="display: flex; flex-direction: column; gap: 10px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #FFC27A"><span class="dot" style="background: #FFAA3C"></span>Игра · пракки и Faceit</span>
+<div role="group" aria-label="Игровые метрики" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{gameChips}}" as="c" hint-placeholder-count="5"><button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.name}}</button></sc-for>
+</div>
+</div>
+</div>
+<span role="status" style="font-size: 13px; color: #FFA27A">{{selMsg}}</span>
+</section>
+
+<!-- Key links -->
+<section class="card">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Главные связи</h2><span class="sub">Сильнейшие связи между выбранными метриками за период — с примером на ваших данных</span></div>
+<sc-if value="{{hasLinks}}" hint-placeholder-val="{{ true }}">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px">
+<sc-for list="{{links}}" as="l" hint-placeholder-count="3">
+<article class="link">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<span style="font-size: 16px; font-weight: 700">{{l.title}}</span>
+<span class="{{l.rCls}}" style="font-size: 18px; font-weight: 800; font-variant-numeric: tabular-nums">r = {{l.r}}</span>
+</div>
+<div class="rbar" role="img" aria-label="{{l.aria}}"><span class="{{l.fillCls}}" style="left: {{l.left}}; width: {{l.width}}"></span></div>
+<div style="display: flex; justify-content: space-between; font-size: 11px; color: #6F7C9E"><span>−1 обратная</span><span>0</span><span>+1 прямая</span></div>
+<span style="font-size: 13px; font-weight: 700; color: #C3CCE2">{{l.strength}}</span>
+<div style="display: flex; flex-direction: column; gap: 6px; padding: 12px 14px; border-radius: 12px; background: #10172B">
+<span style="font-size: 11px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7FE0FF">Что это значит</span>
+<span style="font-size: 14px; line-height: 1.5; color: #D5DCEC">{{l.example}}</span>
+</div>
+</article>
+</sc-for>
+</div>
+</sc-if>
+<sc-if value="{{noLinks}}" hint-placeholder-val="{{ false }}">
+<span class="sub">Выберите хотя бы две метрики — лучше одну из состояния и одну из игры.</span>
+</sc-if>
+</section>
+
+<!-- Per-metric charts -->
+<section class="card">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Динамика выбранных метрик</h2><span class="sub">Каждая метрика — отдельный график, ось X — даты периода</span></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); gap: 14px">
+<sc-for list="{{multiples}}" as="m" hint-placeholder-count="4">
+<article class="test">
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 700"><span class="dot" style="background: {{m.color}}"></span>{{m.name}}</span>
+<span style="font-size: 13px; color: #A3AECB">ср. <span style="font-weight: 700; color: #FFFFFF">{{m.avg}}</span></span>
+</div>
+<svg viewBox="0 0 300 90" width="100%" role="img" aria-label="{{m.aria}}" preserveAspectRatio="none" style="height: 90px">
+<line x1="0" y1="45" x2="300" y2="45" stroke="#26304A" stroke-dasharray="4 4"></line>
+<path d="{{m.path}}" fill="none" stroke="{{m.color}}" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round" vector-effect="non-scaling-stroke"></path>
+</svg>
+<div style="display: flex; justify-content: space-between; font-size: 12px; color: #7D89A8"><span>{{m.from}}</span><span>мин {{m.min}} · макс {{m.max}}</span><span>{{m.to}}</span></div>
+</article>
+</sc-for>
+</div>
+</section>
+
+<!-- Matrix -->
+<section class="card">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Таблица корреляций</h2><span class="sub">Все пары выбранных метрик. Голубой — прямая связь, оранжевый — обратная, ярче — сильнее</span></div>
+<button class="btn-ghost" aria-expanded="{{showMatrix}}" onClick="{{toggleMatrix}}">{{matrixBtn}}</button>
+</div>
+<sc-if value="{{showMatrix}}" hint-placeholder-val="{{ false }}">
+<div style="overflow-x: auto">
+<div class="mx" role="table" aria-label="Матрица корреляций" style="grid-template-columns: {{mxCols}}; min-width: {{mxMin}}">
+<span class="mxh"></span>
+<sc-for list="{{mxHead}}" as="h" hint-placeholder-count="6"><span role="columnheader" class="mxh" title="{{h}}">{{h}}</span></sc-for>
+<sc-for list="{{mxRows}}" as="r" hint-placeholder-count="6">
+<span role="rowheader" class="mxr" title="{{r.name}}">{{r.name}}</span>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="6"><span role="cell" class="mxc" style="background: {{c.bg}}">{{c.v}}</span></sc-for>
+</sc-for>
+</div>
+</div>
+</sc-if>
+</section>
+
+<!-- Match stats (hideable) -->
+<sc-if value="{{matchesOpen}}" hint-placeholder-val="{{ true }}">
+<section class="card">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px"><h2>Игровые показатели за период</h2><span class="sub">Из раздела <a href="GameStats.dc.html">Игровая статистика</a> — пракки и Faceit, внесённые вручную</span></div>
+<button class="btn-ghost" onClick="{{toggleMatches}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 15l-6-6-6 6"></path></svg>Скрыть блок</button>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr)); gap: 12px">
+<sc-for list="{{matchStats}}" as="s" hint-placeholder-count="5"><div class="stat"><span>{{s.l}}</span><span>{{s.v}}</span></div></sc-for>
+</div>
+</section>
+</sc-if>
+<sc-if value="{{matchesClosed}}" hint-placeholder-val="{{ false }}">
+<button class="btn-ghost" onClick="{{toggleMatches}}" style="align-self: flex-start">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>Показать игровые показатели за период</button>
+</sc-if>
+
+<!-- AI -->
+<section class="card" style="background: linear-gradient(160deg, rgba(0,102,255,0.18), rgba(15,21,40,0.9) 55%); border-color: rgba(63,208,255,0.25)">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px; flex: 1 1 360px"><h2>AI-вывод по периоду</h2><span class="sub">Короткий разбор выбранных метрик простыми словами — что происходит и что попробовать</span></div>
+<button class="btn-primary" onClick="{{runAi}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l1.8 4.7L18.5 9.5l-4.7 1.8L12 16l-1.8-4.7L5.5 9.5l4.7-1.8z"></path><path d="M19 15l.8 2.2L22 18l-2.2.8L19 21l-.8-2.2L16 18l2.2-.8z"></path></svg>{{aiBtn}}</button>
+</div>
+<sc-if value="{{aiOn}}" hint-placeholder-val="{{ false }}">
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 12px">
+<div class="ai"><span>Тенденция</span><span>{{aiTrend}}</span></div>
+<div class="ai"><span>Главная связь</span><span>{{aiLink}}</span></div>
+<div class="ai"><span>Что попробовать</span><span>{{aiTry}}</span></div>
+</div>
+</sc-if>
+</section>
+</div>
+</sc-if>
+</main>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"role": {"editor": "enum", "options": ["auto", "player", "staff"], "default": "auto"}, "empty": {"editor": "boolean", "default": false}, "freePlan": {"editor": "boolean", "default": false}, "startOn": {"editor": "enum", "options": ["overview", "corr"], "default": "overview"}, "$preview": {"width": 1440, "height": 2420}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { tab: null, period: 30, showMood: true, showEnergy: true, cFrom: '2026-09-01', cTo: '2026-10-02', life: 'sleep', sel: ['mood', 'sleep', 'screen', 'elo', 'kd', 'adr'], selMsg: '', showMatrix: true, matches: true, ai: false };
+}
+_rvBase() {
+var self = this, st = this.state;
+var tab = st.tab || this.props.startOn || 'overview';
+var END = new Date(2026, 9, 2), DAY = 86400000;
+var MON = ['янв', 'фев', 'мар', 'апр', 'мая', 'июн', 'июл', 'авг', 'сен', 'окт', 'ноя', 'дек'];
+function rng(seed) { var s = seed % 2147483647; if (s <= 0) s += 2147483646; return function () { s = (s * 16807) % 2147483647; return (s - 1) / 2147483646; }; }
+function clamp(v, a, b) { return Math.max(a, Math.min(b, v)); }
+function mean(a) { return a.length ? a.reduce(function (x, y) { return x + y; }, 0) / a.length : 0; }
+function f1(v) { return (Math.round(v * 10) / 10).toFixed(1); }
+function f2(v) { return v.toFixed(2); }
+function i0(v) { return String(Math.round(v)); }
+function sgn(v, digits, unit) { var r = Number(v.toFixed(digits)); return (r > 0 ? '+' : (r < 0 ? '−' : '±')) + Math.abs(r).toFixed(digits) + (unit || ''); }
+function hm(h) { var hh = Math.floor(h), mm = Math.round((h - hh) * 60); if (mm === 60) { hh++; mm = 0; } return hh + ' ч ' + (mm < 10 ? '0' : '') + mm + ' мин'; }
+function plural(n, a, b, c) { var m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c); }
+function fdate(d) { return d.getDate() + ' ' + MON[d.getMonth()]; }
+function corr(a, b) {
+var ma = mean(a), mb = mean(b), sxy = 0, sxx = 0, syy = 0;
+for (var i = 0; i < a.length; i++) { var dx = a[i] - ma, dy = b[i] - mb; sxy += dx * dy; sxx += dx * dx; syy += dy * dy; }
+return sxx && syy ? sxy / Math.sqrt(sxx * syy) : 0;
+}
+
+// ---- period
+var N, start, end = END;
+if (st.period === 'custom') {
+var a0 = new Date(st.cFrom), b0 = new Date(st.cTo);
+if (isNaN(a0) || isNaN(b0) || b0 < a0) { a0 = new Date(END.getTime() - 29 * DAY); b0 = END; }
+start = a0; end = b0; N = Math.round((b0 - a0) / DAY) + 1;
+} else { N = st.period; start = new Date(END.getTime() - (N - 1) * DAY); }
+var P = N <= 31 ? N : (N <= 120 ? Math.ceil(N / 2) : Math.ceil(N / 7));
+var seed = N * 31 + 7;
+var xLabels = [];
+for (var j = 0; j < 6; j++) xLabels.push(fdate(new Date(start.getTime() + Math.round((N - 1) * j / 5) * DAY)));
+
+// ---- one consistent data model: state drives game
+function gen(sd) {
+var r = rng(sd), z = 0, elo = 3200, o = { mood: [], energy: [], sleep: [], screen: [], cog: [], balance: [], kcal: [], elo: [], kd: [], adr: [], kast: [], wr: [] };
+function n(x) { return (r() - 0.5) * x; }
+for (var i = 0; i < P; i++) {
+z = 0.65 * z + n(1.5);
+var kd = clamp(1.05 + 0.17 * z + n(0.24), 0.4, 2.2);
+o.sleep.push(clamp(7.2 + 0.9 * z + n(0.7), 4.5, 10));
+o.mood.push(clamp(6 + 1.3 * z + n(1.7), 1, 10));
+o.energy.push(clamp(5.8 + 1.1 * z + n(1.9), 1, 10));
+o.screen.push(clamp(5.4 - 0.9 * z + n(1.3), 1.5, 10));
+o.cog.push(clamp(62 + 9 * z + n(11), 20, 100));
+o.balance.push(clamp(6.2 + 0.3 * z + n(1.4), 1, 10));
+o.kcal.push(Math.round(2300 + n(560)));
+o.kd.push(kd);
+o.adr.push(clamp(78 + 45 * (kd - 1) + n(12), 40, 140));
+o.kast.push(clamp(70 + 22 * (kd - 1) + n(7), 40, 95));
+o.wr.push(clamp(50 + 70 * (kd - 1) + n(28), 0, 100));
+elo += Math.round(26 * (kd - 1) + n(18)); o.elo.push(elo);
+}
+return o;
+}
+var D = gen(seed), Dp = gen(seed + 777);
+
+// ---- mood chart
+function y(v) { return 220 - (v - 2) * 25; }
+function x(i) { return P === 1 ? 465 : 40 + i * (850 / (P - 1)); }
+function line(vals) { return vals.map(function (v, i) { return (i ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1); }).join(' '); }
+var moodPath = line(D.mood), moodArea = moodPath + ' L' + x(P - 1).toFixed(1) + ' 220 L40 220 Z';
+
+// ---- KPIs
+var r9 = rng(seed + 9);
+var mAvg = mean(D.mood), eAvg = mean(D.energy), sAvg = mean(D.sleep);
+var tests = Math.round(N * (0.6 + r9() * 0.35)), testsPrev = Math.round(N * (0.6 + r9() * 0.35));
+var days = Math.min(N, Math.round(N * (0.7 + r9() * 0.28))), daysPrev = Math.min(N, Math.round(N * (0.7 + r9() * 0.28)));
+function kpi(key, label, value, d, digits, unit, lowAt) {
+var low = d < lowAt;
+return { label: label, value: value, low: low, cls: 'kpi' + (low ? ' kpi-low' : ''),
+delta: sgn(d, digits, unit) + ' к прошлому периоду', dCls: 'delta ' + (d > 0.0001 ? 'up' : (d < -0.0001 ? 'down' : 'flat')),
+iMood: key === 'mood', iEnergy: key === 'energy', iSleep: key === 'sleep', iTests: key === 'tests', iDays: key === 'days' };
+}
+var kpis = [
+kpi('mood', 'Среднее настроение', f1(mAvg), mAvg - mean(Dp.mood), 1, '', -0.2),
+kpi('energy', 'Средняя энергия', f1(eAvg), eAvg - mean(Dp.energy), 1, '', -0.2),
+kpi('sleep', 'Средний сон', hm(sAvg), (sAvg - mean(Dp.sleep)) * 60, 0, ' мин', -15),
+kpi('tests', 'Выполнено тестов', String(tests), tests - testsPrev, 0, '', -Math.max(2, N * 0.1)),
+kpi('days', 'Дней активности', days + ' из ' + N, days - daysPrev, 0, '', -Math.max(1, N * 0.1))
+];
+
+// ---- lifestyle with charts
+var LIFE = {
+sleep: { name: 'Сон', vals: D.sleep, prev: Dp.sleep, max: 10, norm: 8, normLabel: 'Ориентир — 8 ч сна', fmt: function (v) { return hm(v); }, axis: function (v) { return v + ' ч'; } },
+screen: { name: 'Экранное время', vals: D.screen, prev: Dp.screen, max: 10, norm: 4, normLabel: 'Личная цель — не больше 4 ч в день', fmt: function (v) { return hm(v); }, axis: function (v) { return v + ' ч'; } },
+food: { name: 'Питание', vals: D.kcal, prev: Dp.kcal, max: 3200, norm: 2500, normLabel: 'Норма калорийности — 2 500 ккал', fmt: function (v) { return Math.round(v).toLocaleString('ru-RU') + ' ккал'; }, axis: function (v) { return (v / 1000).toFixed(1) + 'к'; } }
+};
+var L = LIFE[st.life];
+var lAvg = mean(L.vals), lPrev = mean(L.prev);
+var bw = 850 / P, bwi = Math.max(2, bw * 0.62);
+var lifeBars = L.vals.map(function (v, i) {
+var h = clamp(v / L.max, 0, 1) * 160, bx = 40 + i * bw + (bw - bwi) / 2, by = 180 - h;
+return 'M' + bx.toFixed(1) + ' ' + by.toFixed(1) + 'h' + bwi.toFixed(1) + 'v' + h.toFixed(1) + 'h' + (-bwi).toFixed(1) + 'Z';
+}).join('');
+var normY = (180 - L.norm / L.max * 160).toFixed(1);
+var lifeStats;
+var minV = Math.min.apply(null, L.vals), maxV = Math.max.apply(null, L.vals);
+if (st.life === 'sleep') {
+var under = L.vals.filter(function (v) { return v < 7; }).length;
+lifeStats = [
+{ l: 'Средняя продолжительность', v: hm(lAvg), cls: '' },
+{ l: 'Записей', v: String(Math.round(days * 0.9)), cls: '' },
+{ l: 'К прошлому периоду', v: sgn((lAvg - lPrev) * 60, 0, ' мин'), cls: lAvg >= lPrev ? 'up' : 'down' },
+{ l: 'Ночей короче 7 ч', v: under + ' из ' + P, cls: under > P / 3 ? 'down' : '' }
+];
+} else if (st.life === 'screen') {
+var scD = (lAvg - lPrev) / lPrev * 100;
+lifeStats = [
+{ l: 'В среднем за день', v: hm(lAvg), cls: '' },
+{ l: 'К прошлому периоду', v: sgn(scD, 0, '%'), cls: scD <= 0 ? 'up' : 'down' },
+{ l: 'Максимум', v: hm(maxV), cls: '' },
+{ l: 'Минимум', v: hm(minV), cls: '' }
+];
+} else {
+lifeStats = [
+{ l: 'Средняя калорийность', v: L.fmt(lAvg), cls: '' },
+{ l: 'Записей питания', v: String(Math.round(days * 2.4)), cls: '' },
+{ l: 'К прошлому периоду', v: sgn((lAvg - lPrev) / lPrev * 100, 0, '%'), cls: 'flat' },
+{ l: 'Дней выше нормы', v: L.vals.filter(function (v) { return v > 2500; }).length + ' из ' + P, cls: '' }
+];
+}
+var lifeTabs = [['sleep', 'Сон'], ['screen', 'Экранное время'], ['food', 'Питание']].map(function (t) {
+var on = st.life === t[0];
+return { name: t[1], on: on ? 'true' : 'false', cls: 'seg-btn' + (on ? ' seg-on' : ''), pick: function () { self.setState({ life: t[0] }); } };
+});
+
+// ---- cognitive
+var TESTS = [
+{ name: 'Visual Search', desc: 'Внимание и скорость поиска цели', color: '#3FD0FF', base: 72, amp: 10 },
+{ name: 'Go / No-Go', desc: 'Реакция и самоконтроль: подавление лишних нажатий', color: '#B07CFF', base: 78, amp: 12 },
+{ name: '2-Back', desc: 'Рабочая память', color: '#4D8DFF', base: 60, amp: 12 },
+{ name: 'Stroop Switch', desc: 'Переключение и помехоустойчивость', color: '#FFAA3C', base: 55, amp: 14 },
+{ name: 'Spatial Span', desc: 'Пространственная память и объём последовательности', color: '#7FE0FF', base: 64, amp: 10 }
+];
+var testCards = TESTS.map(function (td, ti) {
+var rr = rng(seed + 100 + ti * 13);
+var attempts = Math.max(1, Math.round(N * (0.12 + rr() * 0.12))), pts = Math.min(attempts, 14), vals = [];
+for (var i = 0; i < pts; i++) vals.push(td.base + (rr() - 0.4) * td.amp + i * td.amp * 0.03);
+var mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), span = mx - mn || 1;
+var path = pts === 1 ? 'M110 34 L130 34' : vals.map(function (v, i) { return (i ? 'L' : 'M') + (i * 240 / (pts - 1)).toFixed(1) + ' ' + (60 - (v - mn) / span * 52).toFixed(1); }).join(' ');
+var avg = mean(vals), dl = avg - (td.base + (rr() - 0.5) * td.amp * 0.6);
+return { name: td.name, desc: td.desc, color: td.color, path: path, avg: f1(avg), attempts: attempts,
+delta: sgn(dl, 1, ''), dCls: 'delta ' + (dl > 0.05 ? 'up' : (dl < -0.05 ? 'down' : 'flat')), aria: td.name + ': средний score ' + f1(avg) + ', попыток ' + attempts };
+});
+
+// ---- wheel
+var WHEEL = [['Физическое здоровье', 'Здоровье'], ['Эмоциональное состояние', 'Эмоции'], ['Интеллектуальное развитие', 'Интеллект'], ['Духовное развитие', 'Духовность'], ['Профессиональная сфера', 'Карьера'], ['Социальные отношения', 'Отношения'], ['Окружающая среда', 'Окружение'], ['Финансовое благополучие', 'Финансы']];
+var rw = rng(seed + 300);
+var cur = WHEEL.map(function () { return Math.round((4.5 + rw() * 4.8) * 10) / 10; });
+var prv = WHEEL.map(function (w, i) { return clamp(Math.round((cur[i] + (rw() - 0.5) * 2.4) * 10) / 10, 1, 10); });
+var C = 170, RAD = 115;
+function pt(i, v) { var ang = -Math.PI / 2 + i * Math.PI / 4; return [C + Math.cos(ang) * RAD * v / 10, C + Math.sin(ang) * RAD * v / 10]; }
+function poly(vals) { return vals.map(function (v, i) { var p = pt(i, v); return p[0].toFixed(1) + ',' + p[1].toFixed(1); }).join(' '); }
+function ring(v) { return poly(WHEEL.map(function () { return v; })); }
+
+// ---- correlation
+var MET = [
+{ k: 'mood', name: 'Настроение', lw: 'настроение', g: 's', fmt: f1 },
+{ k: 'energy', name: 'Энергия', lw: 'энергия', g: 's', fmt: f1 },
+{ k: 'sleep', name: 'Сон', lw: 'сон', g: 's', fmt: function (v) { return f1(v) + ' ч'; } },
+{ k: 'screen', name: 'Экранное время', lw: 'экранное время', g: 's', fmt: function (v) { return f1(v) + ' ч'; } },
+{ k: 'cog', name: 'Индекс когн. формы', lw: 'индекс когнитивной формы', g: 's', fmt: i0 },
+{ k: 'balance', name: 'Баланс жизни', lw: 'баланс жизни', g: 's', fmt: f1 },
+{ k: 'kcal', name: 'Калорийность', lw: 'калорийность', g: 's', fmt: function (v) { return i0(v) + ' ккал'; } },
+{ k: 'elo', name: 'Текущий ELO', lw: 'ELO', g: 'g', fmt: i0 },
+{ k: 'kd', name: 'K/D', lw: 'K/D', g: 'g', fmt: f2 },
+{ k: 'adr', name: 'ADR', lw: 'ADR', g: 'g', fmt: f1 },
+{ k: 'kast', name: 'KAST', lw: 'KAST', g: 'g', fmt: function (v) { return i0(v) + '%'; } },
+{ k: 'wr', name: 'Win Rate', lw: 'win rate', g: 'g', fmt: function (v) { return i0(v) + '%'; } }
+];
+var byKey = {}; MET.forEach(function (m) { byKey[m.k] = m; });
+var sel = st.sel.filter(function (k) { return byKey[k]; });
+function chip(m) {
+var on = sel.indexOf(m.k) >= 0;
+return { name: m.name, on: on ? 'true' : 'false', cls: 'mchip' + (on ? (m.g === 's' ? ' mchip-on' : ' mchip-on-g') : ''),
+pick: function () {
+var s = self.state.sel.slice(), ix = s.indexOf(m.k);
+if (ix >= 0) { s.splice(ix, 1); self.setState({ sel: s, selMsg: '' }); }
+else if (s.length >= 8) { self.setState({ selMsg: 'Можно выбрать до 8 метрик — снимите одну, чтобы добавить другую' }); }
+else { s.push(m.k); self.setState({ sel: s, selMsg: '' }); }
+} };
+}
+var pairs = [];
+for (var a = 0; a < sel.length; a++) for (var b = a + 1; b < sel.length; b++) {
+var A = byKey[sel[a]], B = byKey[sel[b]];
+pairs.push({ A: A, B: B, r: corr(D[A.k], D[B.k]), cross: A.g !== B.g });
+}
+var hasCross = pairs.some(function (p) { return p.cross; });
+var cand = pairs.filter(function (p) { return !hasCross || p.cross; }).sort(function (p, q) { return Math.abs(q.r) - Math.abs(p.r); }).slice(0, 3);
+function strength(r) { var ar = Math.abs(r); return ar >= 0.7 ? 'Сильная' : (ar >= 0.4 ? 'Заметная' : (ar >= 0.2 ? 'Слабая' : 'Связи почти нет')); }
+var links = cand.map(function (p) {
+var A = p.A, B = p.B;
+if (A.g === 'g' && B.g === 's') { var t = A; A = B; B = t; }
+var av = D[A.k], bv = D[B.k], sorted = av.slice().sort(function (u, v) { return u - v; }), med = sorted[Math.floor(sorted.length / 2)];
+var hi = [], lo = [];
+av.forEach(function (v, i) { (v >= med ? hi : lo).push(bv[i]); });
+var r = p.r, ar = Math.abs(r);
+var dirTxt = Math.abs(r) < 0.2 ? '' : (r > 0 ? ' прямая связь' : ' обратная связь');
+var ex = 'Когда ' + A.lw + ' выше обычного (от ' + A.fmt(med) + '), ' + B.lw + ' в среднем ' + B.fmt(mean(hi)) + '; когда ниже — ' + B.fmt(mean(lo)) + '.';
+return {
+title: A.name + ' ↔ ' + B.name, r: (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2), rCls: r >= 0 ? 'up' : 'down',
+fillCls: 'rfill ' + (r >= 0 ? 'rpos' : 'rneg'), left: (r >= 0 ? 50 : 50 - ar * 50).toFixed(1) + '%', width: (ar * 50).toFixed(1) + '%',
+strength: strength(r) + dirTxt, example: ex, aria: 'Коэффициент корреляции ' + r.toFixed(2)
+};
+});
+var multiples = sel.map(function (k) {
+var m = byKey[k], vals = D[k], mn = Math.min.apply(null, vals), mx = Math.max.apply(null, vals), span = mx - mn || 1;
+var path = vals.map(function (v, i) { return (i ? 'L' : 'M') + (P === 1 ? 150 : i * 300 / (P - 1)).toFixed(1) + ' ' + (82 - (v - mn) / span * 74).toFixed(1); }).join(' ');
+return { name: m.name, color: m.g === 's' ? '#3FD0FF' : '#FFAA3C', path: path, avg: m.fmt(mean(vals)), min: m.fmt(mn), max: m.fmt(mx), from: fdate(start), to: fdate(end), aria: m.name + ': среднее ' + m.fmt(mean(vals)) };
+});
+var mxRows = sel.map(function (ka) {
+return { name: byKey[ka].name, cells: sel.map(function (kb) {
+if (ka === kb) return { v: '—', bg: '#141B30' };
+var r = corr(D[ka], D[kb]), al = (0.12 + Math.abs(r) * 0.7).toFixed(2);
+return { v: (r >= 0 ? '+' : '−') + Math.abs(r).toFixed(2), bg: r >= 0 ? 'rgba(0,140,255,' + al + ')' : 'rgba(255,122,61,' + al + ')' };
+}) };
+});
+var nSel = sel.length;
+
+// AI text (demo, derived from the data)
+var half = Math.floor(P / 2), best = null;
+sel.forEach(function (k) { var v = D[k]; if (v.length < 4) return; var d1 = mean(v.slice(0, half)), d2 = mean(v.slice(half)), rel = (d2 - d1) / (Math.abs(d1) || 1); if (!best || Math.abs(rel) > Math.abs(best.rel)) best = { k: k, rel: rel, d1: d1, d2: d2 }; });
+var aiTrend = best ? 'Сильнее всего за период изменилась метрика «' + byKey[best.k].name + '»: во второй половине периода ' + (best.rel > 0 ? 'выросла' : 'снизилась') + ' с ' + byKey[best.k].fmt(best.d1) + ' до ' + byKey[best.k].fmt(best.d2) + '.' : 'Недостаточно данных для тенденции.';
+var aiLink = links.length ? links[0].title + ' (r = ' + links[0].r + '). ' + links[0].example : 'Выберите метрики из состояния и игры, чтобы найти связь.';
+var aiTry = 'Попробуйте поставить цель по сну и проверить по таблице корреляций, как она отразится на K/D и ELO.';
+if (links.length) {
+var top = cand[0], sm = top.A.g === 's' ? top.A : (top.B.g === 's' ? top.B : top.A);
+var vs = D[sm.k].slice().sort(function (u, v) { return u - v; }), md = vs[Math.floor(vs.length / 2)];
+var rr0 = cand[0].r, sameDir = (sm.k === 'screen') ? rr0 < 0 : rr0 > 0;
+aiTry = 'Следующие 7 дней держите «' + sm.name + '» ' + (sameDir ? 'не ниже ' : 'не выше ') + sm.fmt(md) + ' перед пракками и сравните результат в этом разделе.';
+}
+
+// match stats
+var matchStats = [
+{ l: 'Сыграно карт', v: String(Math.round(N * 0.9)) },
+{ l: 'Средний K/D', v: f2(mean(D.kd)) },
+{ l: 'Средний ADR', v: f1(mean(D.adr)) },
+{ l: 'Win Rate', v: i0(mean(D.wr)) + '%' },
+{ l: 'ELO на конец периода', v: i0(D.elo[D.elo.length - 1]) }
+];
+
+var periodsDef = [[7, '7 дней'], [30, '30 дней'], [90, '90 дней'], [365, '1 год'], ['custom', 'Свой период']];
+var empty = !!this.props.empty, locked = !!this.props.freePlan;
+var sleepLink = corr(D.sleep, D.kd);
+return {
+periods: periodsDef.map(function (p) { var on = st.period === p[0]; return { name: p[1], on: on ? 'true' : 'false', cls: 'chip' + (on ? ' chip-on' : ''), pick: function () { self.setState({ period: p[0] }); } }; }),
+isCustom: st.period === 'custom', cFrom: st.cFrom, cTo: st.cTo,
+onFrom: function (ev) { self.setState({ cFrom: ev.target.value }); },
+onTo: function (ev) { self.setState({ cTo: ev.target.value }); },
+rangeLabel: fdate(start) + ' – ' + fdate(end) + ' ' + end.getFullYear() + ' · ' + N + ' ' + plural(N, 'день', 'дня', 'дней'),
+isOverview: tab === 'overview' ? 'true' : 'false', isCorr: tab === 'corr' ? 'true' : 'false',
+mOverCls: 'mode' + (tab === 'overview' ? ' mode-on' : ''), mCorrCls: 'mode' + (tab === 'corr' ? ' mode-on' : ''),
+toOverview: function () { self.setState({ tab: 'overview' }); },
+toCorr: function () { self.setState({ tab: 'corr' }); },
+isEmpty: empty,
+showOverview: !empty && tab === 'overview',
+showLocked: !empty && tab === 'corr' && locked,
+showCorr: !empty && tab === 'corr' && !locked,
+kpis: kpis,
+showMood: st.showMood, showEnergy: st.showEnergy,
+tMoodCls: 'tog' + (st.showMood ? '' : ' tog-off'), tEnergyCls: 'tog' + (st.showEnergy ? '' : ' tog-off'),
+toggleMood: function () { self.setState({ showMood: !self.state.showMood }); },
+toggleEnergy: function () { self.setState({ showEnergy: !self.state.showEnergy }); },
+moodAvg: f1(mAvg), energyAvg: f1(eAvg),
+moodPath: st.showMood ? moodPath : 'M0 0', moodArea: st.showMood ? moodArea : 'M0 0', energyPath: st.showEnergy ? line(D.energy) : 'M0 0',
+xLabels: xLabels,
+moodAria: 'Динамика за период: среднее настроение ' + f1(mAvg) + ', средняя энергия ' + f1(eAvg),
+lifeTabs: lifeTabs, lifeStats: lifeStats, lifeBars: lifeBars, normY: normY, normLabel: L.normLabel,
+lifeMax: L.axis(L.max), lifeMid: L.axis(L.max / 2),
+lifeAria: L.name + ' по дням: в среднем ' + L.fmt(lAvg),
+tests: testCards,
+ring1: ring(2.5), ring2: ring(5), ring3: ring(7.5), ring4: ring(10),
+spokes: WHEEL.map(function (w, i) { var p = pt(i, 10); return 'M170 170 L' + p[0].toFixed(1) + ' ' + p[1].toFixed(1); }).join(' '),
+radarCur: poly(cur), radarPrev: poly(prv),
+radarLabels: WHEEL.map(function (w, i) { var ang = -Math.PI / 2 + i * Math.PI / 4; return { short: w[1], x: ((C + Math.cos(ang) * (RAD + 30)) / 340 * 100).toFixed(1) + '%', y: ((C + Math.sin(ang) * (RAD + 22)) / 340 * 100).toFixed(1) + '%' }; }),
+wheel: WHEEL.map(function (w, i) { var d = cur[i] - prv[i]; return { name: w[0], val: cur[i].toFixed(1), delta: sgn(d, 1, ''), dCls: d > 0.05 ? 'up' : (d < -0.05 ? 'down' : 'flat') }; }),
+radarAria: 'Колесо баланса: ' + WHEEL.map(function (w, i) { return w[1] + ' ' + cur[i].toFixed(1); }).join(', '),
+ctaText: 'Например, связь сна и K/D за этот период: r = ' + (sleepLink >= 0 ? '+' : '−') + Math.abs(sleepLink).toFixed(2) + '. В корреляционном анализе — подробности и примеры на ваших данных.',
+stateChips: MET.filter(function (m) { return m.g === 's'; }).map(chip),
+gameChips: MET.filter(function (m) { return m.g === 'g'; }).map(chip),
+selCount: nSel, selMsg: st.selMsg,
+resetSel: function () { self.setState({ sel: ['mood', 'sleep', 'screen', 'elo', 'kd', 'adr'], selMsg: '' }); },
+links: links, hasLinks: links.length > 0, noLinks: links.length === 0,
+multiples: multiples,
+showMatrix: st.showMatrix && nSel > 1, matrixBtn: st.showMatrix ? 'Свернуть таблицу' : 'Показать таблицу',
+toggleMatrix: function () { self.setState({ showMatrix: !self.state.showMatrix }); },
+mxHead: sel.map(function (k) { return byKey[k].name; }), mxRows: mxRows,
+mxCols: '150px repeat(' + Math.max(1, nSel) + ', minmax(78px, 1fr))', mxMin: (150 + nSel * 86) + 'px',
+matchesOpen: st.matches, matchesClosed: !st.matches,
+toggleMatches: function () { self.setState({ matches: !self.state.matches }); },
+matchStats: matchStats,
+aiOn: st.ai, aiBtn: st.ai ? 'Обновить вывод' : 'Сформировать вывод',
+runAi: function () { self.setState({ ai: true }); },
+aiTrend: aiTrend, aiLink: aiLink, aiTry: aiTry
+};
+}
+renderVals() { var r = this._rvBase() || {}; var n = this._navVals(); for (var k in n) r[k] = n[k]; return r; }
+_navVals() {
+var FILE = 'Statistics.dc.html', KIND = 'shared', role = KIND;
+if (KIND === 'shared') {
+var pr = this.props.role;
+if (pr === 'player' || pr === 'staff') role = pr;
+else { role = 'player'; try { if (window.localStorage.getItem('crm.role') === 'staff') role = 'staff'; } catch (e) {} }
+} else { try { window.localStorage.setItem('crm.role', KIND); } catch (e) {} }
+var IC = {
+overview: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+calendar: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4',
+tests: 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9',
+mood: 'M13 2L4 14h7l-1 8 9-12h-7z',
+recovery: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8zM3.5 12h4l2-3 3 6 2-3h6',
+stats: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+game: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 3v3M12 18v3M3 12h3M18 12h3',
+players: 'M9 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM2.5 20c.8-3.4 3.3-5 6.5-5s5.7 1.6 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.2 3.5 5',
+lineups: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
+tariffs: 'M3 6h18v12H3zM3 10h18M7 15h4',
+diary: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6'
+};
+var G = role === 'staff' ? [
+['', [['Обзор', 'TeamOverview.dc.html', 'overview'], ['Календарь', 'StaffCalendar.dc.html', 'calendar']]],
+['Команда', [['Игроки', 'Players.dc.html', 'players', ['TeamNutrition.dc.html']], ['Раскидки и скрипты', 'Lineups.dc.html', 'lineups']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+] : [
+['', [['Обзор', 'Main.dc.html', 'overview'], ['Календарь', 'Calendar.dc.html', 'calendar'], ['Дневник CS2', 'Diary.dc.html', 'diary']]],
+['Состояние', [['Тесты', 'Tests.dc.html', 'tests', ['TestRunner.dc.html']], ['Настроение и энергия', 'MoodEnergy.dc.html', 'mood'], ['Восстановление', 'Recovery.dc.html', 'recovery']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+];
+var staff = role === 'staff', onTar = FILE === 'Tariffs.dc.html', onProf = FILE === 'Profile.dc.html';
+return {
+navLabel: staff ? 'Меню Staff' : 'Основное меню', navHome: staff ? 'TeamOverview.dc.html' : 'Main.dc.html',
+navGroups: G.map(function (g) { return { title: g[0], hasTitle: !!g[0], items: g[1].map(function (it) {
+var on = it[1] === FILE || (it[3] && it[3].indexOf(FILE) >= 0);
+return { name: it[0], href: it[1], icon: IC[it[2]], cls: 'sb-item' + (on ? ' sb-on' : ''), cur: on ? 'page' : 'false' }; }) }; }),
+navHasExtra: !staff, navExtraName: 'Тарифы', navExtraHref: 'Tariffs.dc.html', navExtraIcon: IC.tariffs,
+navExtraCls: 'sb-item' + (onTar ? ' sb-on' : ''), navExtraCur: onTar ? 'page' : 'false',
+navCardCls: 'sb-card' + (onProf ? ' sb-card-on' : ''), navCardCur: onProf ? 'page' : 'false',
+navIni: staff ? 'CO' : 'NI', navName: staff ? 'Coach' : 'NICKNAME12345', navRole: staff ? 'Staff · Atlant Esports' : 'Игрок · Solo',
+navAvBg: staff ? 'linear-gradient(135deg, #7A4DFF, #B07CFF)' : 'linear-gradient(135deg, #0066FF, #00C8FF)',
+navSwitchHref: staff ? 'Main.dc.html' : 'TeamOverview.dc.html', navSwitchText: staff ? 'Демо: открыть как игрок' : 'Демо: открыть как Staff'
+};
+}
+}
+</script>
+</body>
+</html>

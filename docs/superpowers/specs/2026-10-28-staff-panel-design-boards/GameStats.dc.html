@@ -1,0 +1,692 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<title>Performance CRM — Игровая статистика</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Onest:wght@400;500;600;700;800&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0;background:#070B17}
+a{color:#3FD0FF}a:hover{color:#8BE4FF}
+.card{padding:24px;border-radius:24px;background:rgba(15,21,40,.82);border:1px solid rgba(120,150,220,.12);display:flex;flex-direction:column;gap:18px;min-width:0}
+.step-head{display:flex;align-items:center;gap:14px}
+.step-num{flex:0 0 auto;width:36px;height:36px;border-radius:10px;background:linear-gradient(135deg,#0066FF,#00C8FF);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;box-shadow:0 6px 18px rgba(0,120,255,.35)}
+.step-head h2{margin:0;font-size:22px;font-weight:700}
+.step-sub{font-size:14px;color:#A3AECB}
+.chip{display:inline-flex;align-items:center;gap:8px;min-height:40px;padding:0 16px;border-radius:999px;border:1px solid rgba(120,150,220,.18);background:#141B30;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:500;cursor:pointer}
+.chip:hover{color:#FFFFFF;border-color:rgba(63,208,255,.4)}
+.chip-on{background:rgba(63,208,255,.14);border-color:rgba(63,208,255,.45);color:#7FE0FF}
+.segwrap{display:flex;gap:4px;padding:5px;border-radius:14px;background:#141B30;border:1px solid rgba(120,150,220,.14);max-width:100%;overflow-x:auto}
+.seg-btn{flex:1 1 0;min-height:42px;padding:0 14px;border:0;border-radius:10px;background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;white-space:nowrap}
+.seg-btn:hover{color:#FFFFFF}
+.seg-on{background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF}
+.fld{display:flex;flex-direction:column;gap:6px;min-width:0}
+.fld label,.fld .lbl{font-size:13px;font-weight:600;color:#A3AECB}
+.inp{width:100%;box-sizing:border-box;min-height:46px;padding:0 14px;border-radius:12px;border:1px solid rgba(120,150,220,.18);background:#10172B;color:#F2F5FB;font-family:inherit;font-size:16px}
+.inp::placeholder{color:#5E6A8A}
+.inp:focus{outline:2px solid #3FD0FF;outline-offset:0;border-color:transparent}
+.date-wrap{position:relative}
+.inp-date{color-scheme:dark;padding-left:48px;padding-right:40px;cursor:pointer;border-color:rgba(63,208,255,.35);background:rgba(63,208,255,.06);font-weight:600}
+.inp-date:hover{border-color:rgba(63,208,255,.65);background:rgba(63,208,255,.1)}
+.inp-date::-webkit-calendar-picker-indicator{position:absolute;inset:0;width:auto;height:auto;opacity:0;cursor:pointer}
+.date-ico{position:absolute;left:10px;top:50%;transform:translateY(-50%);width:30px;height:30px;border-radius:8px;background:linear-gradient(135deg,#0066FF,#00C8FF);color:#FFFFFF;display:flex;align-items:center;justify-content:center;pointer-events:none}
+.date-ico svg{width:16px;height:16px}
+.date-chev{position:absolute;right:14px;top:50%;transform:translateY(-50%);color:#7FE0FF;display:flex;pointer-events:none}
+.mtab{display:flex;flex-direction:column;align-items:flex-start;gap:2px;min-height:56px;padding:8px 16px;border-radius:14px;border:1px solid rgba(120,150,220,.16);background:#141B30;color:#C3CCE2;font-family:inherit;cursor:pointer;text-align:left}
+.mtab:hover{border-color:rgba(63,208,255,.4);color:#FFFFFF}
+.mtab-on{background:linear-gradient(160deg,rgba(0,102,255,.32),rgba(0,200,255,.08));border-color:rgba(63,208,255,.65);color:#FFFFFF}
+.mtab-add{border-style:dashed;justify-content:center;align-items:center;flex-direction:row;gap:8px;font-size:14px;font-weight:600}
+.score{width:92px;height:68px;box-sizing:border-box;border-radius:16px;border:1px solid rgba(120,150,220,.2);background:#10172B;color:#FFFFFF;font-family:inherit;font-size:34px;font-weight:800;text-align:center;font-variant-numeric:tabular-nums}
+.score:focus{outline:2px solid #3FD0FF;border-color:transparent}
+.opt{min-height:44px;padding:0 16px;border-radius:12px;border:1px solid rgba(120,150,220,.18);background:#10172B;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer}
+.opt:hover{color:#FFFFFF;border-color:rgba(63,208,255,.4)}
+.opt-w{background:rgba(63,208,255,.16);border-color:rgba(63,208,255,.6);color:#7FE0FF}
+.opt-l{background:rgba(255,122,61,.14);border-color:rgba(255,122,61,.55);color:#FFA27A}
+.res{display:inline-flex;align-items:center;gap:8px;padding:8px 14px;border-radius:999px;font-size:14px;font-weight:700}
+.res-w{background:rgba(63,208,255,.14);border:1px solid rgba(63,208,255,.4);color:#7FE0FF}
+.res-l{background:rgba(255,122,61,.14);border:1px solid rgba(255,122,61,.45);color:#FFA27A}
+.res-d{background:rgba(154,166,196,.14);border:1px solid rgba(154,166,196,.4);color:#D5DCEC}
+.res-n{background:#141B30;border:1px solid rgba(120,150,220,.18);color:#8A97B8}
+.grid-row{display:grid;align-items:center;border-bottom:1px solid rgba(120,150,220,.1)}
+.gh{padding:10px 6px;font-size:12px;font-weight:700;letter-spacing:.04em;color:#8A97B8;text-align:center;white-space:nowrap}
+.gh-req{color:#D5DCEC}
+.gh-auto{color:#7FE0FF;background:rgba(63,208,255,.06)}
+.gname{padding:8px 14px;font-size:14px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;position:sticky;left:0;background:#0F1528;z-index:1}
+.gc{padding:6px 4px}
+.cell{width:100%;box-sizing:border-box;height:40px;padding:0 6px;border-radius:10px;border:1px solid rgba(120,150,220,.16);background:#10172B;color:#F2F5FB;font-family:inherit;font-size:15px;text-align:center;font-variant-numeric:tabular-nums}
+.cell::placeholder{color:#3F4A68}
+.cell:focus{outline:2px solid #3FD0FF;outline-offset:0;border-color:transparent}
+.cell-err{border-color:rgba(255,122,61,.75);background:rgba(255,122,61,.08)}
+.ga{padding:6px 4px;text-align:center;font-size:14px;font-weight:600;color:#7FE0FF;font-variant-numeric:tabular-nums;background:rgba(63,208,255,.06);align-self:stretch;display:flex;align-items:center;justify-content:center}
+.tile{padding:14px 16px;border-radius:14px;background:#141B30;display:flex;flex-direction:column;gap:4px}
+.tile span:first-child{font-size:12px;color:#8A97B8}
+.tile span:last-child{font-size:20px;font-weight:800;font-variant-numeric:tabular-nums}
+.issue{display:flex;align-items:flex-start;gap:10px;font-size:14px;line-height:1.4;color:#FFC2A6}
+.issue::before{content:'';flex:0 0 auto;width:8px;height:8px;margin-top:6px;border-radius:50%;background:#FF7A3D}
+.btn-primary{min-height:52px;padding:0 24px;border:0;border-radius:14px;background:linear-gradient(90deg,#0066FF,#00B4F0);color:#FFFFFF;font-family:inherit;font-size:16px;font-weight:700;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px;box-shadow:0 10px 28px rgba(0,120,255,.4)}
+.btn-primary:hover{filter:brightness(1.08)}
+.btn-ghost{min-height:44px;padding:0 18px;border-radius:12px;border:1px solid rgba(120,150,220,.2);background:transparent;color:#C3CCE2;font-family:inherit;font-size:14px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;gap:8px}
+.btn-ghost:hover{background:#1E2740;color:#FFFFFF}
+.icon-btn{width:44px;height:44px;border-radius:12px;border:1px solid rgba(120,150,220,.14);background:#141B30;color:#C3CCE2;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:0 0 auto}
+.icon-btn:hover{background:#1E2740;color:#FFFFFF}
+.trow{display:grid;border-bottom:1px solid rgba(120,150,220,.1)}
+.trow:hover{background:rgba(30,39,64,.45)}
+.tcell{padding:12px 14px;font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tcell-label{color:#C3CCE2;font-weight:500;position:sticky;left:0;background:#0F1528}
+.tcell-total{font-weight:700;color:#FFFFFF;background:rgba(0,102,255,.12)}
+.tcell-new{color:#7FE0FF}
+.tgroup{padding:16px 14px 8px;font-size:12px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:#7FE0FF;border-bottom:1px solid rgba(120,150,220,.1)}
+
+.sb-item{display:flex;align-items:center;gap:12px;min-height:44px;padding:0 12px;border-radius:12px;text-decoration:none;color:#C3CCE2;font-size:15px;font-weight:500}
+.sb-item:hover{background:rgba(30,39,64,.8);color:#FFFFFF}
+.sb-item:focus-visible{outline:2px solid #3FD0FF;outline-offset:2px}
+.sb-on,.sb-on:hover{color:#FFFFFF;background:linear-gradient(90deg,rgba(0,102,255,.9),rgba(0,200,255,.75));box-shadow:0 6px 20px rgba(0,110,255,.35)}
+.sb-h{padding:0 12px;margin:6px 0 2px;font-size:11px;font-weight:700;letter-spacing:.12em;text-transform:uppercase;color:#6F7C9C}
+.sb-card{padding:12px;border-radius:16px;background:rgba(23,31,52,.9);border:1px solid rgba(120,150,220,.14);display:flex;align-items:center;gap:12px;text-decoration:none;color:#F2F5FB}
+.sb-card:hover{border-color:rgba(63,208,255,.45);color:#F2F5FB}
+.sb-card-on{border-color:rgba(63,208,255,.7);background:linear-gradient(160deg,rgba(0,102,255,.25),rgba(23,31,52,.95) 70%)}
+.sb-switch{display:flex;align-items:center;justify-content:center;gap:8px;min-height:38px;border-radius:12px;border:1px dashed rgba(120,150,220,.3);color:#A3AECB;font-size:13px;font-weight:600;text-decoration:none}
+.sb-switch:hover{color:#FFFFFF;border-color:rgba(63,208,255,.5)}
+</style>
+</helmet>
+<div style="min-height: 100vh; background: #070B17; background-image: radial-gradient(900px 520px at 18% -8%, rgba(0,102,255,0.55), rgba(0,102,255,0) 70%), radial-gradient(520px 380px at 2% 10%, rgba(0,200,255,0.35), rgba(0,200,255,0) 70%); font-family: 'Onest', system-ui, sans-serif; color: #F2F5FB; display: flex; flex-wrap: wrap; align-items: stretch">
+
+<nav aria-label="{{navLabel}}" style="flex: 1 1 260px; max-width: 100%; box-sizing: border-box; padding: 28px 20px; display: flex; flex-direction: column; gap: 20px; background: rgba(9,14,30,0.72); border-right: 1px solid rgba(120,150,220,0.12)">
+<a href="{{navHome}}" style="display: flex; align-items: center; gap: 12px; padding: 0 8px 8px; text-decoration: none; color: #F2F5FB">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: linear-gradient(135deg, #0066FF, #00C8FF); display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 24px rgba(0,120,255,0.45)"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#FFFFFF" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 19L10 5l4 9 2-4 4 9"></path></svg></span>
+<span style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: #8A97B8">Atlant Technology</span><span style="font-size: 16px; font-weight: 700">Performance CRM</span></span>
+</a>
+<sc-for list="{{navGroups}}" as="g" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<sc-if value="{{g.hasTitle}}" hint-placeholder-val="{{ false }}"><span class="sb-h">{{g.title}}</span></sc-if>
+<sc-for list="{{g.items}}" as="it" hint-placeholder-count="2"><a href="{{it.href}}" class="{{it.cls}}" aria-current="{{it.cur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{it.icon}}"></path></svg>{{it.name}}</a></sc-for>
+</div>
+</sc-for>
+<div style="margin-top: auto; display: flex; flex-direction: column; gap: 10px">
+<sc-if value="{{navHasExtra}}" hint-placeholder-val="{{ true }}"><a href="{{navExtraHref}}" class="{{navExtraCls}}" aria-current="{{navExtraCur}}"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="{{navExtraIcon}}"></path></svg>{{navExtraName}}</a></sc-if>
+<a href="Profile.dc.html" class="{{navCardCls}}" aria-label="Профиль и настройки" aria-current="{{navCardCur}}">
+<span style="flex: 0 0 auto; width: 40px; height: 40px; border-radius: 12px; background: {{navAvBg}}; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 14px; color: #FFFFFF">{{navIni}}</span>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto; min-width: 0"><span style="font-size: 14px; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap">{{navName}}</span><span style="font-size: 12px; color: #A3AECB">{{navRole}}</span></span>
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#A3AECB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 9a3 3 0 1 0 0 6a3 3 0 1 0 0-6zM12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"></path></svg>
+</a>
+<a href="{{navSwitchHref}}" class="sb-switch"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 7h11l-3-3M17 17H6l3 3"></path></svg>{{navSwitchText}}</a>
+</div>
+</nav><main style="flex: 999 1 560px; min-width: 0; box-sizing: border-box; padding: 24px clamp(16px, 3vw, 40px) 48px; display: flex; flex-direction: column; gap: 24px">
+
+<!-- Top bar -->
+<header style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<div style="flex: 1 1 auto"></div>
+<a href="Calendar.dc.html" style="display: flex; align-items: center; gap: 14px; padding: 12px 18px; border-radius: 14px; background: rgba(23,31,52,0.85); border: 1px solid rgba(120,150,220,0.14); text-decoration: none; color: #F2F5FB; min-width: 0; flex: 0 1 380px">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#3FD0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg>
+<span style="display: flex; flex-direction: column; gap: 2px; flex: 1 1 auto">
+<span style="font-size: 14px; font-weight: 600">Разбор демо <span style="font-weight: 500; color: #7FE0FF">17:00</span></span>
+<span style="font-size: 13px; color: #A3AECB">След. тренировка <span style="color: #C3CCE2">19:00</span></span>
+</span>
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#A3AECB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M8 7h9v9"></path></svg>
+</a>
+<div role="img" aria-label="Серия: 23 дня подряд" style="height: 48px; padding: 0 14px; box-sizing: border-box; border-radius: 14px; background: rgba(23,31,52,0.85); border: 1px solid rgba(120,150,220,0.14); display: flex; align-items: center; gap: 8px">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#FF8A3D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2c1 4 6 6 6 12a6 6 0 0 1-12 0c0-3 1.5-5 3-6 0 2 1 3 2 3 0-3-1-5 1-9z"></path></svg>
+<span style="font-size: 16px; font-weight: 700">23</span>
+</div>
+<button aria-label="Уведомления: 11 новых" style="position: relative; width: 48px; height: 48px; border-radius: 14px; border: 1px solid rgba(120,150,220,0.14); background: rgba(23,31,52,0.85); color: #F2F5FB; display: flex; align-items: center; justify-content: center; cursor: pointer">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 8a6 6 0 1 1 12 0c0 7 3 9 3 9H3s3-2 3-9"></path><path d="M10.3 21a1.9 1.9 0 0 0 3.4 0"></path></svg>
+<span style="position: absolute; top: 6px; right: 6px; min-width: 18px; height: 18px; padding: 0 4px; box-sizing: border-box; border-radius: 9px; background: #FF7A3D; color: #1A0A00; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center">11</span>
+</button>
+</header>
+
+<!-- Hero -->
+<section style="display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 20px">
+<div style="display: flex; flex-direction: column; gap: 10px; flex: 1 1 420px; min-width: 0">
+<span style="align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 6px 12px; border-radius: 999px; background: rgba(63,208,255,0.12); border: 1px solid rgba(63,208,255,0.3); color: #7FE0FF; font-size: 12px; font-weight: 600; letter-spacing: 0.08em; text-transform: uppercase">Игровая форма</span>
+<h1 style="margin: 0; font-size: clamp(32px, 4vw, 52px); line-height: 1.05; font-weight: 800; letter-spacing: -0.01em; text-transform: uppercase">Игровая статистика</h1>
+<p style="margin: 0; font-size: 18px; line-height: 1.45; color: #C3CCE2; max-width: 640px">Внесите игру по картам — итоги, проценты и сводка посчитаются сами.</p>
+</div>
+<div role="tablist" aria-label="Раздел" class="segwrap" style="flex: 0 1 420px">
+<sc-for list="{{tabs}}" as="t" hint-placeholder-count="2">
+<button role="tab" class="{{t.cls}}" aria-selected="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button>
+</sc-for>
+</div>
+</section>
+
+<!-- ============ NEW GAME ============ -->
+<sc-if value="{{isNew}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-wrap: wrap; align-items: flex-start; gap: 24px">
+
+<div style="flex: 999 1 640px; min-width: 0; display: flex; flex-direction: column; gap: 20px">
+
+<!-- Step 1 -->
+<section class="card" aria-labelledby="s1">
+<div class="step-head"><span class="step-num" aria-hidden="true">1</span><div style="display: flex; flex-direction: column; gap: 2px"><h2 id="s1">Игра</h2><span class="step-sub">Что и когда играли</span></div></div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr)); gap: 16px; align-items: end">
+<div class="fld"><span class="lbl">Тип</span>
+<div role="group" aria-label="Тип игры" class="segwrap">
+<sc-for list="{{typeTabs}}" as="t" hint-placeholder-count="3"><button class="{{t.cls}}" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button></sc-for>
+</div></div>
+<div class="fld"><label for="g-date">Дата</label>
+<div class="date-wrap">
+<span class="date-ico" aria-hidden="true"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="16" rx="2"></rect><path d="M3 10h18M8 3v4M16 3v4"></path></svg></span>
+<input id="g-date" class="inp inp-date" type="date" value="{{dDate}}" onChange="{{onDate}}" onClick="{{openPicker}}">
+<span class="date-chev" aria-hidden="true"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"></path></svg></span>
+</div></div>
+<div class="fld"><label for="g-opp">Соперник <span style="font-weight: 500; color: #6F7C9E">— по желанию</span></label><input id="g-opp" class="inp" type="text" placeholder="Название команды" value="{{dOpp}}" onChange="{{onOpp}}"></div>
+<div class="fld"><span class="lbl">Кто играл</span>
+<div role="group" aria-label="Состав" class="segwrap">
+<sc-for list="{{modeTabs}}" as="t" hint-placeholder-count="2"><button class="{{t.cls}}" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button></sc-for>
+</div></div>
+</div>
+</section>
+
+<!-- Step 2 -->
+<section class="card" aria-labelledby="s2">
+<div class="step-head"><span class="step-num" aria-hidden="true">2</span><div style="display: flex; flex-direction: column; gap: 2px"><h2 id="s2">Карты и счёт</h2><span class="step-sub">Каждая карта — отдельный матч. Победа, раунды и пистолетки считаются по счёту</span></div></div>
+<div role="tablist" aria-label="Карты" style="display: flex; flex-wrap: wrap; gap: 10px">
+<sc-for list="{{mapTabs}}" as="m" hint-placeholder-count="2">
+<button role="tab" class="{{m.cls}}" aria-selected="{{m.on}}" onClick="{{m.pick}}">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 600; color: #8A97B8">{{m.label}}
+<sc-if value="{{m.done}}" hint-placeholder-val="{{ true }}"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#3FD0FF" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" role="img" aria-label="заполнено"><path d="M5 12l5 5L20 7"></path></svg></sc-if>
+<sc-if value="{{m.notDone}}" hint-placeholder-val="{{ false }}"><span role="img" aria-label="есть пропуски" style="width: 8px; height: 8px; border-radius: 50%; background: #FF7A3D"></span></sc-if>
+</span>
+<span style="font-size: 15px; font-weight: 700">{{m.sub}}</span>
+</button>
+</sc-for>
+<button class="mtab mtab-add" onClick="{{addMap}}">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"></path></svg>Добавить карту</button>
+</div>
+
+<div style="display: flex; flex-direction: column; gap: 20px; padding: 20px; border-radius: 18px; background: #141B30; border: 1px solid rgba(120,150,220,0.12)">
+<div class="fld"><span class="lbl">Карта</span>
+<div role="group" aria-label="Выбор карты" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{mapChips}}" as="c" hint-placeholder-count="8"><button class="{{c.cls}}" aria-pressed="{{c.on}}" onClick="{{c.pick}}">{{c.name}}</button></sc-for>
+</div></div>
+
+<div style="display: flex; flex-wrap: wrap; align-items: flex-end; gap: 28px">
+<div class="fld"><span class="lbl">Счёт</span>
+<div style="display: flex; align-items: center; gap: 12px">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px"><input id="sc-our" class="score" type="text" inputmode="numeric" placeholder="0" aria-label="Наши раунды" value="{{mOur}}" onChange="{{onOur}}"><span style="font-size: 12px; color: #8A97B8">Мы</span></div>
+<span style="font-size: 30px; font-weight: 800; color: #5E6A8A; padding-bottom: 22px">:</span>
+<div style="display: flex; flex-direction: column; align-items: center; gap: 6px"><input id="sc-their" class="score" type="text" inputmode="numeric" placeholder="0" aria-label="Раунды соперника" value="{{mTheir}}" onChange="{{onTheir}}"><span style="font-size: 12px; color: #8A97B8">Соперник</span></div>
+</div></div>
+<div style="padding-bottom: 26px"><span class="{{mResCls}}">{{mRes}}</span></div>
+<div style="flex: 1 1 auto"></div>
+<sc-if value="{{canRemove}}" hint-placeholder-val="{{ false }}">
+<button class="btn-ghost" onClick="{{removeMap}}" style="margin-bottom: 22px">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3"></path></svg>Удалить карту</button>
+</sc-if>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); gap: 16px">
+<sc-for list="{{pistols}}" as="p" hint-placeholder-count="2">
+<div class="fld"><span class="lbl">{{p.label}}</span>
+<div role="group" aria-label="{{p.label}}" style="display: flex; gap: 8px">
+<sc-for list="{{p.opts}}" as="o" hint-placeholder-count="2"><button class="{{o.cls}}" aria-pressed="{{o.on}}" onClick="{{o.pick}}" style="flex: 1 1 0">{{o.t}}</button></sc-for>
+</div></div>
+</sc-for>
+</div>
+</div>
+</section>
+
+<!-- Step 3 -->
+<section class="card" aria-labelledby="s3">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div class="step-head"><span class="step-num" aria-hidden="true">3</span><div style="display: flex; flex-direction: column; gap: 2px"><h2 id="s3">Статистика игроков · {{mName}}</h2><span class="step-sub">Как таблица счёта: строка — игрок. Голубые колонки считаются сами</span></div></div>
+<span style="display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 12px; background: rgba(63,208,255,0.08); border: 1px dashed rgba(63,208,255,0.35); font-size: 13px; color: #A3D8EE">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#7FE0FF" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="8" y="3" width="12" height="14" rx="2"></rect><path d="M4 7v12a2 2 0 0 0 2 2h10"></path></svg>Строки из Excel или Google Таблиц можно вставить в любую ячейку — Ctrl+V</span>
+</div>
+<div style="border-radius: 16px; border: 1px solid rgba(120,150,220,0.14); background: #0F1528; overflow-x: auto">
+<div role="table" aria-label="Статистика игроков на карте" style="min-width: 1240px">
+<div role="row" class="grid-row" style="grid-template-columns: 170px repeat(11, minmax(62px, 1fr)) repeat(4, 70px); background: #141B30">
+<span role="columnheader" class="gname gh" style="text-align: left; background: #141B30">Игрок</span>
+<sc-for list="{{colHeads}}" as="h" hint-placeholder-count="11"><span role="columnheader" class="{{h.cls}}" title="{{h.title}}">{{h.l}}</span></sc-for>
+<span role="columnheader" class="gh gh-auto">K/D</span>
+<span role="columnheader" class="gh gh-auto">KPR</span>
+<span role="columnheader" class="gh gh-auto">DPR</span>
+<span role="columnheader" class="gh gh-auto">Опен ±</span>
+</div>
+<sc-for list="{{gridRows}}" as="r" hint-placeholder-count="5">
+<div role="row" class="grid-row" style="grid-template-columns: 170px repeat(11, minmax(62px, 1fr)) repeat(4, 70px)">
+<span role="rowheader" class="gname">{{r.name}}</span>
+<sc-for list="{{r.cells}}" as="c" hint-placeholder-count="11">
+<span role="cell" class="gc"><input class="{{c.cls}}" type="text" inputmode="decimal" placeholder="—" aria-label="{{c.aria}}" value="{{c.value}}" onChange="{{c.change}}" onPaste="{{c.paste}}"></span>
+</sc-for>
+<span role="cell" class="ga">{{r.kd}}</span>
+<span role="cell" class="ga">{{r.kpr}}</span>
+<span role="cell" class="ga">{{r.dpr}}</span>
+<span role="cell" class="ga">{{r.open}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; gap: 16px; font-size: 13px; color: #8A97B8">
+<span><span style="color: #D5DCEC; font-weight: 700">K, D, A, ADR</span> — обязательно</span>
+<span>FK / FD — первые убийства / смерти · Мульти — ср. мультикиллы · Ослепл. — ср. время ослепления, с</span>
+</div>
+</section>
+</div>
+
+<!-- Live summary -->
+<aside aria-label="Итог игры" style="flex: 1 1 320px; min-width: 0; position: sticky; top: 24px; display: flex; flex-direction: column; gap: 16px">
+<section class="card" style="background: linear-gradient(160deg, rgba(0,102,255,0.22), rgba(15,21,40,0.92) 60%); border-color: rgba(63,208,255,0.28)">
+<div style="display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; color: #7FE0FF">Итог игры · считается сам</span>
+<span style="font-size: 40px; font-weight: 800; line-height: 1">{{sMaps}}</span>
+<span style="font-size: 14px; color: #A3AECB">{{sMapsSub}}</span>
+</div>
+<div style="display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px">
+<div class="tile"><span>Win Rate</span><span>{{sWr}}</span></div>
+<div class="tile"><span>Round Win Rate</span><span>{{sRwr}}</span></div>
+<div class="tile"><span>Раунды W–L</span><span>{{sRounds}}</span></div>
+<div class="tile"><span>Pistol Win Rate</span><span>{{sPwr}}</span></div>
+<div class="tile"><span>AVG Rounds Won</span><span>{{sArw}}</span></div>
+<div class="tile"><span>AVG Rounds Lost</span><span>{{sArl}}</span></div>
+<div class="tile" style="grid-column: 1 / -1"><span>{{sKdLabel}}</span><span>{{sKd}}</span></div>
+</div>
+</section>
+
+<section class="card" style="gap: 14px">
+<h2 style="margin: 0; font-size: 18px; font-weight: 700">Перед сохранением</h2>
+<sc-if value="{{hasIssues}}" hint-placeholder-val="{{ true }}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<sc-for list="{{issues}}" as="i" hint-placeholder-count="2"><span class="issue">{{i}}</span></sc-for>
+</div>
+</sc-if>
+<sc-if value="{{noIssues}}" hint-placeholder-val="{{ false }}">
+<span style="display: flex; align-items: center; gap: 10px; font-size: 14px; font-weight: 600; color: #7FE0FF">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>Всё обязательное заполнено</span>
+</sc-if>
+<sc-if value="{{hasOptional}}" hint-placeholder-val="{{ false }}">
+<span style="font-size: 13px; line-height: 1.45; color: #8A97B8">{{optionalNote}}</span>
+</sc-if>
+<button class="btn-primary" onClick="{{save}}">
+<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L20 7"></path></svg>Сохранить игру</button>
+<span role="status" style="font-size: 13px; font-weight: 600; color: #FFA27A">{{msg}}</span>
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap">
+<span style="display: flex; align-items: center; gap: 8px; font-size: 13px; color: #8A97B8">
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 17.6A5 5 0 0 0 18 8h-1.3A8 8 0 1 0 4 16.3"></path><path d="M9 17l3 3 3-3M12 12v8"></path></svg>Черновик сохраняется автоматически</span>
+<button class="btn-ghost" onClick="{{reset}}" style="min-height: 40px">Очистить</button>
+</div>
+</section>
+</aside>
+</div>
+</sc-if>
+
+<!-- ============ HISTORY ============ -->
+<sc-if value="{{isHistory}}" hint-placeholder-val="{{ false }}">
+<div style="display: flex; flex-direction: column; gap: 20px">
+<section class="card">
+<div style="display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; flex-wrap: wrap">
+<div style="display: flex; flex-direction: column; gap: 4px">
+<h2 style="margin: 0; font-size: 24px; font-weight: 700">Сводка за период</h2>
+<span style="font-size: 14px; color: #A3AECB">Итог за период и каждая игра отдельно — новые слева</span>
+</div>
+<div role="group" aria-label="Период" style="display: flex; flex-wrap: wrap; gap: 8px">
+<button class="chip" aria-pressed="false">7 дней</button>
+<button class="chip chip-on" aria-pressed="true">30 дней</button>
+<button class="chip" aria-pressed="false">90 дней</button>
+<button class="chip" aria-pressed="false">Свой период</button>
+</div>
+</div>
+<div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+<div role="group" aria-label="Источник" class="segwrap">
+<sc-for list="{{srcTabs}}" as="t" hint-placeholder-count="4"><button class="{{t.cls}}" aria-pressed="{{t.on}}" onClick="{{t.pick}}">{{t.name}}</button></sc-for>
+</div>
+<div role="group" aria-label="Игрок" style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{playerChips}}" as="p" hint-placeholder-count="5"><button class="{{p.cls}}" aria-pressed="{{p.on}}" onClick="{{p.pick}}">{{p.name}}</button></sc-for>
+</div>
+</div>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); gap: 12px">
+<div class="tile"><span>Игр за период</span><span>{{hGames}}</span></div>
+<div class="tile"><span>K/D</span><span>{{hKd}}</span></div>
+<div class="tile"><span>ADR</span><span>{{hAdr}}</span></div>
+<div class="tile"><span>Win Rate по картам</span><span>{{hWr}}</span></div>
+</div>
+<sc-if value="{{hasGames}}" hint-placeholder-val="{{ true }}">
+<div style="border-radius: 16px; border: 1px solid rgba(120,150,220,0.14); overflow-x: auto; background: #0F1528">
+<div role="table" aria-label="Показатели по играм" style="min-width: {{tableMin}}">
+<div role="row" class="trow" style="grid-template-columns: {{gridCols}}; background: #141B30">
+<span role="columnheader" class="tcell tcell-label" style="background: #141B30; font-size: 12px; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; color: #8A97B8">Показатель</span>
+<sc-for list="{{cols}}" as="c" hint-placeholder-count="4">
+<span role="columnheader" class="tcell" style="display: flex; flex-direction: column; gap: 2px"><span style="font-size: 14px; font-weight: 700">{{c.title}}</span><span style="font-size: 12px; color: #8A97B8">{{c.sub}}</span></span>
+</sc-for>
+</div>
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="12">
+<sc-if value="{{r.isGroup}}" hint-placeholder-val="{{ false }}"><div role="row" class="tgroup"><span role="rowheader">{{r.label}}</span></div></sc-if>
+<sc-if value="{{r.isData}}" hint-placeholder-val="{{ true }}">
+<div role="row" class="trow" style="grid-template-columns: {{gridCols}}">
+<span role="rowheader" class="tcell tcell-label">{{r.label}}</span>
+<sc-for list="{{r.cells}}" as="v" hint-placeholder-count="4"><span role="cell" class="{{v.cls}}">{{v.text}}</span></sc-for>
+</div>
+</sc-if>
+</sc-for>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{noGames}}" hint-placeholder-val="{{ false }}">
+<div style="padding: 40px 20px; border-radius: 16px; border: 1px dashed rgba(120,150,220,0.25); display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center">
+<span style="font-size: 16px; font-weight: 600">Нет игр для этого фильтра</span>
+<span style="font-size: 14px; color: #A3AECB">Выберите другой источник или игрока</span>
+</div>
+</sc-if>
+</section>
+</div>
+</sc-if>
+</main>
+
+<!-- Content -->
+
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"role": {"editor": "enum", "options": ["auto", "player", "staff"], "default": "auto"}, "$preview": {"width": 1440, "height": 1760}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.ROSTER = ['NICKNAME12345', 'Игрок 2', 'Игрок 3', 'Игрок 4', 'Игрок 5'];
+this.state = { tab: 'new', draft: this.sampleDraft(), games: this.sampleGames(), hp: 0, hsrc: 'all', showErr: false, msg: '', lastId: 0 };
+}
+emptyRow() { return { k: '', d: '', a: '', adr: '', kast: '', fk: '', fd: '', udr: '', multi: '', clutch: '', blind: '' }; }
+emptyMap() { var self = this; return { name: '', our: '', their: '', p1: '', p2: '', st: [0, 1, 2, 3, 4].map(function () { return self.emptyRow(); }) }; }
+sampleDraft() {
+var m = this.emptyMap();
+m.name = 'Mirage'; m.our = '13'; m.their = '9'; m.p1 = 'w';
+m.st[0] = { k: '24', d: '15', a: '5', adr: '91', kast: '78', fk: '5', fd: '2', udr: '14', multi: '3', clutch: '1', blind: '2.2' };
+m.st[1] = { k: '18', d: '17', a: '7', adr: '76', kast: '', fk: '', fd: '', udr: '', multi: '', clutch: '', blind: '' };
+return { date: '2026-10-02', type: 'prak', opp: '', mode: 'team', maps: [m], active: 0 };
+}
+sampleGames() {
+var seed = 7;
+function rnd() { seed = (seed * 16807) % 2147483647; return (seed - 1) / 2147483646; }
+function r(a, b) { return Math.round(a + rnd() * (b - a)); }
+var self = this;
+function map(name, our, their, p1, p2) {
+return { name: name, our: String(our), their: String(their), p1: p1, p2: p2, st: [0, 1, 2, 3, 4].map(function () {
+return { k: r(8, 28), d: r(10, 22), a: r(2, 8), adr: r(55, 105), kast: r(55, 85), fk: r(0, 6), fd: r(0, 6), udr: r(3, 20), multi: r(0, 4), clutch: r(0, 2), blind: Math.round((0.8 + rnd() * 2.2) * 10) / 10 };
+}) };
+}
+return [
+{ id: 1, date: '2026-09-24', type: 'prak', opp: 'Team Alpha', roster: [0, 1, 2, 3, 4], maps: [map('Mirage', 13, 9, 'w', 'w'), map('Inferno', 10, 13, 'l', 'w')] },
+{ id: 2, date: '2026-09-28', type: 'faceit', opp: '', roster: [0], maps: [map('Nuke', 13, 11, 'w', 'l')] },
+{ id: 3, date: '2026-10-01', type: 'tour', opp: 'Team Bravo', roster: [0, 1, 2, 3, 4], maps: [map('Ancient', 8, 13, 'l', 'l'), map('Anubis', 13, 7, 'w', 'w')] }
+];
+}
+_rvBase() {
+var self = this, st = this.state, d = st.draft, R = this.ROSTER;
+var TYPES = { prak: 'Пракк', faceit: 'Faceit', tour: 'Турнир' };
+var MAPS = ['Mirage', 'Inferno', 'Nuke', 'Ancient', 'Anubis', 'Dust2', 'Train', 'Overpass'];
+var COLS = [
+{ k: 'k', l: 'K', t: 'Убийства', req: true }, { k: 'd', l: 'D', t: 'Смерти', req: true }, { k: 'a', l: 'A', t: 'Ассисты', req: true },
+{ k: 'adr', l: 'ADR', t: 'Средний урон за раунд', req: true }, { k: 'kast', l: 'KAST %', t: 'KAST, %' },
+{ k: 'fk', l: 'FK', t: 'First Kills' }, { k: 'fd', l: 'FD', t: 'First Deaths' }, { k: 'udr', l: 'UDR', t: 'Utility damage per round' },
+{ k: 'multi', l: 'Мульти', t: 'Ср. мультикиллы' }, { k: 'clutch', l: 'Клатчи', t: 'Выигранные клатчи' }, { k: 'blind', l: 'Ослепл.', t: 'Ср. время ослепления, с' }
+];
+function num(x) { var v = parseFloat(String(x == null ? '' : x).replace(',', '.')); return isFinite(v) ? v : NaN; }
+function ok(v) { return typeof v === 'number' && isFinite(v); }
+function div(a, b) { return ok(a) && ok(b) && b > 0 ? a / b : NaN; }
+function f2(v) { return ok(v) ? v.toFixed(2) : '—'; }
+function f1(v) { return ok(v) ? (Math.round(v * 10) / 10).toString() : '—'; }
+function i0(v) { return ok(v) ? String(Math.round(v)) : '—'; }
+function pct(a, b) { return ok(a) && ok(b) && b > 0 ? Math.round(a / b * 100) + '%' : '—'; }
+function signed(v) { return ok(v) ? (v > 0 ? '+' : '') + v : '—'; }
+function blank(v) { return String(v == null ? '' : v).trim() === ''; }
+function plural(n, a, b, c) { var m10 = n % 10, m100 = n % 100; return m10 === 1 && m100 !== 11 ? a : (m10 >= 2 && m10 <= 4 && (m100 < 10 || m100 >= 20) ? b : c); }
+function dshort(iso) { var p = String(iso).split('-'); return p.length === 3 ? p[2] + '.' + p[1] : iso; }
+
+function setDraft(patch) { self.setState({ draft: Object.assign({}, self.state.draft, patch), msg: '' }); }
+function updMap(i, patch) {
+var maps = self.state.draft.maps.slice();
+maps[i] = Object.assign({}, maps[i], patch);
+setDraft({ maps: maps });
+}
+var roster = d.mode === 'solo' ? [0] : [0, 1, 2, 3, 4];
+var ai = Math.min(d.active, d.maps.length - 1);
+var m = d.maps[ai];
+
+function mapIssues(mm, i) {
+var out = [], p = 'Карта ' + (i + 1) + ': ';
+if (!mm.name) out.push(p + 'выберите карту');
+if (blank(mm.our) || blank(mm.their)) out.push(p + 'укажите счёт');
+if (!mm.p1 || !mm.p2) out.push(p + 'отметьте оба пистолетных раунда');
+var miss = 0;
+roster.forEach(function (pi) { COLS.forEach(function (c) { if (c.req && blank(mm.st[pi][c.k])) miss++; }); });
+if (miss) out.push(p + 'не заполнено ' + miss + ' ' + plural(miss, 'обязательная ячейка', 'обязательные ячейки', 'обязательных ячеек'));
+return out;
+}
+var issues = [], optMiss = 0;
+d.maps.forEach(function (mm, i) {
+issues = issues.concat(mapIssues(mm, i));
+roster.forEach(function (pi) { COLS.forEach(function (c) { if (!c.req && blank(mm.st[pi][c.k])) optMiss++; }); });
+});
+
+var tabs = [['new', 'Внести игру'], ['history', 'История и сводка']].map(function (t) {
+return { name: t[1], on: st.tab === t[0] ? 'true' : 'false', cls: 'seg-btn' + (st.tab === t[0] ? ' seg-on' : ''), pick: function () { self.setState({ tab: t[0] }); } };
+});
+var typeTabs = ['prak', 'faceit', 'tour'].map(function (k) {
+return { name: TYPES[k], on: d.type === k ? 'true' : 'false', cls: 'seg-btn' + (d.type === k ? ' seg-on' : ''), pick: function () { setDraft({ type: k }); } };
+});
+var modeTabs = [['team', 'Команда · 5'], ['solo', 'Только я']].map(function (t) {
+return { name: t[1], on: d.mode === t[0] ? 'true' : 'false', cls: 'seg-btn' + (d.mode === t[0] ? ' seg-on' : ''), pick: function () { setDraft({ mode: t[0] }); } };
+});
+var mapTabs = d.maps.map(function (mm, i) {
+var done = mapIssues(mm, i).length === 0;
+return {
+label: 'Карта ' + (i + 1), sub: (mm.name || 'Не выбрана') + (!blank(mm.our) && !blank(mm.their) ? '  ' + mm.our + ':' + mm.their : ''),
+cls: 'mtab' + (i === ai ? ' mtab-on' : ''), on: i === ai ? 'true' : 'false', done: done, notDone: !done,
+pick: function () { setDraft({ active: i }); }
+};
+});
+var mapChips = MAPS.map(function (name) {
+return { name: name, on: m.name === name ? 'true' : 'false', cls: 'chip' + (m.name === name ? ' chip-on' : ''), pick: function () { updMap(ai, { name: name }); } };
+});
+var our = num(m.our), their = num(m.their), mRes = 'Результат появится после счёта', mResCls = 'res res-n';
+if (ok(our) && ok(their)) {
+if (our > their) { mRes = 'Победа'; mResCls = 'res res-w'; }
+else if (our < their) { mRes = 'Поражение'; mResCls = 'res res-l'; }
+else { mRes = 'Ничья'; mResCls = 'res res-d'; }
+}
+var pistols = [['p1', 'Пистолетный · 1-я половина'], ['p2', 'Пистолетный · 2-я половина']].map(function (p) {
+return { label: p[1], opts: [['w', 'Выиграли', 'opt opt-w'], ['l', 'Проиграли', 'opt opt-l']].map(function (o) {
+var on = m[p[0]] === o[0];
+return { t: o[1], on: on ? 'true' : 'false', cls: on ? o[2] : 'opt', pick: function () { var patch = {}; patch[p[0]] = on ? '' : o[0]; updMap(ai, patch); } };
+}) };
+});
+
+var rounds = ok(our) && ok(their) ? our + their : NaN;
+var colHeads = COLS.map(function (c) { return { l: c.l, title: c.t, cls: 'gh' + (c.req ? ' gh-req' : '') }; });
+var gridRows = roster.map(function (pi, rpos) {
+var row = m.st[pi];
+var cells = COLS.map(function (c, ci) {
+var empty = blank(row[c.k]);
+return {
+value: row[c.k] == null ? '' : row[c.k],
+aria: R[pi] + ', ' + c.t,
+cls: 'cell' + (st.showErr && c.req && empty ? ' cell-err' : ''),
+change: function (ev) {
+var maps = self.state.draft.maps.slice(), mm = Object.assign({}, maps[ai]), stt = mm.st.slice();
+stt[pi] = Object.assign({}, stt[pi]); stt[pi][c.k] = ev.target.value; mm.st = stt; maps[ai] = mm; setDraft({ maps: maps });
+},
+paste: function (ev) {
+var t = ev.clipboardData ? ev.clipboardData.getData('text') : '';
+if (!t || (t.indexOf('\t') < 0 && t.indexOf('\n') < 0)) return;
+ev.preventDefault();
+var lines = t.replace(/\r/g, '').split('\n').filter(function (l) { return l.trim() !== ''; });
+var maps = self.state.draft.maps.slice(), mm = Object.assign({}, maps[ai]), stt = mm.st.slice();
+lines.forEach(function (line, li) {
+var rp = rpos + li; if (rp >= roster.length) return;
+var target = roster[rp]; stt[target] = Object.assign({}, stt[target]);
+line.split('\t').forEach(function (v, vi) { var cp = ci + vi; if (cp < COLS.length) stt[target][COLS[cp].k] = v.trim().replace(',', '.'); });
+});
+mm.st = stt; maps[ai] = mm; setDraft({ maps: maps });
+}
+};
+});
+var k = num(row.k), dd = num(row.d), fk = num(row.fk), fd = num(row.fd);
+return { name: R[pi], cells: cells, kd: f2(div(k, dd)), kpr: f2(div(k, rounds)), dpr: f2(div(dd, rounds)), open: signed(ok(fk) && ok(fd) ? fk - fd : NaN) };
+});
+
+// live summary
+var W = 0, L = 0, D = 0, rw = 0, rl = 0, pt = 0, pw = 0, sk = 0, sd = 0;
+d.maps.forEach(function (mm) {
+var a = num(mm.our), b = num(mm.their);
+if (ok(a) && ok(b)) { if (a > b) W++; else if (a < b) L++; else D++; rw += a; rl += b; }
+['p1', 'p2'].forEach(function (p) { if (mm[p]) { pt++; if (mm[p] === 'w') pw++; } });
+roster.forEach(function (pi) { var kk = num(mm.st[pi].k), de = num(mm.st[pi].d); if (ok(kk)) sk += kk; if (ok(de)) sd += de; });
+});
+var played = W + L + D;
+
+// history
+var games = st.games.filter(function (g) { return (st.hsrc === 'all' || g.type === st.hsrc) && g.roster.indexOf(st.hp) >= 0; })
+.slice().sort(function (a, b) { return a.date < b.date ? 1 : (a.date > b.date ? -1 : b.id - a.id); });
+function agg(maps, hp) {
+var o = { k: 0, d: 0, a: 0, fk: 0, fd: 0, clutch: 0, mt: 0, mw: 0, ml: 0, md: 0, rt: 0, rw: 0, rl: 0, pt: 0, pw: 0 };
+var means = { adr: [], kast: [], udr: [], multi: [], blind: [] };
+maps.forEach(function (mm) {
+var s = mm.st[hp] || {};
+['k', 'd', 'a', 'fk', 'fd', 'clutch'].forEach(function (key) { var v = num(s[key]); if (ok(v)) o[key] += v; });
+Object.keys(means).forEach(function (key) { var v = num(s[key]); if (ok(v)) means[key].push(v); });
+var a = num(mm.our), b = num(mm.their);
+if (ok(a) && ok(b)) { o.mt++; if (a > b) o.mw++; else if (a < b) o.ml++; else o.md++; o.rw += a; o.rl += b; o.rt += a + b; }
+['p1', 'p2'].forEach(function (p) { if (mm[p]) { o.pt++; if (mm[p] === 'w') o.pw++; } });
+});
+Object.keys(means).forEach(function (key) { var arr = means[key]; o[key] = arr.length ? arr.reduce(function (x, y) { return x + y; }, 0) / arr.length : NaN; });
+o.kpr = div(o.k, o.rt); o.dpr = div(o.d, o.rt);
+return o;
+}
+var allMaps = []; games.forEach(function (g) { allMaps = allMaps.concat(g.maps); });
+var T = agg(allMaps, st.hp);
+var ROWS = [
+{ g: 'K/D' },
+{ l: 'Убийства (Kills)', f: function (s) { return i0(s.k); } },
+{ l: 'Смерти (Deaths)', f: function (s) { return i0(s.d); } },
+{ l: 'Ассисты (Assists)', f: function (s) { return i0(s.a); } },
+{ l: 'K/D Ratio', f: function (s) { return f2(div(s.k, s.d)); } },
+{ g: 'Аналитика' },
+{ l: 'ADR', f: function (s) { return f1(s.adr); } },
+{ l: 'KPR', f: function (s) { return f2(s.kpr); } },
+{ l: 'Смерти / раунд', f: function (s) { return f2(s.dpr); } },
+{ l: 'KAST', f: function (s) { return ok(s.kast) ? Math.round(s.kast) + '%' : '—'; } },
+{ l: 'First Kills', f: function (s) { return i0(s.fk); } },
+{ l: 'First Deaths', f: function (s) { return i0(s.fd); } },
+{ l: 'Разница опен-дуэлей', f: function (s) { return signed(s.fk - s.fd); } },
+{ l: 'UDR', f: function (s) { return f1(s.udr); } },
+{ l: 'Ср. мультикиллы', f: function (s) { return f1(s.multi); } },
+{ l: 'Выигранные клатчи', f: function (s) { return i0(s.clutch); } },
+{ l: 'Ср. время ослепления, с', f: function (s) { return f1(s.blind); } },
+{ g: 'Карты и раунды' },
+{ l: 'Карты (П–П–Н)', f: function (s) { return s.mt ? s.mw + '–' + s.ml + '–' + s.md : '—'; } },
+{ l: 'Win Rate', f: function (s) { return pct(s.mw, s.mt); } },
+{ l: 'Раунды (выиграно / всего)', f: function (s) { return s.rt ? s.rw + ' / ' + s.rt : '—'; } },
+{ l: 'Round Win Rate', f: function (s) { return pct(s.rw, s.rt); } },
+{ l: 'AVG Rounds Won', f: function (s) { return f1(div(s.rw, s.mt)); } },
+{ l: 'AVG Rounds Lost', f: function (s) { return f1(div(s.rl, s.mt)); } },
+{ l: 'Пистолетные (выиграно / всего)', f: function (s) { return s.pt ? s.pw + ' / ' + s.pt : '—'; } },
+{ l: 'Pistol Win Rate', f: function (s) { return pct(s.pw, s.pt); } }
+];
+var perGame = games.map(function (g) { return agg(g.maps, st.hp); });
+var rows = ROWS.map(function (r) {
+if (r.g) return { isGroup: true, isData: false, label: r.g, cells: [] };
+return { isGroup: false, isData: true, label: r.l, cells: [{ text: r.f(T), cls: 'tcell tcell-total' }].concat(perGame.map(function (s, i) {
+return { text: r.f(s), cls: 'tcell' + (games[i].id === st.lastId ? ' tcell-new' : '') };
+})) };
+});
+var cols = [{ title: 'За период', sub: games.length + ' ' + plural(games.length, 'игра', 'игры', 'игр') }].concat(games.map(function (g) {
+return { title: dshort(g.date) + ' · ' + TYPES[g.type], sub: (g.opp ? 'vs ' + g.opp + ' · ' : '') + g.maps.map(function (mm) { return mm.name; }).join(', ') + (g.id === st.lastId ? ' · новая' : '') };
+}));
+var ncol = cols.length;
+var srcTabs = [['all', 'Все'], ['prak', 'Пракки'], ['faceit', 'Faceit'], ['tour', 'Турниры']].map(function (x) {
+return { name: x[1], on: st.hsrc === x[0] ? 'true' : 'false', cls: 'seg-btn' + (st.hsrc === x[0] ? ' seg-on' : ''), pick: function () { self.setState({ hsrc: x[0] }); } };
+});
+var playerChips = R.map(function (name, i) {
+return { name: name, on: st.hp === i ? 'true' : 'false', cls: 'chip' + (st.hp === i ? ' chip-on' : ''), pick: function () { self.setState({ hp: i }); } };
+});
+
+return {
+tabs: tabs, isNew: st.tab === 'new', isHistory: st.tab === 'history',
+typeTabs: typeTabs, modeTabs: modeTabs,
+dDate: d.date, dOpp: d.opp,
+onDate: function (ev) { setDraft({ date: ev.target.value }); },
+onOpp: function (ev) { setDraft({ opp: ev.target.value }); },
+openPicker: function (ev) { try { if (ev.target && ev.target.showPicker) ev.target.showPicker(); } catch (e) {} },
+mapTabs: mapTabs, mapChips: mapChips,
+addMap: function () { var maps = self.state.draft.maps.concat([self.emptyMap()]); setDraft({ maps: maps, active: maps.length - 1 }); },
+canRemove: d.maps.length > 1,
+removeMap: function () { var maps = self.state.draft.maps.filter(function (x, i) { return i !== ai; }); setDraft({ maps: maps, active: Math.max(0, ai - 1) }); },
+mOur: m.our, mTheir: m.their,
+onOur: function (ev) { updMap(ai, { our: ev.target.value.replace(/[^0-9]/g, '') }); },
+onTheir: function (ev) { updMap(ai, { their: ev.target.value.replace(/[^0-9]/g, '') }); },
+mRes: mRes, mResCls: mResCls, pistols: pistols,
+mName: (m.name || 'карта ' + (ai + 1)),
+colHeads: colHeads, gridRows: gridRows,
+sMaps: played ? W + ' : ' + L + (D ? ' : ' + D : '') : '—',
+sMapsSub: played ? 'по картам · ' + played + ' ' + plural(played, 'карта', 'карты', 'карт') + (D ? ' (П : П : Н)' : ' (П : П)') : 'введите счёт карты',
+sWr: pct(W, played), sRwr: pct(rw, rw + rl), sRounds: played ? rw + '–' + rl : '—',
+sPwr: pct(pw, pt), sArw: f1(div(rw, played)), sArl: f1(div(rl, played)),
+sKdLabel: d.mode === 'solo' ? 'K/D' : 'K/D команды', sKd: f2(div(sk, sd)),
+issues: issues, hasIssues: issues.length > 0, noIssues: issues.length === 0,
+hasOptional: optMiss > 0,
+optionalNote: 'Необязательные метрики: пусто ' + optMiss + ' ' + plural(optMiss, 'ячейка', 'ячейки', 'ячеек') + '. Игру можно сохранить и дополнить позже.',
+msg: st.msg,
+reset: function () { self.setState({ draft: { date: d.date, type: d.type, opp: '', mode: d.mode, maps: [self.emptyMap()], active: 0 }, showErr: false, msg: '' }); },
+save: function () {
+if (issues.length) { self.setState({ showErr: true, msg: 'Игра не сохранена — заполните пункты выше' }); return; }
+var g = { id: Date.now(), date: d.date, type: d.type, opp: d.opp, roster: roster.slice(), maps: d.maps.map(function (mm) { return { name: mm.name, our: mm.our, their: mm.their, p1: mm.p1, p2: mm.p2, st: mm.st.map(function (r) { return Object.assign({}, r); }) }; }) };
+self.setState({ games: self.state.games.concat([g]), draft: { date: d.date, type: d.type, opp: '', mode: d.mode, maps: [self.emptyMap()], active: 0 }, showErr: false, msg: '', lastId: g.id, tab: 'history', hsrc: 'all', hp: 0 });
+},
+srcTabs: srcTabs, playerChips: playerChips,
+hGames: games.length, hKd: f2(div(T.k, T.d)), hAdr: f1(T.adr), hWr: pct(T.mw, T.mt),
+hasGames: games.length > 0, noGames: games.length === 0,
+cols: cols, rows: rows,
+gridCols: '240px repeat(' + ncol + ', minmax(150px, 1fr))',
+tableMin: (240 + ncol * 160) + 'px'
+};
+}
+renderVals() { var r = this._rvBase() || {}; var n = this._navVals(); for (var k in n) r[k] = n[k]; return r; }
+_navVals() {
+var FILE = 'GameStats.dc.html', KIND = 'shared', role = KIND;
+if (KIND === 'shared') {
+var pr = this.props.role;
+if (pr === 'player' || pr === 'staff') role = pr;
+else { role = 'player'; try { if (window.localStorage.getItem('crm.role') === 'staff') role = 'staff'; } catch (e) {} }
+} else { try { window.localStorage.setItem('crm.role', KIND); } catch (e) {} }
+var IC = {
+overview: 'M3 3h7v7H3zM14 3h7v7h-7zM3 14h7v7H3zM14 14h7v7h-7z',
+calendar: 'M5 5h14a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7a2 2 0 0 1 2-2zM3 10h18M8 3v4M16 3v4',
+tests: 'M9 11l3 3 8-8M20 12v7a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h9',
+mood: 'M13 2L4 14h7l-1 8 9-12h-7z',
+recovery: 'M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8zM3.5 12h4l2-3 3 6 2-3h6',
+stats: 'M4 20V10M10 20V4M16 20v-7M22 20H2',
+game: 'M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 3v3M12 18v3M3 12h3M18 12h3',
+players: 'M9 4.5a3.5 3.5 0 1 0 0 7a3.5 3.5 0 1 0 0-7zM2.5 20c.8-3.4 3.3-5 6.5-5s5.7 1.6 6.5 5M16 4.5a3.5 3.5 0 0 1 0 7M18 15c2 .6 3.2 2.2 3.5 5',
+lineups: 'M3 6l6-3 6 3 6-3v15l-6 3-6-3-6 3zM9 3v15M15 6v15',
+tariffs: 'M3 6h18v12H3zM3 10h18M7 15h4',
+diary: 'M5 4h11a3 3 0 0 1 3 3v13H8a3 3 0 0 1-3-3zM5 17a3 3 0 0 1 3-3h11M9 8h6'
+};
+var G = role === 'staff' ? [
+['', [['Обзор', 'TeamOverview.dc.html', 'overview'], ['Календарь', 'StaffCalendar.dc.html', 'calendar']]],
+['Команда', [['Игроки', 'Players.dc.html', 'players', ['TeamNutrition.dc.html']], ['Раскидки и скрипты', 'Lineups.dc.html', 'lineups']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+] : [
+['', [['Обзор', 'Main.dc.html', 'overview'], ['Календарь', 'Calendar.dc.html', 'calendar'], ['Дневник CS2', 'Diary.dc.html', 'diary']]],
+['Состояние', [['Тесты', 'Tests.dc.html', 'tests', ['TestRunner.dc.html']], ['Настроение и энергия', 'MoodEnergy.dc.html', 'mood'], ['Восстановление', 'Recovery.dc.html', 'recovery']]],
+['Аналитика', [['Статистика', 'Statistics.dc.html', 'stats'], ['Игровая статистика', 'GameStats.dc.html', 'game']]]
+];
+var staff = role === 'staff', onTar = FILE === 'Tariffs.dc.html', onProf = FILE === 'Profile.dc.html';
+return {
+navLabel: staff ? 'Меню Staff' : 'Основное меню', navHome: staff ? 'TeamOverview.dc.html' : 'Main.dc.html',
+navGroups: G.map(function (g) { return { title: g[0], hasTitle: !!g[0], items: g[1].map(function (it) {
+var on = it[1] === FILE || (it[3] && it[3].indexOf(FILE) >= 0);
+return { name: it[0], href: it[1], icon: IC[it[2]], cls: 'sb-item' + (on ? ' sb-on' : ''), cur: on ? 'page' : 'false' }; }) }; }),
+navHasExtra: !staff, navExtraName: 'Тарифы', navExtraHref: 'Tariffs.dc.html', navExtraIcon: IC.tariffs,
+navExtraCls: 'sb-item' + (onTar ? ' sb-on' : ''), navExtraCur: onTar ? 'page' : 'false',
+navCardCls: 'sb-card' + (onProf ? ' sb-card-on' : ''), navCardCur: onProf ? 'page' : 'false',
+navIni: staff ? 'CO' : 'NI', navName: staff ? 'Coach' : 'NICKNAME12345', navRole: staff ? 'Staff · Atlant Esports' : 'Игрок · Solo',
+navAvBg: staff ? 'linear-gradient(135deg, #7A4DFF, #B07CFF)' : 'linear-gradient(135deg, #0066FF, #00C8FF)',
+navSwitchHref: staff ? 'Main.dc.html' : 'TeamOverview.dc.html', navSwitchText: staff ? 'Демо: открыть как игрок' : 'Демо: открыть как Staff'
+};
+}
+}
+</script>
+</body>
+</html>
