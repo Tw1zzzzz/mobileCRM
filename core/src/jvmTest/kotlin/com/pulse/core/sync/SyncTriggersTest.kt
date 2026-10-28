@@ -9,6 +9,20 @@ import com.pulse.core.model.UserRole
 import com.pulse.core.platform.FileSystem
 import com.pulse.core.platform.JvmFileSystem
 import com.pulse.core.platform.MemorySecretStore
+import com.pulse.core.model.BodyProfile
+import com.pulse.core.model.FaceitProfile
+import com.pulse.core.model.HealthDaySummary
+import com.pulse.core.model.HealthSnapshot
+import com.pulse.core.model.SleepInterval
+import com.pulse.core.model.SleepStage
+import com.pulse.core.model.Workout
+import com.pulse.core.model.WorkoutKind
+import com.pulse.core.storage.DataScope
+import com.pulse.core.storage.JsonFileStorage
+import com.pulse.core.store.FaceitProvider
+import com.pulse.core.store.FitnessStore
+import com.pulse.core.store.GameStore
+import com.pulse.core.store.HealthDataProvider
 import com.pulse.core.store.SleepStore
 import com.pulse.core.store.WellbeingStore
 import com.pulse.core.util.PulseJson
@@ -167,10 +181,23 @@ class SyncTriggersTest {
     private val backgroundJob = SupervisorJob()
     private val folder = "accounts/6F1B6A2E-1C2D-4E5F-8A9B-0C1D2E3F4A5B"
 
-    private fun core(backend: Backend = Backend.Remote("https://api.test/v1/")) = PulseCore(
-        files, MemorySecretStore(), HttpClient(server.engine()), CoroutineScope(Dispatchers.Unconfined + backgroundJob), null,
+    private fun core(backend: Backend = Backend.Remote("https://api.test/v1/"), health: HealthDataProvider? = null) = PulseCore(
+        files, MemorySecretStore(), HttpClient(server.engine()), CoroutineScope(Dispatchers.Unconfined + backgroundJob), health,
         backend = backend, ui = Dispatchers.Unconfined
     )
+
+    /** Health Connect with one night of sleep and resting pulse, the same on every read. */
+    private class FakeHealth(night: SleepSession) : HealthDataProvider {
+        val snapshot = HealthSnapshot(
+            today = HealthDaySummary(4_000, 3.0, 200, 25), weeklyActiveMinutes = emptyList(), workouts = emptyList(),
+            heartRateZones = null, averageHeartRate = null, restingHeartRate = 58, hrv = 70, fetchedAt = night.end,
+            sleepIntervals = listOf(SleepInterval(SleepStage.LIGHT, night.start, night.end))
+        )
+        override val name = "Health Connect"
+        override val isAvailable = true
+        override suspend fun requestAuthorization() {}
+        override suspend fun snapshot(now: Instant, body: BodyProfile?) = snapshot
+    }
 
     /** First loads and fire-and-forget requests run on the core's background scope. */
     private suspend fun awaitBackground() = backgroundJob.children.toList().joinAll()
@@ -332,6 +359,51 @@ class SyncTriggersTest {
         assertNotNull(core.sleep.activeStart)
         assertEquals(setOf(theirs.id.toString()), serverSleepIds())
         assertNotNull(server.documents.getValue("sleep").document.jsonObject["activeStart"])
+    }
+
+    @Test fun syncReloadKeepsHealthConnectData() = runTest {
+        val health = FakeHealth(night(28))
+        val core = core(health = health)
+        core.signIn()
+        awaitBackground()
+        core.fitness.connectHealth()
+        val healthNights = core.sleep.state.value.healthNights
+        assertTrue(healthNights.isNotEmpty())
+        // Another phone added a night and a workout.
+        val theirs = night(25)
+        server.write("sleep", sleepDocument(theirs))
+        val workout = Workout(Uuid.random(), WorkoutKind.CARDIO, "Бег", Instant.parse("2026-10-26T08:00:00Z"), 30, 250, 140)
+        server.write("fitness-state", PulseJson.encodeToJsonElement(FitnessStore.Saved.serializer(), FitnessStore.Saved(listOf(workout), healthConnected = true)))
+
+        val result = core.syncNow()
+        assertFalse(result.failed)
+        assertTrue(result.downloaded.containsAll(listOf("sleep.json", "fitness-state.json")))
+        assertTrue(theirs.id in core.sleep.sessions.map { it.id })
+        assertTrue(workout.id in core.fitness.workouts.map { it.id })
+        // What only Health Connect gave stays on screen.
+        assertEquals(health.snapshot, core.fitness.state.value.health)
+        assertTrue(core.fitness.state.value.isHealthConnected)
+        assertEquals(healthNights, core.sleep.state.value.healthNights)
+        assertTrue(core.sleep.state.value.isHealthConnected)
+    }
+
+    @Test fun gameReloadFromSyncKeepsTheFaceitProfile() = runTest {
+        val scope = DataScope(files).also { it.current = "6F1B6A2E-1C2D-4E5F-8A9B-0C1D2E3F4A5B" }
+        val storage = JsonFileStorage(GameStore.FILE, GameStore.Saved.serializer(), scope)
+        val profile = FaceitProfile("p1", "Nova", null, "ru", "EU", 3010, 10, 1500, null, emptyList(), emptyList(), Clock.System.now())
+        val store = GameStore(storage, MemorySecretStore(), builtInKey = "app-key") { object : FaceitProvider {
+            override suspend fun profile(nickname: String) = profile
+        } }
+        store.reload(isDemo = false)
+        store.connect("Nova", null)
+        assertEquals(profile, store.state.value.faceit)
+        // Another phone's ELO points arrive in the synced file.
+        val snapshots = listOf(GameStore.EloSnapshot(Instant.parse("2026-10-20T10:00:00Z"), 2950)) + store.state.value.snapshots
+        storage.save(GameStore.Saved("Nova", "p1", snapshots))
+        store.reloadSaved()
+        assertEquals(assertNotNull(storage.load()).snapshots, store.state.value.snapshots)
+        assertEquals(2, store.state.value.snapshots.size)
+        assertEquals(profile, store.state.value.faceit)
     }
 
     @Test fun overlappingSyncNowCallsRunOneAtATime() = runTest {

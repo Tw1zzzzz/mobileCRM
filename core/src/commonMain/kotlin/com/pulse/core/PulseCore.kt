@@ -202,7 +202,15 @@ class PulseCore(
     private suspend fun applyMergedFile(folder: String, file: String, write: () -> Unit) = withContext(ui) {
         write()
         // After an account switch the stores read another folder.
-        if (scope.folder() == folder) reloadStore(file, session.user.value)
+        if (scope.folder() == folder) reloadSyncedStore(file)
+    }
+
+    /** Like [reloadStore], but what a store holds only in memory (Health Connect, Faceit) stays. */
+    private fun reloadSyncedStore(file: String) = when (file) {
+        SleepStore.FILE -> sleep.reloadSaved()
+        FitnessStore.FILE -> fitness.reloadSaved()
+        GameStore.FILE -> game.reloadSaved()
+        else -> reloadStore(file, session.user.value)
     }
 
     /**

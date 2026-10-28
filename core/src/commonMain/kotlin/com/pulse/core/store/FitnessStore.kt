@@ -124,6 +124,17 @@ class FitnessStore(
         )
     }
 
+    /** A sync rewrote «fitness-state.json»: only the saved fields change; the Health snapshot and its error stay. */
+    fun reloadSaved() {
+        val saved = storage?.load() ?: return
+        current = current.copy(
+            workouts = saved.workouts.sortedBy { it.date },
+            goals = saved.goals,
+            healthRatings = saved.ratings,
+            isHealthConnected = healthService != null && saved.healthConnected
+        )
+    }
+
     private fun persist() {
         storage?.save(Saved(current.workouts, current.goals, current.healthRatings, current.isHealthConnected))
     }

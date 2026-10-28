@@ -157,6 +157,12 @@ class GameStore(
         current = State(nickname = saved?.nickname, snapshots = saved?.snapshots ?: emptyList(), isDemo = isDemo)
     }
 
+    /** A sync rewrote «faceit.json»: only the saved fields change; the Faceit profile and refresh state stay. */
+    fun reloadSaved() {
+        val saved = storage?.load() ?: return
+        current = current.copy(nickname = saved.nickname, snapshots = saved.snapshots)
+    }
+
     suspend fun connect(nickname: String, apiKey: String?) {
         val name = FaceitMapper.nickname(nickname) ?: nickname.trim()
         if (name.isEmpty()) {

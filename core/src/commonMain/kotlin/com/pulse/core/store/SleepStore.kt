@@ -70,6 +70,12 @@ class SleepStore(
         )
     }
 
+    /** A sync rewrote «sleep.json»: only the saved fields change; nights from Health Connect stay on screen. */
+    fun reloadSaved() {
+        val saved = storage?.load() ?: return
+        current = current.copy(sessions = saved.sessions.sortedByDescending { it.start }, activeStart = saved.activeStart, window = saved.window)
+    }
+
     fun startSleep(at: Instant = Clock.System.now()) {
         if (current.activeStart != null) return
         current = current.copy(activeStart = at)
