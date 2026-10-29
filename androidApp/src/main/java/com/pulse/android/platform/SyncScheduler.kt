@@ -19,24 +19,37 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.util.concurrent.TimeUnit
+import java.util.concurrent.atomic.AtomicInteger
 import kotlin.time.Duration
 import kotlin.time.Duration.Companion.seconds
 
 /**
- * Background data sync via WorkManager: one unique work `pulse-sync`, replaced by every new request, so a burst of
- * edits leaves a single sync [LOCAL_CHANGE_DELAY] after the last one. It waits for a network and, when a round fails,
- * is retried with exponential backoff starting at 30 s.
+ * Background data sync via WorkManager: one unique work `pulse-sync`. A new request replaces a waiting one, so a burst
+ * of edits leaves a single sync [LOCAL_CHANGE_DELAY] after the last one; a round that is already running is never
+ * cancelled — the new request follows it. It waits for a network and, when a round fails, is retried with exponential
+ * backoff starting at 30 s.
  */
 object SyncScheduler {
     const val WORK_NAME = "pulse-sync"
     private val LOCAL_CHANGE_DELAY = 10.seconds
     private const val BACKOFF_SECONDS = 30L
 
+    /** Sync workers of this process inside [SyncWorker.doWork]. */
+    internal val runningRounds = AtomicInteger()
+
     /**
-     * [policy] REPLACE (default) is for edits and the background trigger: the new request supersedes the pending one.
-     * The app-start call uses KEEP: a process WorkManager started to run delayed or backed-off work must not cancel it.
+     * Edits and the background trigger: APPEND_OR_REPLACE while a round runs (it finishes, the new one follows it),
+     * REPLACE otherwise (the new request supersedes the waiting one). Always appending would chain one delayed round
+     * per edit of a burst, since WorkManager appends to waiting work too.
      */
-    fun schedule(context: Context, delay: Duration, policy: ExistingWorkPolicy = ExistingWorkPolicy.REPLACE) {
+    private fun followUpPolicy(): ExistingWorkPolicy =
+        if (runningRounds.get() > 0) ExistingWorkPolicy.APPEND_OR_REPLACE else ExistingWorkPolicy.REPLACE
+
+    /**
+     * [policy] defaults to [followUpPolicy] (edits, background). The app-start call uses KEEP: a process WorkManager
+     * started to run delayed or backed-off work must not cancel it.
+     */
+    fun schedule(context: Context, delay: Duration, policy: ExistingWorkPolicy = followUpPolicy()) {
         val request = OneTimeWorkRequestBuilder<SyncWorker>()
             .setInitialDelay(delay.inWholeMilliseconds, TimeUnit.MILLISECONDS)
             .setConstraints(Constraints.Builder().setRequiredNetworkType(NetworkType.CONNECTED).build())
@@ -89,7 +102,12 @@ class SyncWorker internal constructor(
     override suspend fun doWork(): Result {
         val core = source()
         if (!core.isSyncable) return Result.success()
-        val result = withContext(ui) { core.syncNow() }
-        return if (result.failed) Result.retry() else Result.success()
+        SyncScheduler.runningRounds.incrementAndGet()
+        try {
+            val result = withContext(ui) { core.syncNow() }
+            return if (result.failed) Result.retry() else Result.success()
+        } finally {
+            SyncScheduler.runningRounds.decrementAndGet()
+        }
     }
 }

@@ -66,7 +66,9 @@ import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.theme.Gradients
 import com.pulse.android.ui.theme.Palette
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.pulse.core.PulseCore
+import com.pulse.core.SyncStatus
 import com.pulse.core.model.GameTestPhase
 import com.pulse.core.model.User
 import kotlin.uuid.Uuid
@@ -148,10 +150,14 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null, pendingO
     var surveyMode by rememberSaveable { mutableStateOf(OnboardingMode.FULL) }
     // Kept here, outside the dialog, so typed answers survive rotation and process death.
     var aboutDraft by rememberSaveable(stateSaver = AboutYouDraftSaver) { mutableStateOf(AboutYouDraft.start(core, isNewPlayer = true)) }
+    // Nothing is asked while the first download after sign-in runs (or its failure waits for «Понятно»): answers saved
+    // over still-empty stores would replace the ones on the server. Re-checked once the stores are loaded.
+    val syncStatus by core.syncStatus.collectAsStateWithLifecycle()
+    val firstLoadPending = syncStatus == SyncStatus.FirstLoad || syncStatus == SyncStatus.FirstLoadFailed
     val needsOnboarding = core.survey.needsOnboarding
     val needsAboutYou = core.needsAboutYou
-    LaunchedEffect(needsOnboarding, needsAboutYou, router.showsSurvey, user.role) {
-        if (user.role.isStaff || showSurvey) return@LaunchedEffect
+    LaunchedEffect(needsOnboarding, needsAboutYou, router.showsSurvey, user.role, firstLoadPending) {
+        if (user.role.isStaff || showSurvey || firstLoadPending) return@LaunchedEffect
         surveyMode = when {
             // Fixed when the cover opens: saving the survey on step 2 must not switch the flow.
             needsOnboarding || router.showsSurvey ->

@@ -1,6 +1,7 @@
 package com.pulse.android
 
 import android.app.Application
+import android.util.Log
 import com.pulse.android.platform.HealthConnectProvider
 import com.pulse.android.platform.KeystoreSecretStore
 import com.pulse.android.platform.PulseNotifications
@@ -41,6 +42,8 @@ class PulseApplication : Application() {
             faceitKey = BuildConfig.FACEIT_API_KEY,
             backend = if (BuildConfig.API_BASE_URL.isNotEmpty()) Backend.Remote(BuildConfig.API_BASE_URL) else Backend.Local
         )
+        // Sync failures in logcat: collection, error kind, code and HTTP status only (no contents, tokens or emails).
+        core.log = { message -> Log.w("PulseSync", message) }
         PulseNotifications.ensureChannels(this)
         // Data sync: after local changes, when the app goes to the background and at every start with a real account.
         SyncScheduler.attach(this, core)

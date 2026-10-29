@@ -36,7 +36,10 @@ import io.ktor.client.engine.mock.respond
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -49,6 +52,7 @@ import org.robolectric.shadows.ShadowLooper
 import java.io.IOException
 import java.util.concurrent.Executors
 import kotlin.test.assertEquals
+import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 import kotlin.time.Duration.Companion.seconds
 
@@ -60,9 +64,16 @@ class SyncSchedulerTest {
 
     private val context: Context = ApplicationProvider.getApplicationContext()
 
+    /** What workers that WorkManager itself starts sync with. */
+    @Volatile private var workSource: SyncSource = FakeSource()
+
     @Before fun initWorkManager() {
+        val factory = object : WorkerFactory() {
+            override fun createWorker(appContext: Context, workerClassName: String, workerParameters: WorkerParameters) =
+                SyncWorker(appContext, workerParameters, { workSource }, Dispatchers.Default)
+        }
         WorkManagerTestInitHelper.initializeTestWorkManager(
-            context, Configuration.Builder().setExecutor(SynchronousExecutor()).build()
+            context, Configuration.Builder().setExecutor(SynchronousExecutor()).setWorkerFactory(factory).build()
         )
     }
 
@@ -152,6 +163,56 @@ class SyncSchedulerTest {
         val after = pendingSyncs().single()
         assertEquals(pending.id, after.id, "a process started for delayed work must not replace it")
         assertEquals(10_000L, after.initialDelayMillis)
+    }
+
+    /** A round that runs until [finish] completes; [started] once it runs. */
+    private class SlowSource : SyncSource {
+        val started = CompletableDeferred<Unit>()
+        val finish = CompletableDeferred<Unit>()
+        @Volatile var cancelled = false
+        override val isSyncable = true
+        override suspend fun syncNow(): SyncResult {
+            started.complete(Unit)
+            try {
+                finish.await()
+            } catch (error: CancellationException) {
+                cancelled = true
+                throw error
+            }
+            return SyncResult(emptyList(), emptyList(), failed = false)
+        }
+    }
+
+    /** Null once WorkManager dropped the work (replaced). */
+    private fun stateOf(id: java.util.UUID): WorkInfo.State? = WorkManager.getInstance(context).getWorkInfoById(id).get()?.state
+
+    private fun awaitState(id: java.util.UUID, expected: WorkInfo.State) {
+        val deadline = System.currentTimeMillis() + 5_000
+        while (stateOf(id) != expected && System.currentTimeMillis() < deadline) Thread.sleep(20)
+        assertEquals(expected, stateOf(id))
+    }
+
+    @Test fun editAndBackgroundDoNotCancelARunningSync() {
+        val round = SlowSource()
+        workSource = round
+        val core = signedInCore(syncOffline = true)
+        val process = attach(core)
+        process.toForeground()
+        val running = pendingSyncs().single().id
+        requireNotNull(WorkManagerTestInitHelper.getTestDriver(context)).setAllConstraintsMet(running)
+        runBlocking { withTimeout(5_000) { round.started.await() } }
+        assertEquals(WorkInfo.State.RUNNING, stateOf(running))
+
+        requireNotNull(core.onLocalChange).invoke()
+        process.toBackground()
+
+        assertEquals(WorkInfo.State.RUNNING, stateOf(running), "a running round is not cancelled")
+        assertFalse(round.cancelled)
+        assertTrue(pendingSyncs().any { it.id != running }, "a new round follows it")
+        round.finish.complete(Unit)
+        awaitState(running, WorkInfo.State.SUCCEEDED)
+        assertFalse(round.cancelled)
+        assertTrue(pendingSyncs().isNotEmpty(), "the follow-up round is still to run")
     }
 
     @Test fun localAccountNeverEnqueuesSync() {
