@@ -102,8 +102,12 @@ export async function rotateRefresh(
     if (row.revoked_at) {
       if (!row.replaced_by) return { kind: "rejected" };
       if (await isLostResponseRetry(tx, row.replaced_by, now)) {
-        await tx`update refresh_tokens set revoked_at = ${now} where id = ${row.replaced_by}`;
         const retry = await insertRefresh(tx, deps, row.user_id);
+        // The undelivered successor now points at the retried token: presenting it later is judged
+        // by the reuse rules instead of being a plain 401 that leaves the retried pair alive.
+        await tx`
+          update refresh_tokens set revoked_at = ${now}, replaced_by = ${retry.id}
+          where id = ${row.replaced_by}`;
         return { kind: "rotated", userId: row.user_id, refreshToken: retry.token };
       }
       await tx`

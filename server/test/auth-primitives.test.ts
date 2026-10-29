@@ -142,10 +142,35 @@ describe("refresh tokens", () => {
     expect(retried.userId).toBe(userId);
     expect(retried.tokens.refresh_token).not.toBe(lost.tokens.refresh_token);
     expect(await requireUser(deps, bearer(retried.tokens.access_token))).toBe(userId);
-    // The undelivered successor is revoked (without ending anything else); the retried pair and the tablet work.
-    await expectApiError(rotateRefresh(deps, lost.tokens.refresh_token), "unauthorized", 401);
+    // The undelivered successor is revoked and now points at the retried token (so presenting it later is
+    // judged by the reuse rules); nothing else ends: the retried pair and the tablet work.
+    const [undelivered] = await deps.sql<{ revoked_at: Date | null; replaced_by: string | null }[]>`
+      select r.revoked_at, r.replaced_by from refresh_tokens r
+      where r.token_hash = encode(sha256(convert_to(${lost.tokens.refresh_token}, 'UTF8')), 'hex')`;
+    const [retriedRow] = await deps.sql<{ id: string }[]>`
+      select id from refresh_tokens
+      where token_hash = encode(sha256(convert_to(${retried.tokens.refresh_token}, 'UTF8')), 'hex')`;
+    expect(undelivered.revoked_at).not.toBeNull();
+    expect(undelivered.replaced_by).toBe(retriedRow.id);
     expect((await rotateRefresh(deps, retried.tokens.refresh_token)).userId).toBe(userId);
     expect((await rotateRefresh(deps, tablet.refresh_token)).userId).toBe(userId);
+  });
+
+  it("presentingGracedSuccessorTriggersReuseRules", async () => {
+    // An attacker holding a used the grace and got c; the victim, holding b, comes back after c was used.
+    const userId = await insertUser();
+    const tablet = await issueSession(deps, userId);
+    const a = await issueSession(deps, userId);
+    const b = await rotateRefresh(deps, a.refresh_token);
+    const c = await rotateRefresh(deps, a.refresh_token);
+    const attackerNext = await rotateRefresh(deps, c.tokens.refresh_token);
+    await expectApiError(rotateRefresh(deps, b.tokens.refresh_token), "unauthorized", 401);
+    // Reuse revoked every session of the user, the attacker's and the tablet included.
+    await expectApiError(rotateRefresh(deps, attackerNext.tokens.refresh_token), "unauthorized", 401);
+    await expectApiError(rotateRefresh(deps, tablet.refresh_token), "unauthorized", 401);
+    const live = await deps.sql<{ count: number }[]>`
+      select count(*)::int as count from refresh_tokens where user_id = ${userId} and revoked_at is null`;
+    expect(live[0].count).toBe(0);
   });
 
   it("aTokenIsGracedOnlyOnce", async () => {
