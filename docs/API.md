@@ -32,7 +32,7 @@
 | `token_expired` | 401 | (приложение само вызывает `/auth/refresh`) |
 | прочее / 5xx | | Не удалось выполнить вход / регистрацию. Повторите попытку позже |
 
-- Лимиты: на `/auth/*` — не больше 10 запросов в минуту с IP; на остальное — 120 в минуту на пользователя.
+- Лимиты: на `/auth/*` — не больше 10 запросов в минуту с IP; на `/photos` — 600 в минуту на пользователя; на остальное — 120 в минуту на пользователя.
 
 ## Auth
 
@@ -92,7 +92,7 @@
 - `document` — любой JSON, кроме `null` (`null` → `422 validation_failed`); размер тела запроса ≤ 4 000 000 байт, больше → `413 payload_too_large`.
 - Символ `\u0000` в строках не принимается (`422 validation_failed`).
 - Тело не является JSON → `400 bad_request`.
-- Лимит — 120 запросов в минуту на пользователя, общий для `/sync` и `/photos` (сверх лимита — `429 rate_limited`).
+- Лимит — 120 запросов в минуту на пользователя для `/sync` (сверх лимита — `429 rate_limited`). У `/photos` свой лимит — 600 в минуту: фото идут по одному запросу на блюдо и не должны съедать лимит документов.
 
 Новые коды ошибок:
 
@@ -117,27 +117,28 @@
 - Тело PUT должно начинаться с сигнатуры JPEG (`FF D8 FF`), иначе `422 validation_failed`; размер ≤ 1 000 000 байт, больше → `413 payload_too_large`. Повторный PUT заменяет фото.
 - Телефон сначала загружает фото, потом записывает `nutrition`. Каждая запись `nutrition` удаляет фото блюд, которых уже нет в документе (в одной транзакции с записью; отклонённая запись ничего не удаляет). Если в документе нет списка `meals`, фото не трогаются.
 - Фото, которое сервер отклонил насовсем (слишком большое или не JPEG), телефон помечает и больше не шлёт; блюдо синхронизируется без фото и без `photoRef`.
+- Временная ошибка фото (`429`, сеть, 5xx) не останавливает синхронизацию. Загрузка: оставшиеся фото ждут следующего раунда, их блюда уходят пока без `photoRef` (`nutrition` остаётся неотправленным, пока все фото не дошли); уже отправленные фото повторно шлются только после `409 version_conflict`. Скачивание: блюдо сохраняется с `photoRef`, фото докачивается в следующих раундах, а запись `nutrition` с телефона сохраняет его `photoRef`. На `404` блюдо остаётся без фото.
 
-Коллекции и их содержимое (модели — в `Pulse/Models`, `Pulse/Stores`):
+Коллекции и их содержимое (модели — в `Pulse/Models`, `Pulse/Stores`). Ключи внутри документов — в camelCase, как их
+пишет приложение (`PulseJson`), даты — ISO 8601:
 
 | collection | Что внутри |
 |---|---|
-| `sleep` | `sessions[] {id, start, end}`, `active_start`, `window {bedtime_hour, bedtime_minute, wake_hour, wake_minute}` |
+| `sleep` | `sessions[] {id, start, end}`, `activeStart`, `window {bedtimeHour, bedtimeMinute, wakeHour, wakeMinute}` |
 | `nutrition` | `meals[] {id, date, name, kcal, protein, fat, carbs, photoRef (true — фото блюда лежит на сервере), source, author}`, `water {day: ml}`, `goals` |
 | `wellbeing` | `mood[] {id, day, slot, mood, energy}`, `balance[] {id, day, values}` |
-| `cognitive` | `results[] {id, kind, date, score, metric}`, `game_results[] {id, date, phase, focus, fatigue, readiness}` |
-| `calendar` | `events[] {id, title, details, start, end, links, tag, owner_id}` |
-| `fitness-state` | `workouts[] {id, kind, detail, date, minutes, kcal, average_heart_rate, rpe}`, `goals`, `ratings`, `health_connected` |
-| `screen-time` | `entries[] {date, minutes}`, `limit_minutes` |
-| `lineups` | раскидки/заметки дневника CS2 с `visibility` (`personal` / `team`) и `variations[]` |
-| `game-goals` | `elo, elo_start, kd, adr, win_rate` |
-| `faceit` | `nickname, player_id, snapshots[] {date, elo}` |
-| `player-survey` | `survey {goals[], role, level, years_playing, hours_per_week, play_time, motivation, updated_at}`, `mindset[] {id, date, answers {q1…q24: 1–5}}`, `onboarding_dismissed` |
+| `cognitive` | `results[] {id, kind, date, score, metric}`, `gameResults[] {id, date, phase, focus, fatigue, readiness}` |
+| `calendar` | документ — сам массив событий: `[{id, title, details, start, end, links, tag, ownerId}]` |
+| `fitness-state` | `workouts[] {id, kind, detail, date, minutes, kcal, averageHeartRate, rpe}`, `goals`, `ratings`, `healthConnected` |
+| `screen-time` | `entries[] {date, minutes}`, `limitMinutes`, `accessGranted` |
+| `lineups` | документ — сам массив раскидок/заметок дневника CS2: `[{id, …, visibility (personal / team), variations[]}]` |
+| `game-goals` | `elo, eloStart, kd, adr, winRate` |
+| `faceit` | `nickname, playerId, snapshots[] {date, elo}` |
+| `player-survey` | `survey {goals[], role, level, yearsPlaying, hoursPerWeek, playTime, motivation, updatedAt}`, `mindset[] {id, date, answers {q1…q24: 1–5}}`, `onboardingDismissed` |
 | `body-profile` | шаг анкеты «О тебе»: `birthDate`, `heightCm`, `weightKg`, `updatedAt` |
 
-> Сейчас приложение пишет даты в ISO 8601 и ключи в camelCase внутри документов. Для этапа 1 сервер хранит
-> документ без разбора (кроме списка `meals` в `nutrition` — по нему чистятся фото); на этапе 2 (ниже) появятся
-> нормальные таблицы.
+> Для этапа 1 сервер хранит документ без разбора (кроме списка `meals` в `nutrition` — по нему чистятся фото);
+> на этапе 2 (ниже) появятся нормальные таблицы.
 
 **Этап 2 — построчная синхронизация** (когда понадобятся отчёты стаффа по всей базе):
 `GET /sync/{collection}/changes?since=<ISO>` и `POST /sync/{collection}/batch { upserts[], deletes[] }`,
