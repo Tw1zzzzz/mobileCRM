@@ -49,8 +49,8 @@ function validBody(overrides: Record<string, unknown> = {}): Record<string, unkn
 
 const register = async (overrides: Record<string, unknown> = {}, ip?: string) =>
   reply(await handle(() => registerHandler(request("register", validBody(overrides), ip), deps)));
-const verify = async (email: string, code: string) =>
-  reply(await handle(() => verifyEmailHandler(request("verify-email", { email, code }), deps)));
+const verify = async (email: string, code: string, password = "secret123") =>
+  reply(await handle(() => verifyEmailHandler(request("verify-email", { email, code, password }), deps)));
 const resend = async (email: string) =>
   reply(await handle(() => resendCodeHandler(request("resend-code", { email }), deps)));
 
@@ -141,7 +141,8 @@ describe("register", () => {
       expect(stale.status).toBe(422);
       expect(stale.body.error.code).toBe("invalid_code");
     }
-    const verified = await verify(EMAIL, newCode);
+    // Confirmed with the password of the registration the code belongs to.
+    const verified = await verify(EMAIL, newCode, "another123");
     expect(verified.status).toBe(200);
     expect(verified.body.data.user.nickname).toBe("Second");
     expect(await deps.sql`select id from users`).toHaveLength(1);
@@ -348,6 +349,37 @@ describe("verify-email", () => {
     const unknown = await verify("ghost@team.gg", "123456");
     expect(res.status).toBe(422);
     expect(res.body).toEqual(unknown.body);
+  });
+
+  it("wrongPasswordIsInvalidCodeAndCountsAnAttempt", async () => {
+    await register();
+    const code = deps.mailer.lastCode(EMAIL)!;
+    const res = await verify(EMAIL, code, "other-pass-2");
+    const unknown = await verify("ghost@team.gg", "123456");
+    expect(res.status).toBe(422);
+    expect(res.body).toEqual(unknown.body);
+    const [row] = await deps.sql<{ attempts: number; consumed_at: Date | null }[]>`
+      select attempts, consumed_at from email_codes order by created_at desc limit 1`;
+    expect(row).toEqual({ attempts: 1, consumed_at: null });
+    expect((await verify(EMAIL, code)).status).toBe(200);
+  });
+
+  it("wrongPasswordAttemptsRunOutLikeWrongCodes", async () => {
+    await register();
+    const code = deps.mailer.lastCode(EMAIL)!;
+    for (let i = 0; i < 4; i++) expect((await verify(EMAIL, code, "other-pass-2")).body.error.code).toBe("invalid_code");
+    expect((await verify(EMAIL, code, "other-pass-2")).body.error.code).toBe("too_many_attempts");
+    expect((await verify(EMAIL, code)).body.error.code).toBe("too_many_attempts");
+  });
+
+  it("reRegistrationByAnotherPasswordCannotBeVerifiedWithTheFirstOne", async () => {
+    // Someone re-registers the unverified address with their own password; the owner's code step must not confirm it.
+    await register();
+    await register({ password: "attacker-pass-9" });
+    const code = deps.mailer.lastCode(EMAIL)!;
+    expect((await verify(EMAIL, code)).body.error.code).toBe("invalid_code");
+    const [user] = await deps.sql<{ email_verified_at: Date | null }[]>`select email_verified_at from users`;
+    expect(user.email_verified_at).toBeNull();
   });
 
   it("verifiedUserWithNoActiveCodeIsInvalidCode", async () => {

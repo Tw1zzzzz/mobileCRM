@@ -86,13 +86,15 @@ interface AttemptRow {
 /**
  * Checks `code` against the newest unconsumed code of this purpose and
  * consumes it on success. The attempt is counted by one UPDATE ... RETURNING,
- * so concurrent guesses can never exceed the limit.
+ * so concurrent guesses can never exceed the limit. `alsoValid` false (a wrong
+ * password sent along with the code) fails the attempt exactly like a wrong code.
  */
 export async function checkCode(
   deps: Deps,
   userId: string,
   purpose: CodePurpose,
   code: string,
+  alsoValid = true,
 ): Promise<void> {
   const [row] = await deps.sql<AttemptRow[]>`
     update email_codes set attempts = attempts + 1
@@ -109,7 +111,7 @@ export async function checkCode(
     throw new ApiError("code_expired", "The code has expired. Request a new one.", 422);
   }
 
-  if (!hashesMatch(row.code_hash, hashCode(deps.secret, userId, purpose, code))) {
+  if (!hashesMatch(row.code_hash, hashCode(deps.secret, userId, purpose, code)) || !alsoValid) {
     if (row.attempts >= MAX_ATTEMPTS) throw tooManyAttempts();
     throw new ApiError("invalid_code", "Invalid code.", 422);
   }

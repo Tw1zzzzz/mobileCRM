@@ -57,6 +57,7 @@ async function signUp(email: string) {
   const res = await send(verifyEmailHandler, "POST", "auth/verify-email", {
     email,
     code: deps.mailer.lastCode(email)!,
+    password: PASSWORD,
   });
   expect(res.status).toBe(200);
   return res.body.data as { access_token: string; user: { id: string } };

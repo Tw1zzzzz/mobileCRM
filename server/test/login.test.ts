@@ -62,7 +62,7 @@ async function signUp(verified = true, email = EMAIL) {
   });
   expect(reg.status).toBe(201);
   if (!verified) return null;
-  const res = await call(verifyEmailHandler, "verify-email", { email, code: deps.mailer.lastCode(email)! });
+  const res = await call(verifyEmailHandler, "verify-email", { email, code: deps.mailer.lastCode(email)!, password: PASSWORD });
   expect(res.status).toBe(200);
   deps.mailer.sent.length = 0;
   return res.body.data;
