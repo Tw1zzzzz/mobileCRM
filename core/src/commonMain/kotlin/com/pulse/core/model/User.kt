@@ -105,7 +105,10 @@ enum class AuthError(val message: String) {
     RATE_LIMITED("Слишком много запросов. Попробуйте через несколько минут"),
     BETA_TERMS_NOT_ACCEPTED("Для продолжения необходимо принять условия бета-тестирования"),
     EMAIL_NOT_VERIFIED("Подтвердите почту"),
-    MAIL_UNAVAILABLE("Не удалось отправить письмо с кодом. Попробуйте позже")
+    MAIL_UNAVAILABLE("Не удалось отправить письмо с кодом. Попробуйте позже"),
+    NICKNAME_TOO_LONG("Не больше 40 символов"),
+    TEAM_NAME_TOO_LONG("Не больше 60 символов"),
+    DELETE_FAILED("Не удалось удалить аккаунт. Повторите попытку позже")
 }
 
 /** Version of the beta-testing terms the user accepts at sign-up (stored by the server). */
@@ -119,6 +122,10 @@ object AuthValidator {
     private val emailPattern = Regex("^[A-Z0-9a-z._%+-]+@[A-Za-z0-9.-]+\\.[A-Za-z]{2,}$")
     private val codePattern = Regex("^[0-9]{6}$")
 
+    /** Same limits as the server (trimmed lengths). */
+    const val NICKNAME_MAX_LENGTH = 40
+    const val TEAM_NAME_MAX_LENGTH = 60
+
     fun validateLogin(email: String, password: String): AuthError? =
         if (email.isBlank() || password.isEmpty()) AuthError.EMPTY_FIELDS else null
 
@@ -129,6 +136,8 @@ object AuthValidator {
         }
         if (form.isTeamPlayer && form.teamCode.isBlank()) return AuthError.EMPTY_FIELDS
         if (form.isTeamStaff && form.teamName.isBlank()) return AuthError.EMPTY_FIELDS
+        if (form.nickname.trim().length > NICKNAME_MAX_LENGTH) return AuthError.NICKNAME_TOO_LONG
+        if (form.isTeamStaff && form.teamName.trim().length > TEAM_NAME_MAX_LENGTH) return AuthError.TEAM_NAME_TOO_LONG
         if (!isValidEmail(form.email.trim())) return AuthError.INVALID_EMAIL
         if (!isStrongPassword(form.password)) return AuthError.WEAK_PASSWORD
         if (form.password != form.confirmPassword) return AuthError.PASSWORD_MISMATCH

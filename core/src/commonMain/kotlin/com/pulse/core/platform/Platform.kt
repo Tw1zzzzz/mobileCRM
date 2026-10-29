@@ -31,3 +31,6 @@ class MemorySecretStore : SecretStore {
 expect fun pbkdf2Sha256(password: String, salt: ByteArray, rounds: Int, length: Int): ByteArray
 
 expect fun secureRandomBytes(count: Int): ByteArray
+
+/** Runs [block] while holding [lock] (a thread lock, for short non-suspending critical sections). */
+expect fun <T> locked(lock: Any, block: () -> T): T

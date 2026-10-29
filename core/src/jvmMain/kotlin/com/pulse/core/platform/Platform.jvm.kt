@@ -17,6 +17,8 @@ actual fun pbkdf2Sha256(password: String, salt: ByteArray, rounds: Int, length: 
 
 actual fun secureRandomBytes(count: Int): ByteArray = ByteArray(count).also { SecureRandom().nextBytes(it) }
 
+actual fun <T> locked(lock: Any, block: () -> T): T = synchronized(lock, block)
+
 /** java.io-based file system rooted at the app's private folder (Android `filesDir`, a temp dir in tests). */
 class JvmFileSystem(private val root: File) : FileSystem {
     private fun file(path: String) = File(root, path)

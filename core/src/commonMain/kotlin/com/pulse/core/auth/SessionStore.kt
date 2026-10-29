@@ -37,6 +37,9 @@ class SessionStore(
     /** Email waiting for its 6-digit code (after sign-up or a sign-in with an unverified address). */
     val pendingVerification: StateFlow<String?> = _pendingVerification.asStateFlow()
 
+    /** The password the code step confirms along with the code — in memory only, dropped when the step ends. */
+    private var pendingPassword: String? = null
+
     private val _pendingReset = MutableStateFlow<String?>(null)
     /** Email the password-reset code was requested for. */
     val pendingReset: StateFlow<String?> = _pendingReset.asStateFlow()
@@ -62,7 +65,7 @@ class SessionStore(
             .onFailure { error ->
                 // The server has already emailed a code: the screen switches to the code step without an error.
                 if ((error as? AuthException)?.error == AuthError.EMAIL_NOT_VERIFIED) {
-                    _pendingVerification.value = LocalAuthService.normalize(email)
+                    awaitCode(LocalAuthService.normalize(email), password)
                 } else {
                     showFailure(error, AuthError.SERVER)
                 }
@@ -76,7 +79,7 @@ class SessionStore(
             .onSuccess { outcome ->
                 when (outcome) {
                     is RegistrationOutcome.SignedIn -> setUser(outcome.user)
-                    is RegistrationOutcome.VerificationSent -> _pendingVerification.value = outcome.email
+                    is RegistrationOutcome.VerificationSent -> awaitCode(outcome.email, form.password)
                 }
             }
             .onFailure { showFailure(it, AuthError.REGISTRATION_SERVER) }
@@ -86,9 +89,10 @@ class SessionStore(
     suspend fun verifyEmail(code: String) {
         _errorMessage.value = null
         val email = _pendingVerification.value ?: return
+        val password = pendingPassword ?: return
         val trimmed = code.trim()
         if (!AuthValidator.isValidCode(trimmed)) return show(AuthError.INVALID_CODE)
-        call { authService.verifyEmail(email, trimmed) }
+        call { authService.verifyEmail(email, trimmed, password) }
             .onSuccess(::setUser)
             .onFailure { showFailure(it, AuthError.SERVER) }
     }
@@ -102,7 +106,13 @@ class SessionStore(
     /** «Изменить почту»: back to the sign-up / sign-in form. */
     fun cancelVerification() {
         _pendingVerification.value = null
+        pendingPassword = null
         _errorMessage.value = null
+    }
+
+    private fun awaitCode(email: String, password: String) {
+        pendingPassword = password
+        _pendingVerification.value = email
     }
 
     /** «Получить код». The server never says whether the address has an account, so the code step always opens. */
@@ -146,6 +156,7 @@ class SessionStore(
         val name = nickname.trim()
         val faceit = faceitURL.trim()
         if (name.isEmpty()) return AuthError.EMPTY_FIELDS.message
+        if (name.length > AuthValidator.NICKNAME_MAX_LENGTH) return AuthError.NICKNAME_TOO_LONG.message
         if (faceit.isNotEmpty() && !AuthValidator.isValidFaceitURL(faceit)) return AuthError.INVALID_FACEIT.message
         val updated = user.copy(nickname = name, faceitURL = faceit.ifEmpty { null })
         _user.value = updated
@@ -178,14 +189,34 @@ class SessionStore(
         endSession()
     }
 
-    /** Store requirement for apps with sign-up: the account and all its data on this phone are removed. */
-    fun deleteAccount() {
-        val user = _user.value ?: return
-        if (user.isDemo) return
-        // The server forgets the account (and its sessions) itself; a separate logout would race the deletion.
-        authService.deleteAccount(user)
+    /**
+     * Store requirement for apps with sign-up: the account and all its data on this phone are removed — only after the
+     * backend confirmed. Returns the error message when it did not (offline, server error): the account stays.
+     */
+    suspend fun deleteAccount(): String? {
+        val user = _user.value ?: return null
+        if (user.isDemo) return null
+        try {
+            // The server forgets the account (and its sessions) itself; a separate logout would race the deletion.
+            authService.deleteAccount(user)
+        } catch (error: CancellationException) {
+            throw error
+        } catch (error: Exception) {
+            return deletionFailure(error).message
+        }
         scope?.erase(DataScope.id(user))
         endSession()
+        return null
+    }
+
+    /** Offline and rate limits keep their own texts; anything else says the deletion failed (never «вход»). */
+    private fun deletionFailure(error: Exception): AuthError {
+        val mapped = (error as? AuthException)?.error
+        return when {
+            mapped == AuthError.NO_CONNECTION || (error as? ApiException)?.isOffline == true -> AuthError.NO_CONNECTION
+            mapped == AuthError.RATE_LIMITED -> AuthError.RATE_LIMITED
+            else -> AuthError.DELETE_FAILED
+        }
     }
 
     private fun endSession() {
@@ -223,6 +254,7 @@ class SessionStore(
         val previous = _user.value
         val changed = previous?.id != user.id || previous.email != user.email
         _pendingVerification.value = null
+        pendingPassword = null
         _pendingReset.value = null
         _user.value = user
         storage?.save(user)

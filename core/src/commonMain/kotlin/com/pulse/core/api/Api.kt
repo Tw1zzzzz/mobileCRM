@@ -13,6 +13,7 @@ import com.pulse.core.model.Tariff
 import com.pulse.core.model.User
 import com.pulse.core.model.UserRole
 import com.pulse.core.platform.SecretStore
+import com.pulse.core.platform.locked
 import com.pulse.core.util.PulseJson
 import com.pulse.core.util.UuidSerializer
 import io.ktor.client.HttpClient
@@ -29,9 +30,11 @@ import io.ktor.http.content.OutgoingContent
 import io.ktor.http.content.TextContent
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
@@ -102,10 +105,30 @@ data class AuthTokens(val accessToken: String, val refreshToken: String)
 
 class TokenStore(private val secrets: SecretStore) {
     private val key = "api.tokens"
+    private val lock = Any()
+
+    /** Bumped by every sign-in, sign-out and deletion, so a refresh that started before one never writes over it. */
+    private var generation = 0L
 
     var tokens: AuthTokens?
-        get() = secrets.read(key)?.let { runCatching { PulseJson.decodeFromString(AuthTokens.serializer(), it) }.getOrNull() }
-        set(value) = secrets.write(key, value?.let { PulseJson.encodeToString(AuthTokens.serializer(), it) })
+        get() = read()
+        set(value) = locked(lock) {
+            generation++
+            write(value)
+        }
+
+    /** The stored tokens and the generation they belong to. */
+    internal fun snapshot(): Pair<AuthTokens?, Long> = locked(lock) { read() to generation }
+
+    /** A refresh result: written only if nothing signed in or out since [snapshot] returned [generation]. */
+    internal fun replaceIfUnchanged(generation: Long, value: AuthTokens?): Boolean = locked(lock) {
+        (this.generation == generation).also { unchanged -> if (unchanged) write(value) }
+    }
+
+    private fun read(): AuthTokens? =
+        secrets.read(key)?.let { runCatching { PulseJson.decodeFromString(AuthTokens.serializer(), it) }.getOrNull() }
+
+    private fun write(value: AuthTokens?) = secrets.write(key, value?.let { PulseJson.encodeToString(AuthTokens.serializer(), it) })
 }
 
 /**
@@ -154,7 +177,7 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
     private suspend fun perform(method: HttpMethod, path: String, body: OutgoingContent?, authorized: Boolean): JsonElement? {
         val response = execute(method, path, body, authorized)
         if (response.status.value !in 200..299) throw failure(response)
-        val envelope = runCatching { ApiJson.parseToJsonElement(response.bodyAsText()).jsonObject }.getOrNull()
+        val envelope = envelope(response)
         if (envelope?.get("error")?.takeIf { it !is JsonNull } != null) throw failure(response.status.value, envelope)
         return envelope?.get("data")?.takeIf { it !is JsonNull }
     }
@@ -188,9 +211,15 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
         return response
     }
 
-    private suspend fun failure(response: HttpResponse): ApiException {
-        val envelope = runCatching { ApiJson.parseToJsonElement(response.bodyAsText()).jsonObject }.getOrNull()
-        return failure(response.status.value, envelope)
+    private suspend fun failure(response: HttpResponse): ApiException = failure(response.status.value, envelope(response))
+
+    /** The response body as an envelope; null when it is not one (or could not be read). Cancellation is not swallowed. */
+    private suspend fun envelope(response: HttpResponse): JsonObject? = try {
+        ApiJson.parseToJsonElement(response.bodyAsText()).jsonObject
+    } catch (error: CancellationException) {
+        throw error
+    } catch (error: Exception) {
+        null
     }
 
     private fun failure(status: Int, envelope: JsonObject?): ApiException {
@@ -209,22 +238,31 @@ class ApiClient(private val http: HttpClient, private val baseUrl: String?, val 
     }
 
     /**
-     * `POST /auth/refresh` with the refresh token; on failure the session is over. Single-flight: a caller that waited
-     * for another refresh finds the stored access token changed and retries with it instead of refreshing again.
+     * `POST /auth/refresh` with the refresh token. True: new tokens are stored, repeat the request. False: the server
+     * rejected the refresh token (401) — the session is over and the tokens are dropped — or the tokens changed hands
+     * meanwhile (signed out). Any other failure (offline, 5xx, `rate_limited`) keeps the tokens and is thrown, so the
+     * request fails as that error and the next one refreshes again.
+     *
+     * Single-flight: a caller that waited for another refresh finds the stored access token changed and retries with
+     * it instead of refreshing again. Not cancellable once sent: the server rotates the refresh token, so dropping its
+     * answer would leave only the old one, whose reuse revokes every session.
      */
     private suspend fun refreshTokens(rejectedAccessToken: String?): Boolean = refreshLock.withLock {
-        val current = tokens.tokens ?: return@withLock false
+        val (current, generation) = tokens.snapshot()
+        if (current == null) return@withLock false
         if (current.accessToken != rejectedAccessToken) return@withLock true
-        try {
-            val body = ApiJson.encodeToJsonElement(RefreshBody.serializer(), RefreshBody(current.refreshToken))
-            val data = perform(HttpMethod.Post, "auth/refresh", jsonContent(body), authorized = false)
-            tokens.tokens = ApiJson.decodeFromJsonElement(AuthTokens.serializer(), data ?: JsonNull)
-            true
-        } catch (error: CancellationException) {
-            throw error
-        } catch (error: Exception) {
-            tokens.tokens = null
-            false
+        withContext(NonCancellable) {
+            val refreshed = try {
+                val body = ApiJson.encodeToJsonElement(RefreshBody.serializer(), RefreshBody(current.refreshToken))
+                val data = perform(HttpMethod.Post, "auth/refresh", jsonContent(body), authorized = false)
+                runCatching { ApiJson.decodeFromJsonElement(AuthTokens.serializer(), data ?: JsonNull) }
+                    .getOrElse { throw ApiException(ApiException.Kind.UNREADABLE) }
+            } catch (error: ApiException) {
+                if (error.kind != ApiException.Kind.UNAUTHORIZED) throw error
+                tokens.replaceIfUnchanged(generation, null)
+                return@withContext false
+            }
+            tokens.replaceIfUnchanged(generation, refreshed)
         }
     }
 
@@ -276,8 +314,9 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
     @Serializable
     private data class EmailBody(val email: String)
 
+    /** The password proves the code confirms the registration it was sent for (see docs/API.md). */
     @Serializable
-    private data class CodeBody(val email: String, val code: String)
+    private data class VerifyBody(val email: String, val code: String, val password: String)
 
     @Serializable
     private data class ResetConfirmBody(val email: String, val code: String, val newPassword: String)
@@ -328,8 +367,10 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
         }
     }
 
-    override suspend fun verifyEmail(email: String, code: String): User =
-        signIn("auth/verify-email", ApiJson.encodeToJsonElement(CodeBody.serializer(), CodeBody(LocalAuthService.normalize(email), code)))
+    override suspend fun verifyEmail(email: String, code: String, password: String): User = signIn(
+        "auth/verify-email",
+        ApiJson.encodeToJsonElement(VerifyBody.serializer(), VerifyBody(LocalAuthService.normalize(email), code, password))
+    )
 
     override suspend fun resendCode(email: String) = mapErrors {
         client.sendEmpty(HttpMethod.Post, "auth/resend-code", emailBody(email), authorized = false)
@@ -366,11 +407,10 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
         }
     }
 
-    override fun deleteAccount(user: User) {
-        background.launch {
-            runCatching { client.sendEmpty(HttpMethod.Delete, "me") }
-            client.tokens.tokens = null
-        }
+    /** `DELETE /me`; the tokens are dropped only once the server confirms (the account and its sessions are gone). */
+    override suspend fun deleteAccount(user: User) = mapErrors {
+        client.sendEmpty(HttpMethod.Delete, "me")
+        client.tokens.tokens = null
     }
 
     /** Posts [body] to an endpoint that answers with a session, stores the tokens and returns the user. */

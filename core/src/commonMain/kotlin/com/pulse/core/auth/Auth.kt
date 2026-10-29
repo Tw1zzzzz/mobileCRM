@@ -33,14 +33,16 @@ interface AuthService {
     /** Throws [AuthException] with the spec message (an unverified address is [AuthError.EMAIL_NOT_VERIFIED]). */
     suspend fun login(email: String, password: String): User
     suspend fun register(form: RegistrationForm): RegistrationOutcome
-    suspend fun verifyEmail(email: String, code: String): User = throw AuthException(AuthError.SERVER)
+    /** [password]: the one the account was registered (or just signed in) with — the server checks it with the code. */
+    suspend fun verifyEmail(email: String, code: String, password: String): User = throw AuthException(AuthError.SERVER)
     suspend fun resendCode(email: String) {}
     suspend fun requestPasswordReset(email: String) {}
     suspend fun confirmPasswordReset(email: String, code: String, newPassword: String): User = throw AuthException(AuthError.SERVER)
     /** Ends the session on the backend (fire-and-forget). */
     fun logout() {}
     fun updateProfile(user: User) {}
-    fun deleteAccount(user: User) {}
+    /** Removes the account on the backend; throws [AuthException] when that failed (the account then stays). */
+    suspend fun deleteAccount(user: User) {}
 }
 
 /** «Посмотреть демо»: seeded accounts (credentials are documented in README, not shown in the UI). */
@@ -134,7 +136,7 @@ class LocalAuthService(
     }
 
     /** «Удалить аккаунт»: profile and password hash are removed (the data folder is erased by the session). */
-    override fun deleteAccount(user: User) {
+    override suspend fun deleteAccount(user: User) {
         if (user.isDemo) return
         storage.save(accounts.filter { it.user.id != user.id })
         secrets.write(credentialKey(user.email), null)
