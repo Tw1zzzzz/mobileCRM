@@ -12,8 +12,10 @@ export interface UserJson {
   /** Team name. */
   team: string | null;
   team_id: string | null;
-  /** Only for the team owner. */
+  /** Player code: staff of the team only. */
   invite_code: string | null;
+  /** Staff code: staff of the team only. */
+  staff_code: string | null;
   streak_days: number;
   faceit_url: string | null;
 }
@@ -51,14 +53,14 @@ interface UserJsonRow {
   faceit_url: string | null;
   team_name: string | null;
   invite_code: string | null;
-  is_owner: boolean | null;
+  staff_code: string | null;
 }
 
 /** The public shape of a user; never exposes the password hash or other columns. */
 export async function userJson(deps: Deps, userId: string): Promise<UserJson> {
   const [row] = await deps.sql<UserJsonRow[]>`
     select u.id, u.nickname, u.email, u.role, u.tariff, u.team_id, u.faceit_url,
-           t.name as team_name, t.invite_code, (t.owner_id = u.id) as is_owner
+           t.name as team_name, t.invite_code, t.staff_code
     from users u left join teams t on t.id = u.team_id
     where u.id = ${userId}`;
   if (!row) throw new ApiError("unauthorized", "User not found", 401);
@@ -70,7 +72,8 @@ export async function userJson(deps: Deps, userId: string): Promise<UserJson> {
     tariff: row.tariff,
     team: row.team_name,
     team_id: row.team_id,
-    invite_code: row.is_owner ? row.invite_code : null,
+    invite_code: row.role === "staff" ? row.invite_code : null,
+    staff_code: row.role === "staff" ? row.staff_code : null,
     streak_days: 0,
     faceit_url: row.faceit_url,
   };

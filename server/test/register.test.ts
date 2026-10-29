@@ -84,6 +84,7 @@ describe("register", () => {
       team: null,
       team_id: null,
       invite_code: null,
+      staff_code: null,
       streak_days: 0,
       faceit_url: null,
     });
@@ -96,7 +97,7 @@ describe("register", () => {
   it("userJsonHasNoInternalColumns", async () => {
     const data = await registerAndVerify();
     expect(Object.keys(data.user).sort()).toEqual(
-      ["email", "faceit_url", "id", "invite_code", "nickname", "role", "streak_days", "tariff", "team", "team_id"],
+      ["email", "faceit_url", "id", "invite_code", "nickname", "role", "staff_code", "streak_days", "tariff", "team", "team_id"],
     );
   });
 
@@ -163,10 +164,12 @@ describe("register", () => {
     expect(data.user.role).toBe("staff");
     expect(data.user.team).toBe("Team Nova");
     expect(data.user.invite_code).toMatch(INVITE);
+    expect(data.user.staff_code).toMatch(INVITE);
     expect(data.user.team_id).toMatch(/^[0-9a-f-]{36}$/);
-    const [team] = await deps.sql`select name, invite_code, owner_id from teams`;
+    const [team] = await deps.sql`select name, invite_code, staff_code, owner_id from teams`;
     expect(team.owner_id).toBe(data.user.id);
     expect(team.invite_code).toBe(data.user.invite_code);
+    expect(team.staff_code).toBe(data.user.staff_code);
   });
 
   it("staffRequiresTeamName", async () => {
@@ -180,7 +183,7 @@ describe("register", () => {
   });
 
   it("playerJoinsByCodeCaseInsensitive", async () => {
-    await deps.sql`insert into teams (name, invite_code) values ('Alpha', 'ABC234')`;
+    await deps.sql`insert into teams (name, invite_code, staff_code) values ('Alpha', 'ABC234', 'XYZ789')`;
     const data = await registerAndVerify({ role: "teamPlayer", team_code: " abc234 " });
     expect(data.user.role).toBe("teamPlayer");
     expect(data.user.team).toBe("Alpha");
@@ -316,7 +319,7 @@ describe("register team handling for an unverified account", () => {
   });
 
   it("staffBecomingPlayerJoinsOtherTeamAndDeletesOwned", async () => {
-    await deps.sql`insert into teams (name, invite_code) values ('Alpha', 'ABC234')`;
+    await deps.sql`insert into teams (name, invite_code, staff_code) values ('Alpha', 'ABC234', 'XYZ789')`;
     await register({ role: "staff", team_name: "Mine" });
     await register({ role: "teamPlayer", team_code: "abc234" });
     const teams = await deps.sql`select name from teams`;
@@ -326,7 +329,7 @@ describe("register team handling for an unverified account", () => {
   });
 
   it("playerBecomingStaffGetsATeam", async () => {
-    await deps.sql`insert into teams (name, invite_code) values ('Alpha', 'ABC234')`;
+    await deps.sql`insert into teams (name, invite_code, staff_code) values ('Alpha', 'ABC234', 'XYZ789')`;
     await register({ role: "teamPlayer", team_code: "ABC234" });
     await register({ role: "staff", team_name: "Mine" });
     const verified = await verify(EMAIL, deps.mailer.lastCode(EMAIL)!);

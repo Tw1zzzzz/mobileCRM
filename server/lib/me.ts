@@ -3,6 +3,7 @@ import { parseFaceitUrl } from "@/lib/auth/register";
 import { requireUser } from "@/lib/auth/tokens";
 import type { Deps } from "@/lib/deps";
 import { ok, parseBody } from "@/lib/http";
+import { dismantleTeam, otherStaffId } from "@/lib/team/members";
 import { userJson } from "@/lib/users";
 
 const PatchBody = z.object({
@@ -28,19 +29,24 @@ export async function patchMe(req: Request, deps: Deps): Promise<Response> {
 }
 
 /**
- * Deletes the account. Refresh tokens and email codes cascade. An owned team is
- * deleted too and its other members go back to being solo players.
+ * Deletes the account. Refresh tokens and email codes cascade. When the user owns a team, another staff member
+ * (the longest-standing one) takes it over; if there is none, the team is deleted and its members go back to
+ * being solo players.
  */
 export async function deleteMe(req: Request, deps: Deps): Promise<Response> {
   const userId = await requireUser(deps, req);
   await deps.sql.begin(async (tx) => {
-    // Locking the team rows keeps a concurrent join from slipping in mid-delete.
-    const owned = await tx<{ id: string }[]>`select id from teams where owner_id = ${userId} for update`;
-    if (owned.length > 0) {
-      await tx`
-        update users set role = 'soloPlayer', team_id = null, updated_at = ${deps.now()}
-        where team_id in ${tx(owned.map((t) => t.id))} and id <> ${userId}`;
-      await tx`delete from teams where owner_id = ${userId}`;
+    const [self] = await tx<{ team_id: string | null }[]>`select team_id from users where id = ${userId}`;
+    // Locking the team row keeps a concurrent join, removal or deletion from slipping in mid-delete.
+    const teams = await tx<{ id: string; owner_id: string | null }[]>`
+      select id, owner_id from teams where owner_id = ${userId} or id = ${self?.team_id ?? null}::uuid for update`;
+    for (const team of teams.filter((t) => t.owner_id === userId)) {
+      const successor = await otherStaffId(tx, team.id, userId);
+      if (successor) {
+        await tx`update teams set owner_id = ${successor} where id = ${team.id}`;
+      } else {
+        await dismantleTeam(tx, deps, team.id, userId);
+      }
     }
     await tx`delete from users where id = ${userId}`;
   });

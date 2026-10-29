@@ -12,7 +12,8 @@ import {
 import type { Deps } from "@/lib/deps";
 import { ApiError, ok, parseBody } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { createTeam, findTeamByCode } from "@/lib/teams";
+import { dismantleTeam } from "@/lib/team/members";
+import { createTeam, findTeamByCode, findTeamByStaffCode } from "@/lib/teams";
 import { findUserByEmail, isDemoEmail, type Role } from "@/lib/users";
 
 const TEAM_NAME_MAX = 60;
@@ -25,6 +26,7 @@ const RegisterBody = z.object({
   faceit_url: z.string().nullish(),
   team_code: z.string().nullish(),
   team_name: z.string().nullish(),
+  staff_code: z.string().nullish(),
   accepted_terms: z.literal(true),
   accepted_privacy: z.literal(true),
   accepted_beta_terms: z.literal(true),
@@ -37,9 +39,9 @@ interface NewAccount {
   passwordHash: string;
   role: Role;
   faceitUrl: string | null;
-  /** Joined team (teamPlayer only). */
+  /** Joined team (teamPlayer with a player code, staff with a staff code). */
   joinTeamId: string | null;
-  /** Team to create or rename (staff only). */
+  /** Team to create or rename (staff without a staff code). */
   teamName: string | null;
   betaTermsVersion: string;
 }
@@ -82,7 +84,8 @@ async function saveAccount(deps: Deps, account: NewAccount): Promise<{ id: strin
         ? await tx<{ id: string }[]>`select id from teams where owner_id = ${existing.id}`
         : [];
       const userId = existing?.id ?? randomUUID();
-      const keptTeamId = account.role === "staff" ? (owned?.id ?? null) : account.joinTeamId;
+      const keptTeamId =
+        account.role === "staff" && account.joinTeamId === null ? (owned?.id ?? null) : account.joinTeamId;
 
       if (existing) {
         await tx`
@@ -102,16 +105,16 @@ async function saveAccount(deps: Deps, account: NewAccount): Promise<{ id: strin
             ${account.betaTermsVersion}, ${now}, ${now}, ${now})`;
       }
 
-      if (account.role === "staff" && account.teamName !== null) {
+      if (account.teamName !== null) {
         if (owned) {
           await tx`update teams set name = ${account.teamName} where id = ${owned.id}`;
         } else {
           const team = await createTeam(txDeps, account.teamName, userId);
           await tx`update users set team_id = ${team.id} where id = ${userId}`;
         }
-      } else if (owned) {
-        // No longer staff: the user's old team goes away (users.team_id already moved off it).
-        await tx`delete from teams where id = ${owned.id}`;
+      } else if (owned && owned.id !== account.joinTeamId) {
+        // No longer this team's owner: the old team goes away (users.team_id already moved off it).
+        await dismantleTeam(tx, deps, owned.id, userId);
       }
       return { id: userId, email: account.email };
     });
@@ -135,7 +138,11 @@ export async function registerHandler(req: Request, deps: Deps): Promise<Respons
     throw new ApiError("weak_password", "Password must be at least 8 characters with letters and digits.", 422);
   }
   const faceitUrl = parseFaceitUrl(body.faceit_url);
-  const teamName = body.role === "staff" ? parseTeamName(body.team_name) : null;
+  const staffCode = body.role === "staff" ? body.staff_code?.trim() || null : null;
+  const teamName = body.role === "staff" && !staffCode ? parseTeamName(body.team_name) : null;
+  if (staffCode && body.team_name?.trim()) {
+    throw validationFailed("staff: give either team_name or staff_code, not both");
+  }
 
   if (isDemoEmail(email) || (await findUserByEmail(deps, email))?.email_verified_at) {
     throw emailTaken();
@@ -146,6 +153,12 @@ export async function registerHandler(req: Request, deps: Deps): Promise<Respons
     const code = body.team_code?.trim();
     if (!code) throw validationFailed("team_code: required for teamPlayer");
     const team = await findTeamByCode(deps, code);
+    if (!team) throw new ApiError("team_not_found", "No team with this code.", 404);
+    joinTeamId = team.id;
+  }
+
+  if (staffCode) {
+    const team = await findTeamByStaffCode(deps, staffCode);
     if (!team) throw new ApiError("team_not_found", "No team with this code.", 404);
     joinTeamId = team.id;
   }
