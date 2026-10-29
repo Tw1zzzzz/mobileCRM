@@ -29,7 +29,20 @@ export async function migrate(sql: Sql, dir: string = defaultDir): Promise<strin
   return applied;
 }
 
+/**
+ * `npm run build` migrates only a production deploy or a local build (no `VERCEL_ENV`). Preview deploys share the
+ * production `DATABASE_URL`, so a branch's migration must never reach that database before the branch is released.
+ */
+export function shouldMigrate(env: Record<string, string | undefined>): boolean {
+  const target = env.VERCEL_ENV;
+  return !target || target === "production";
+}
+
 async function main() {
+  if (!shouldMigrate(process.env)) {
+    console.log(`migrations skipped: VERCEL_ENV=${process.env.VERCEL_ENV} (only production builds migrate)`);
+    return;
+  }
   const url = process.env.DATABASE_URL;
   if (!url) throw new Error("Missing required environment variable DATABASE_URL");
   const sql = createSql(url);
