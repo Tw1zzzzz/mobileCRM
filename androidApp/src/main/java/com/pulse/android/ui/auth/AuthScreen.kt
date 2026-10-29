@@ -27,6 +27,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import com.pulse.core.model.AuthFieldId
+import com.pulse.core.model.AuthValidator
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.focus.FocusDirection
@@ -284,14 +285,14 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             val last = form.fields().last()
             fun ime(id: AuthFieldId) = if (id == last) ImeAction.Done else ImeAction.Next
-            AuthField("Имя", form.nickname, { form = form.copy(nickname = it) }, ime = ime(AuthFieldId.NAME))
+            AuthField("Имя", form.nickname, { form = form.copy(nickname = it.take(AuthValidator.NICKNAME_MAX_LENGTH)) }, ime = ime(AuthFieldId.NAME))
             AuthField("Email", form.email, { form = form.copy(email = it) }, keyboard = KeyboardType.Email, ime = ime(AuthFieldId.EMAIL))
             AuthField("Пароль", form.password, { form = form.copy(password = it) }, isPassword = true, ime = ime(AuthFieldId.PASSWORD))
             AuthField("Повторите пароль", form.confirmPassword, { form = form.copy(confirmPassword = it) }, isPassword = true,
                 ime = ime(AuthFieldId.CONFIRM))
             AuthField("Ссылка Faceit", form.faceitURL, { form = form.copy(faceitURL = it) }, keyboard = KeyboardType.Uri, ime = ime(AuthFieldId.FACEIT))
             if (form.isTeamPlayer) AuthField("Код команды", form.teamCode, { form = form.copy(teamCode = it) }, ime = ime(AuthFieldId.TEAM_CODE))
-            if (form.isTeamStaff) AuthField("Название команды", form.teamName, { form = form.copy(teamName = it) }, ime = ime(AuthFieldId.TEAM_NAME))
+            if (form.isTeamStaff) AuthField("Название команды", form.teamName, { form = form.copy(teamName = it.take(AuthValidator.TEAM_NAME_MAX_LENGTH)) }, ime = ime(AuthFieldId.TEAM_NAME))
         }
         // Consents before the button: «Создать аккаунт» is the last thing to press, not the first error to read.
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {

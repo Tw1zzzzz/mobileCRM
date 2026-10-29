@@ -267,6 +267,12 @@ class PulseCore(
     }
 
     /**
+     * «Удалить аккаунт» on the app's scope: leaving the screen does not abandon a deletion the server may already have
+     * done. Returns the error text (the account stays), or null once the account is gone.
+     */
+    suspend fun deleteAccount(): String? = background.async { session.deleteAccount() }.await()
+
+    /**
      * After a sign-in: the account's server data is downloaded behind «Загружаем ваши данные…». The loader ends when the
      * download half is done or after [FIRST_LOAD_LIMIT], whichever comes first; uploads and the rest of the round go on
      * as an ordinary [SyncStatus.Running] round. The failure message is shown only when the download itself failed.

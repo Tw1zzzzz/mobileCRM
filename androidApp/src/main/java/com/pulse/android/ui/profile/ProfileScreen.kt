@@ -81,6 +81,7 @@ import com.pulse.core.demo.DemoData
 import com.pulse.core.feature.NotificationRules
 import com.pulse.core.feature.ReminderKind
 import com.pulse.core.feature.ScheduledReminder
+import com.pulse.core.model.AuthValidator
 import com.pulse.core.model.CalendarEvent
 import com.pulse.core.model.EventTag
 import com.pulse.core.util.addingMinutes
@@ -100,6 +101,9 @@ fun ProfileScreen() {
     var gameGoals by remember { mutableStateOf(false) }
     var confirmLogout by remember { mutableStateOf(false) }
     var confirmDelete by remember { mutableStateOf(false) }
+    var deleting by remember { mutableStateOf(false) }
+    var deleteError by remember { mutableStateOf<String?>(null) }
+    val scope = rememberCoroutineScope()
     var legal by remember { mutableStateOf<LegalDocument?>(null) }
     ScreenScaffold(header = {
         NavHeader("Профиль") { HeaderIconButton("pencil", "Редактировать профиль") { edit = true } }
@@ -127,8 +131,11 @@ fun ProfileScreen() {
                     DividerLine()
                     SettingRow(LegalDocument.TERMS.title, "doc.text", Palette.blue, chevron = true) { legal = LegalDocument.TERMS }
                     DividerLine()
-                    SettingRow("Удалить аккаунт", "trash", Palette.red) { confirmDelete = true }
+                    SettingRow(if (deleting) "Удаляем аккаунт…" else "Удалить аккаунт", "trash", Palette.red) {
+                        if (!deleting) confirmDelete = true
+                    }
                 }
+                deleteError?.let { ErrorBanner(it) }
             }
         }
         SecondaryButton("Выйти из аккаунта", icon = sfIcon("rectangle.portrait.and.arrow.right"), tint = Palette.red) { confirmLogout = true }
@@ -149,7 +156,14 @@ fun ProfileScreen() {
         "Удалить аккаунт и все данные?",
         "Сон, питание, тесты, тренировки, дневник и цели будут удалены с этого телефона. Отменить нельзя.",
         "Удалить безвозвратно", { confirmDelete = false }
-    ) { core.session.deleteAccount() }
+    ) {
+        scope.launch {
+            deleting = true
+            deleteError = null
+            deleteError = core.deleteAccount()
+            deleting = false
+        }
+    }
 }
 
 /** Destructive confirmation (iOS `confirmationDialog`). */
@@ -312,7 +326,7 @@ private fun EditProfileSheet(onClose: () -> Unit) {
     var faceit by remember { mutableStateOf(user?.faceitURL ?: "") }
     var error by remember { mutableStateOf<String?>(null) }
     SheetScaffold("Профиль", onClose) {
-        PulseTextField("Имя *", nickname, "Nova") { nickname = it }
+        PulseTextField("Имя *", nickname, "Nova") { nickname = it.take(AuthValidator.NICKNAME_MAX_LENGTH) }
         PulseTextField("Ссылка Faceit", faceit, "https://www.faceit.com/…", KeyboardType.Uri) { faceit = it }
         if (user?.role?.isStaff == false) {
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

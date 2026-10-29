@@ -51,6 +51,17 @@ class RegistrationFormTest {
         assertTrue(consent.top < button.top, "consent at ${consent.top}, button at ${button.top}")
     }
 
+    @Test fun nicknameAndTeamNameStopAtTheServerLimits() {
+        openRegistration()
+        field("Имя").performScrollTo().performTextInput("n".repeat(50))
+        field("n".repeat(40)).assertExists()
+        rule.onNodeWithText("Командный доступ").performClick()
+        rule.onNodeWithText("Я стафф").performClick()
+        rule.waitForIdle()
+        field("Название команды").performScrollTo().performTextInput("t".repeat(70))
+        field("t".repeat(60)).assertExists()
+    }
+
     @Test fun fieldsMoveToNext() {
         openRegistration()
         field("Имя").assert(SemanticsMatcher.expectValue(SemanticsProperties.ImeAction, ImeAction.Next))
