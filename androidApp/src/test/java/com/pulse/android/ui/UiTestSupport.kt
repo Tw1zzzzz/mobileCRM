@@ -46,12 +46,15 @@ import kotlin.test.assertTrue
  */
 
 /** A core over a fresh temp dir with in-memory secrets; signed in to the demo of [role] when given. */
-fun testCore(role: UserRole?, faceitKey: String? = null, backend: Backend = Backend.Local, http: HttpClient = HttpClient(OkHttp)): PulseCore {
+fun testCore(
+    role: UserRole?, faceitKey: String? = null, backend: Backend = Backend.Local, http: HttpClient = HttpClient(OkHttp),
+    background: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate)
+): PulseCore {
     val core = PulseCore(
         files = JvmFileSystem(Files.createTempDirectory("pulse-ui").toFile()),
         secrets = MemorySecretStore(),
         http = http,
-        background = CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate),
+        background = background,
         health = null,
         faceitKey = faceitKey,
         backend = backend

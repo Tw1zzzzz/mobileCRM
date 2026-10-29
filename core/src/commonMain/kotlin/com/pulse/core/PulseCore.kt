@@ -134,6 +134,15 @@ class PulseCore(
     private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
 
+    private val _firstPullPending = MutableStateFlow(false)
+    /**
+     * True from the start of a first load (sign-in, verify or reset of a syncable account) until its download half has
+     * finished — successfully or not — and the downloaded documents are in the stores, or the load was stopped by an
+     * account switch. Unlike [SyncStatus.FirstLoad] it outlasts the 20 s loader: what asks the player to fill in stores
+     * (the «О тебе» step) waits for it, or its defaults would overwrite the server's copy.
+     */
+    val firstPullPending: StateFlow<Boolean> = _firstPullPending.asStateFlow()
+
     /** A real account signed in on the Pulse server (demo accounts and local builds never sync). */
     val isSyncable: Boolean get() = isRemote && session.user.value?.isDemo == false
 
@@ -166,6 +175,7 @@ class PulseCore(
             stopRound()
             activate(user, accountChanged = true)
             firstLoad.value = null
+            _firstPullPending.value = false
             _syncStatus.value = SyncStatus.Idle
             if (isSyncable) startFirstLoad()
         }
@@ -265,6 +275,7 @@ class PulseCore(
         val load = Any()
         firstLoad.value = load
         _syncStatus.value = SyncStatus.FirstLoad
+        _firstPullPending.value = true
         // Another account may be active by now: its status is not this load's to change.
         fun isCurrent() = firstLoad.value === load
         background.launch {
@@ -273,17 +284,24 @@ class PulseCore(
                 if (isCurrent()) _syncStatus.compareAndSet(SyncStatus.FirstLoad, SyncStatus.Running)
             }
             val result = try {
-                round { pulled -> if (isCurrent()) endLoader(pulled.failed) }
+                round { pulled -> if (isCurrent()) endFirstPull(pulled.failed) }
             } finally {
                 limit.cancel()
             }
             if (isCurrent()) {
                 // The round ended before its download half (nothing to sync for): the result decides.
                 if (_syncStatus.value == SyncStatus.FirstLoad) endLoader(result.failed)
+                _firstPullPending.value = false
                 _syncStatus.compareAndSet(SyncStatus.Running, SyncStatus.Idle)
                 firstLoad.value = null
             }
         }
+    }
+
+    /** The first load's download half is over and its documents are applied. The status moves on before the flag drops, so a reader never sees "not pending" next to the loader. */
+    private fun endFirstPull(downloadFailed: Boolean) {
+        endLoader(downloadFailed)
+        _firstPullPending.value = false
     }
 
     /** The first load's download is done: the rest of its round runs as [SyncStatus.Running], or the failure is shown. */

@@ -287,6 +287,67 @@ class SyncTriggersTest {
         assertEquals(listOf(night.id), core.sleep.sessions.map { it.id })
     }
 
+    @Test fun firstPullStaysPendingPastTheLoaderUntilTheDownloadIsApplied() = runTest {
+        val night = night(27)
+        server.write("sleep", sleepDocument(night))
+        val gate = CompletableDeferred<Unit>()
+        server.gate = gate
+        val clock = TestCoroutineScheduler()
+        val core = core(background = CoroutineScope(UnconfinedTestDispatcher(clock) + backgroundJob))
+        assertFalse(core.firstPullPending.value, "app start and signed-out: nothing is loading")
+        core.signIn()
+        assertTrue(core.firstPullPending.value)
+
+        clock.advanceTimeBy(21.seconds)
+        assertEquals(SyncStatus.Running, core.syncStatus.value)
+        assertTrue(core.firstPullPending.value, "the loader is gone but the downloaded documents are not applied yet")
+        assertTrue(core.sleep.sessions.isEmpty())
+
+        gate.complete(Unit)
+        awaitBackground()
+        assertFalse(core.firstPullPending.value)
+        assertEquals(listOf(night.id), core.sleep.sessions.map { it.id })
+    }
+
+    @Test fun firstPullEndsWithTheDownloadNotTheWholeRound() = runTest {
+        val local = night(26)
+        val scope = DataScope(files).also { it.current = folder.substringAfterLast('/') }
+        JsonFileStorage(SleepStore.FILE, SleepStore.Saved.serializer(), scope).save(SleepStore.Saved(listOf(local)))
+        val putGate = CompletableDeferred<Unit>()
+        server.putGate = putGate
+        val core = core()
+        core.signIn()
+
+        server.putArrived.await()
+        assertFalse(core.firstPullPending.value, "the download is applied; only the upload is still running")
+        putGate.complete(Unit)
+        awaitBackground()
+        assertFalse(core.firstPullPending.value)
+    }
+
+    @Test fun firstPullEndsWhenTheDownloadFails() = runTest {
+        server.syncOffline = true
+        val core = core()
+        core.signIn()
+        awaitBackground()
+        assertEquals(SyncStatus.FirstLoadFailed, core.syncStatus.value)
+        assertFalse(core.firstPullPending.value)
+    }
+
+    @Test fun stoppedFirstLoadIsNotPendingAnyMore() = runTest {
+        val gate = CompletableDeferred<Unit>()
+        server.gate = gate
+        val core = core()
+        core.signIn()
+        assertTrue(core.firstPullPending.value)
+
+        core.session.logout()
+        assertFalse(core.firstPullPending.value)
+        gate.complete(Unit)
+        awaitBackground()
+        assertFalse(core.firstPullPending.value)
+    }
+
     @Test fun firstLoadEndsWithThePullAndAFailedUploadShowsNoMessage() = runTest {
         // A night from an earlier session of this account still waits to be sent.
         val local = night(26)
