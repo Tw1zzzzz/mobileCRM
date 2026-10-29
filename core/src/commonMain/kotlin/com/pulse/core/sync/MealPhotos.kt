@@ -18,10 +18,14 @@ object MealPhotos {
 
     /**
      * The copy sent to the server: every photo → absent, with `"photoRef": true` in its place — except the meals in
-     * [unreferenced] (photos the server refused), which get no marker so other phones do not ask for them.
+     * [unreferenced] (photos the server refused or does not have yet), which get no marker so other phones do not ask
+     * for them. Meals in [referenced] (their photo is on the server, not yet on the phone) get the marker without a photo.
      */
-    fun strip(nutrition: JsonElement, unreferenced: Set<String> = emptySet()): JsonElement = mapMeals(nutrition) { meal ->
-        if (photoOf(meal) == null) return@mapMeals meal
+    fun strip(nutrition: JsonElement, unreferenced: Set<String> = emptySet(), referenced: Set<String> = emptySet()): JsonElement = mapMeals(nutrition) { meal ->
+        if (photoOf(meal) == null) {
+            val keepsRef = idOf(meal) in referenced && PHOTO_REF !in meal
+            return@mapMeals if (keepsRef) JsonObject(meal + (PHOTO_REF to JsonPrimitive(true))) else meal
+        }
         val marker = idOf(meal) !in unreferenced
         val stripped = LinkedHashMap<String, JsonElement>()
         for ((key, value) in meal) {
@@ -39,10 +43,14 @@ object MealPhotos {
         photoOf(meal)?.let { id to it }
     }.toMap()
 
-    /** The phone's copy: `photoRef` markers are dropped, meals listed in [photos] get their photo back. */
-    fun restore(nutrition: JsonElement, photos: Map<String, String>): JsonElement = mapMeals(nutrition) { meal ->
-        val photo = idOf(meal)?.let(photos::get)
-        if (photo == null && PHOTO_REF !in meal) return@mapMeals meal
+    /**
+     * The phone's copy: meals listed in [photos] get their photo back, `photoRef` markers are dropped — except for the
+     * meals in [keep], whose photo is still to be downloaded.
+     */
+    fun restore(nutrition: JsonElement, photos: Map<String, String>, keep: Set<String> = emptySet()): JsonElement = mapMeals(nutrition) { meal ->
+        val id = idOf(meal)
+        val photo = id?.let(photos::get)
+        if (photo == null && (PHOTO_REF !in meal || id in keep)) return@mapMeals meal
         val restored = LinkedHashMap<String, JsonElement>()
         for ((key, value) in meal) {
             when (key) {

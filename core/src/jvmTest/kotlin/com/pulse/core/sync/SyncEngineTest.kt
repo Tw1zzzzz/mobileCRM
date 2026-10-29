@@ -73,6 +73,8 @@ private class FakeSyncServer {
     var afterPhotoStored: (() -> Unit)? = null
     /** Runs before a document write is checked (e.g. another phone always writes first). */
     var beforePut: ((String) -> Unit)? = null
+    /** Photo requests the server still answers this minute; past it they get `429 rate_limited`. Null = no limit. */
+    var photoRequestsLeft: Int? = null
 
     /** Another phone's accepted write. */
     fun write(collection: String, document: JsonElement) {
@@ -92,6 +94,10 @@ private class FakeSyncServer {
         val recorded = Recorded(request.method, path, bytesOf(request), request.body.contentType)
         requests += recorded
         (failures["${request.method.value} $path"] ?: failures[path])?.let { return@MockEngine respond(fail(codeFor(it)), HttpStatusCode.fromValue(it)) }
+        if (path.startsWith("photos/")) photoRequestsLeft?.let { left ->
+            if (left <= 0) return@MockEngine respond(fail(codeFor(429)), HttpStatusCode.TooManyRequests)
+            photoRequestsLeft = left - 1
+        }
         val (status, body) = when {
             path == "sync" -> 200 to ok(JsonArray(documents.toSortedMap().map { (name, stored) -> summary(name, stored) }))
             path.startsWith("sync/") && request.method == HttpMethod.Get -> getDocument(path.removePrefix("sync/"))
@@ -145,6 +151,7 @@ private class FakeSyncServer {
     private fun codeFor(status: Int) = when (status) {
         413 -> "payload_too_large"
         422 -> "validation_failed"
+        429 -> "rate_limited"
         else -> "server_error"
     }
 
@@ -209,6 +216,24 @@ class SyncEngineTest {
     }
 
     private fun idOf(meal: Uuid) = meal.toString().uppercase()
+
+    /** The meals of the last nutrition document the phone sent. */
+    private fun sentMeals(): List<JsonObject> =
+        server.puts("nutrition").last().json.getValue("document").jsonObject.getValue("meals").jsonArray.map { it.jsonObject }
+
+    private fun List<JsonObject>.withPhotoRef(): Set<String> =
+        filter { it["photoRef"] == JsonPrimitive(true) }.map { it.getValue("id").jsonPrimitive.content }.toSet()
+
+    private fun JsonElement.meal(id: Uuid): JsonObject =
+        jsonObject.getValue("meals").jsonArray.map { it.jsonObject }.single { it["id"]?.jsonPrimitive?.content == idOf(id) }
+
+    private fun photoGets(id: Uuid) = server.requests.count { it.method == HttpMethod.Get && it.path == "photos/${idOf(id)}" }
+
+    /** `sync-photos.json` of [phone]: field → ids. */
+    private fun photoLedger(phone: Phone): Map<String, Set<String>> =
+        phone.text("sync-photos.json")?.let { text ->
+            Json.parseToJsonElement(text).jsonObject.mapValues { (_, ids) -> ids.jsonArray.map { it.jsonPrimitive.content }.toSet() }
+        }.orEmpty()
 
     @Test fun pushSendsBaseVersionAndStoresNewVersion() = runTest {
         val phone = Phone()
@@ -358,7 +383,7 @@ class SyncEngineTest {
         assertTrue(phone.ledger.pending().isEmpty())
     }
 
-    @Test fun photoDownloadFailureLeavesEverythingUnchanged() = runTest {
+    @Test fun unreachablePhotoKeepsItsReferenceAndIsFetchedLater() = runTest {
         val kept = Uuid.random()
         val remoteMeal = Uuid.random()
         val phone = Phone()
@@ -367,16 +392,53 @@ class SyncEngineTest {
         server.write("nutrition", serverNutrition(meal(kept), meal(remoteMeal), withPhoto = setOf(remoteMeal)))
         server.photos[idOf(remoteMeal)] = jpeg
         server.unreachable = setOf("photos/${idOf(remoteMeal)}")
-        val files = listOf("nutrition.json", "sync-ledger.json", "sync-photos.json").associateWith { phone.text(it) }
 
-        assertEquals(SyncResult(emptyList(), emptyList(), failed = true), phone.engine.pullChanged())
-        assertEquals(files, files.keys.associateWith { phone.text(it) })
+        // The document still arrives; the meal keeps its photoRef and the photo waits.
+        assertEquals(SyncResult(emptyList(), listOf("nutrition.json"), failed = false), phone.engine.pullChanged())
+        val waiting = phone.read("nutrition.json").meal(remoteMeal)
+        assertNull(waiting["photo"])
+        assertEquals(JsonPrimitive(true), waiting["photoRef"])
+        assertEquals(2, phone.entry("nutrition.json").version)
+        assertTrue(phone.ledger.pending().isEmpty())
+        assertEquals(setOf(idOf(remoteMeal)), photoLedger(phone)["pendingDownloads"])
 
+        // An edit in between: the store rewrites the file without the marker, the upload still keeps the server's photo.
+        phone.save("nutrition.json", nutrition(meal(kept), meal(remoteMeal), water = mapOf("2026-10-27" to 250)))
+        assertEquals(listOf("nutrition.json"), phone.engine.pushPending().uploaded)
+        assertEquals(setOf(idOf(remoteMeal)), sentMeals().withPhotoRef())
+        assertContentEquals(jpeg, server.photos[idOf(remoteMeal)])
+
+        // The next round fetches it, although nutrition itself did not change on the server.
         server.unreachable = emptySet()
         assertEquals(SyncResult(emptyList(), listOf("nutrition.json"), failed = false), phone.engine.pullChanged())
         val saved = PulseJson.decodeFromString(NutritionStore.Saved.serializer(), assertNotNull(phone.text("nutrition.json")))
         assertContentEquals(jpeg, saved.meals.single { it.id == remoteMeal }.photo)
-        assertEquals(2, phone.entry("nutrition.json").version)
+        assertFalse(assertNotNull(phone.text("nutrition.json")).contains("photoRef"))
+        assertEquals(emptySet(), photoLedger(phone)["pendingDownloads"].orEmpty())
+        assertTrue(phone.ledger.pending().isEmpty())
+        assertTrue(server.photoPuts(idOf(remoteMeal)).isEmpty(), "a downloaded photo is not sent back")
+
+        // Fetched once: later rounds do not ask again.
+        phone.engine.pullChanged()
+        assertEquals(1, photoGets(remoteMeal))
+    }
+
+    @Test fun missingPhotoIsNotAskedForAgain() = runTest {
+        val lost = Uuid.random()
+        val phone = Phone()
+        server.write("nutrition", serverNutrition(meal(lost), withPhoto = setOf(lost)))
+        server.unreachable = setOf("photos/${idOf(lost)}")
+        phone.engine.pullChanged()
+        assertEquals(setOf(idOf(lost)), photoLedger(phone)["pendingDownloads"])
+
+        // The server answers 404 at the retry: the meal stays without a photo and the id is dropped.
+        server.unreachable = emptySet()
+        assertFalse(phone.engine.pullChanged().failed)
+        assertEquals(1, photoGets(lost))
+        assertNull(phone.read("nutrition.json").meal(lost)["photoRef"])
+        assertEquals(emptySet(), photoLedger(phone)["pendingDownloads"].orEmpty())
+        phone.engine.pullChanged()
+        assertEquals(1, photoGets(lost))
     }
 
     @Test fun photosUploadedOnceAndStrippedFromDocument() = runTest {
@@ -461,15 +523,78 @@ class SyncEngineTest {
         assertEquals(1, server.photoPuts(idOf(tooBig)).size)
     }
 
-    @Test fun photoServerErrorStillStopsTheRound() = runTest {
+    @Test fun photoRateLimitMidUploadStillPushesNutrition() = runTest {
+        val meals = List(4) { Uuid.random() }
+        val phone = Phone()
+        phone.save("nutrition.json", nutrition(*meals.map { meal(it, jpeg) }.toTypedArray()))
+        server.photoRequestsLeft = 2
+
+        // Two photos go, the third gets 429: the rest wait, the meals go up without photoRef.
+        assertEquals(SyncResult(listOf("nutrition.json"), emptyList(), failed = false), phone.engine.pushPending())
+        assertEquals(meals.map(::idOf).toSet(), sentMeals().map { it.getValue("id").jsonPrimitive.content }.toSet())
+        assertTrue(sentMeals().none { "photo" in it })
+        assertEquals(setOf(idOf(meals[0]), idOf(meals[1])), sentMeals().withPhotoRef())
+        assertEquals(listOf(1, 1, 1, 0), meals.map { server.photoPuts(idOf(it)).size })
+        assertEquals(listOf("nutrition.json"), phone.ledger.pending(), "their photos are still to send")
+
+        // A later round sends the rest; the photos already on the server are not sent again.
+        server.photoRequestsLeft = null
+        assertEquals(SyncResult(listOf("nutrition.json"), emptyList(), failed = false), phone.engine.pushPending())
+        assertEquals(listOf(1, 1, 2, 1), meals.map { server.photoPuts(idOf(it)).size })
+        assertEquals(meals.map(::idOf).toSet(), sentMeals().withPhotoRef())
+        assertTrue(meals.all { server.photos[idOf(it)] != null })
+        assertTrue(phone.ledger.pending().isEmpty())
+    }
+
+    @Test fun photoServerErrorSkipsThePhotoNotTheRound() = runTest {
         val broken = Uuid.random()
         val phone = Phone()
         server.failures = mapOf("photos/${idOf(broken)}" to 500)
         phone.save("nutrition.json", nutrition(meal(broken, jpeg)))
 
-        assertEquals(SyncResult(emptyList(), emptyList(), failed = true), phone.engine.pushPending())
-        assertTrue(server.puts("nutrition").isEmpty())
+        assertEquals(SyncResult(listOf("nutrition.json"), emptyList(), failed = false), phone.engine.pushPending())
+        assertTrue(sentMeals().withPhotoRef().isEmpty())
         assertEquals(listOf("nutrition.json"), phone.ledger.pending())
+
+        server.failures = emptyMap()
+        assertEquals(listOf("nutrition.json"), phone.engine.pushPending().uploaded)
+        assertEquals(setOf(idOf(broken)), sentMeals().withPhotoRef())
+        assertTrue(phone.ledger.pending().isEmpty())
+    }
+
+    @Test fun photoSentInAFailedRoundIsNotSentAgain() = runTest {
+        val fresh = Uuid.random()
+        val phone = Phone()
+        phone.save("nutrition.json", nutrition(meal(fresh, jpeg)))
+        server.failures = mapOf("PUT sync/nutrition" to 500)
+        assertTrue(phone.engine.pushPending().failed)
+        assertEquals(1, server.photoPuts(idOf(fresh)).size)
+
+        server.failures = emptyMap()
+        assertEquals(listOf("nutrition.json"), phone.engine.pushPending().uploaded)
+        assertEquals(1, server.photoPuts(idOf(fresh)).size, "the photo reached the server in the failed round")
+        assertEquals(setOf(idOf(fresh)), sentMeals().withPhotoRef())
+        assertEquals(setOf(idOf(fresh)), photoLedger(phone)["uploaded"])
+    }
+
+    @Test fun photoSentInAFailedRoundGoesAgainAfterAConflict() = runTest {
+        val kept = Uuid.random()
+        val fresh = Uuid.random()
+        val phone = Phone()
+        phone.save("nutrition.json", nutrition(meal(kept)))
+        phone.engine.pushPending()
+        phone.save("nutrition.json", nutrition(meal(kept), meal(fresh, jpeg)))
+        server.failures = mapOf("PUT sync/nutrition" to 500)
+        assertTrue(phone.engine.pushPending().failed)
+        // Another phone's write, without our new meal, drops the photo on the server.
+        server.failures = emptyMap()
+        server.write("nutrition", serverNutrition(meal(kept)))
+        assertNull(server.photos[idOf(fresh)])
+
+        assertFalse(phone.engine.pushPending().failed)
+        assertEquals(2, server.photoPuts(idOf(fresh)).size)
+        assertContentEquals(jpeg, server.photos[idOf(fresh)])
+        assertEquals(setOf(idOf(fresh)), sentMeals().withPhotoRef())
     }
 
     @Test fun offlineLeavesChangesPending() = runTest {
@@ -488,18 +613,112 @@ class SyncEngineTest {
         assertEquals(listOf("sleep.json"), phone.engine.pushPending().uploaded)
     }
 
-    @Test fun serverErrorStopsTheRound() = runTest {
+    @Test fun failingCollectionDoesNotStopTheOthers() = runTest {
         val phone = Phone()
         phone.save("game-goals.json", buildJsonObject { put("elo", 1) })
         phone.save("sleep.json", sleep("a"))
         phone.save("wellbeing.json", buildJsonObject { put("mood", JsonArray(emptyList())) })
         server.failures = mapOf("sync/sleep" to 500)
 
+        assertEquals(SyncResult(listOf("game-goals.json", "wellbeing.json"), emptyList(), failed = true), phone.engine.pushPending())
+        assertEquals(listOf("sleep.json"), phone.ledger.pending())
+
+        // Downloads too: one unreadable document, the others still arrive.
+        server.failures = mapOf("GET sync/cognitive" to 500)
+        server.write("cognitive", buildJsonObject { put("results", JsonArray(listOf(record("r1")))) })
+        server.write("lineups", JsonArray(listOf(record("l1"))))
+        assertEquals(SyncResult(emptyList(), listOf("lineups.json"), failed = true), phone.engine.pullChanged())
+        assertNull(phone.text("cognitive.json"))
+
+        server.failures = emptyMap()
+        assertEquals(SyncResult(listOf("sleep.json"), listOf("cognitive.json"), failed = false), phone.engine.syncBoth())
+    }
+
+    private suspend fun SyncEngine.syncBoth(): SyncResult {
+        val pulled = pullChanged()
+        val pushed = pushPending()
+        return SyncResult(pulled.uploaded + pushed.uploaded, pulled.downloaded + pushed.downloaded, pulled.failed || pushed.failed)
+    }
+
+    @Test fun failuresAreReportedWithoutContents() = runTest {
+        val phone = Phone()
+        val messages = mutableListOf<String>()
+        phone.engine.log = { messages += it }
+        phone.save("sleep.json", sleep("secret-night"))
+        server.failures = mapOf("sync/sleep" to 500)
+        phone.engine.pushPending()
+        assertEquals(1, messages.size, messages.toString())
+        assertTrue(listOf("sleep", "server_error", "500").all { it in messages.single() }, messages.single())
+
+        val meal = Uuid.random()
+        phone.save("nutrition.json", nutrition(meal(meal, jpeg)))
+        server.photoRequestsLeft = 0
+        phone.engine.pushPending()
+        assertTrue(messages.any { "photo" in it && "rate_limited" in it && "429" in it }, messages.toString())
+
+        server.offline = true
+        phone.engine.pullChanged()
+        assertTrue(messages.last().contains("OFFLINE"), messages.last())
+        assertTrue(messages.none { "secret-night" in it || "A1" in it || "R1" in it || "Овсянка" in it }, messages.toString())
+    }
+
+    @Test fun localDeletionSurvivesAConflictMergeWithAnotherPhonesAddition() = runTest {
+        val phone = Phone()
+        phone.save("sleep.json", sleep("a", "b"))
+        phone.engine.pushPending()
+        server.write("sleep", sleep("a", "b", "c")) // another phone adds «c»
+        phone.save("sleep.json", sleep("a")) // this phone deletes «b»
+
+        assertEquals(SyncResult(listOf("sleep.json"), listOf("sleep.json"), failed = false), phone.engine.pushPending())
+        assertEquals(setOf("a", "c"), ids(server.documents.getValue("sleep").document))
+        assertEquals(setOf("a", "c"), ids(phone.read("sleep.json")))
+        assertEquals(mapOf("sessions" to setOf("a", "c")), phone.entry("sleep.json").baseKeys)
+    }
+
+    /** Another phone answered the questionnaire and «О тебе»; this one tapped «Позже» and saved a draft before its first download. */
+    private fun neverSyncedSurveyAndBody(): Triple<Phone, JsonElement, JsonElement> {
+        val survey = buildJsonObject {
+            put("survey", buildJsonObject { put("role", "igl") })
+            put("mindset", JsonArray(listOf(record("m1"))))
+        }
+        val body = buildJsonObject { put("heightCm", 182); put("weightKg", 74.0) }
+        server.write("player-survey", survey)
+        server.write("body-profile", body)
+        val phone = Phone()
+        phone.save("player-survey.json", buildJsonObject { put("mindset", JsonArray(emptyList())); put("onboardingDismissed", true) })
+        phone.save("body-profile.json", buildJsonObject { put("heightCm", 170) })
+        // Pending, never synced, and newer than the server's copy.
+        assertNull(phone.entry("player-survey.json").version)
+        assertTrue(phone.entry("player-survey.json").changedAt > server.documents.getValue("player-survey").updatedAt)
+        return Triple(phone, survey, body)
+    }
+
+    @Test fun neverSyncedLocalValuesLoseToTheServerCopyOnPull() = runTest {
+        val (phone, survey, body) = neverSyncedSurveyAndBody()
+
+        assertEquals(SyncResult(emptyList(), listOf("body-profile.json", "player-survey.json"), failed = false), phone.engine.pullChanged())
+
+        assertEquals(survey, phone.read("player-survey.json"))
+        assertEquals(body, phone.read("body-profile.json"))
+        assertEquals(survey, server.documents.getValue("player-survey").document)
+        assertEquals(body, server.documents.getValue("body-profile").document)
+        assertTrue(server.requests.none { it.method == HttpMethod.Put })
+        assertTrue(phone.ledger.pending().isEmpty())
+    }
+
+    @Test fun neverSyncedLocalValuesLoseToTheServerCopyOnPush() = runTest {
+        val (phone, survey, body) = neverSyncedSurveyAndBody()
+
         val result = phone.engine.pushPending()
 
-        assertEquals(SyncResult(listOf("game-goals.json"), emptyList(), failed = true), result)
-        assertEquals(listOf("sleep.json", "wellbeing.json"), phone.ledger.pending())
-        assertTrue(server.puts("wellbeing").isEmpty())
+        assertFalse(result.failed)
+        assertEquals(listOf("body-profile.json", "player-survey.json"), result.downloaded)
+        assertEquals(survey, server.documents.getValue("player-survey").document)
+        assertEquals(body, server.documents.getValue("body-profile").document)
+        assertEquals(1, server.documents.getValue("body-profile").version)
+        assertEquals(survey, phone.read("player-survey.json"))
+        assertEquals(body, phone.read("body-profile.json"))
+        assertTrue(phone.ledger.pending().isEmpty())
     }
 
     @Test fun stopsAfterThreeConflicts() = runTest {

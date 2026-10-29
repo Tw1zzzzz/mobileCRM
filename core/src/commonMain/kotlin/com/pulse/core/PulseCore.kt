@@ -55,21 +55,24 @@ import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.ensureActive
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlin.time.Duration.Companion.seconds
 
 /** What the app shows about data sync: only the download right after sign-in has its own screen. */
 sealed interface SyncStatus {
     data object Idle : SyncStatus
-    /** «Загружаем ваши данные…» after a sign-in. */
+    /** «Загружаем ваши данные…» after a sign-in, until the download is done (at most 20 s). */
     data object FirstLoad : SyncStatus
     /** The download after sign-in failed: local data is shown, the message waits for «Понятно». */
     data object FirstLoadFailed : SyncStatus
@@ -134,12 +137,20 @@ class PulseCore(
     /** A real account signed in on the Pulse server (demo accounts and local builds never sync). */
     val isSyncable: Boolean get() = isRemote && session.user.value?.isDemo == false
 
+    /**
+     * Platform hook for sync diagnostics: each failed collection, photo or round, with the error's kind, code and HTTP
+     * status — never document contents, tokens or emails.
+     */
+    var log: (String) -> Unit = {}
+
     /** Platform hook, called after every save of a syncable account's file: debounce and schedule [syncNow]. */
     var onLocalChange: (() -> Unit)? = null
 
     /** One sync round at a time; a round never outlives its account (see [stopRound]). */
     private val syncLock = Mutex()
     private val runningRound = MutableStateFlow<Job?>(null)
+    /** The first load after the latest sign-in, while it runs; an older one no longer changes the status. */
+    private val firstLoad = MutableStateFlow<Any?>(null)
 
     init {
         // A session saved by a local build has no server tokens: sign it out before any store loads its folder.
@@ -150,9 +161,11 @@ class PulseCore(
         scope.onChange = { if (isSyncable) onLocalChange?.invoke() }
         session.beforeLogout = { pushBeforeLogout() }
         sync.applyFile = { folder, file, write -> applyMergedFile(folder, file, write) }
+        sync.log = { message -> log(message) }
         session.onUserChange = { user ->
             stopRound()
             activate(user, accountChanged = true)
+            firstLoad.value = null
             _syncStatus.value = SyncStatus.Idle
             if (isSyncable) startFirstLoad()
         }
@@ -218,10 +231,14 @@ class PulseCore(
      * too). Every file the round rewrites is reloaded into its store as it is written ([applyMergedFile]). Never throws
      * for a sync failure: it is reported as a failed result and the changes stay pending for the next round.
      */
-    suspend fun syncNow(): SyncResult = exclusiveRound { folder ->
+    suspend fun syncNow(): SyncResult = round(afterPull = {})
+
+    /** [afterPull] runs once the download half is done, before the upload half starts. */
+    private suspend fun round(afterPull: (SyncResult) -> Unit): SyncResult = exclusiveRound { folder ->
         val running = _syncStatus.compareAndSet(SyncStatus.Idle, SyncStatus.Running)
         try {
             val pulled = step { sync.pullChanged(folder) }
+            afterPull(pulled)
             val pushed = step { sync.pushPending(folder) }
             SyncResult((pulled.uploaded + pushed.uploaded).distinct(), (pulled.downloaded + pushed.downloaded).distinct(), pulled.failed || pushed.failed)
         } finally {
@@ -239,16 +256,43 @@ class PulseCore(
         background.launch { session.logout() }
     }
 
-    /** After a sign-in: the account's server data is downloaded behind «Загружаем ваши данные…». */
+    /**
+     * After a sign-in: the account's server data is downloaded behind «Загружаем ваши данные…». The loader ends when the
+     * download half is done or after [FIRST_LOAD_LIMIT], whichever comes first; uploads and the rest of the round go on
+     * as an ordinary [SyncStatus.Running] round. The failure message is shown only when the download itself failed.
+     */
     private fun startFirstLoad() {
-        val folder = scope.folder()
+        val load = Any()
+        firstLoad.value = load
         _syncStatus.value = SyncStatus.FirstLoad
+        // Another account may be active by now: its status is not this load's to change.
+        fun isCurrent() = firstLoad.value === load
         background.launch {
-            val result = syncNow()
-            // Another account may be active by now: its status is not this round's to change.
-            if (scope.folder() == folder) {
-                _syncStatus.compareAndSet(SyncStatus.FirstLoad, if (result.failed) SyncStatus.FirstLoadFailed else SyncStatus.Idle)
+            val limit = launch {
+                delay(FIRST_LOAD_LIMIT)
+                if (isCurrent()) _syncStatus.compareAndSet(SyncStatus.FirstLoad, SyncStatus.Running)
             }
+            val result = try {
+                round { pulled -> if (isCurrent()) endLoader(pulled.failed) }
+            } finally {
+                limit.cancel()
+            }
+            if (isCurrent()) {
+                // The round ended before its download half (nothing to sync for): the result decides.
+                if (_syncStatus.value == SyncStatus.FirstLoad) endLoader(result.failed)
+                _syncStatus.compareAndSet(SyncStatus.Running, SyncStatus.Idle)
+                firstLoad.value = null
+            }
+        }
+    }
+
+    /** The first load's download is done: the rest of its round runs as [SyncStatus.Running], or the failure is shown. */
+    private fun endLoader(downloadFailed: Boolean) {
+        if (downloadFailed) {
+            // Running here is the first load itself (after the time limit): no other round runs meanwhile.
+            _syncStatus.update { if (it == SyncStatus.FirstLoad || it == SyncStatus.Running) SyncStatus.FirstLoadFailed else it }
+        } else {
+            _syncStatus.compareAndSet(SyncStatus.FirstLoad, SyncStatus.Running)
         }
     }
 
@@ -291,6 +335,8 @@ class PulseCore(
     } catch (error: CancellationException) {
         throw error
     } catch (error: Exception) {
+        // Only the type: an exception's message may quote file contents.
+        log("sync: round failed (${error::class.simpleName})")
         FAILED
     }
 
@@ -423,6 +469,8 @@ class PulseCore(
     private companion object {
         val NOTHING = SyncResult(emptyList(), emptyList(), failed = false)
         val FAILED = SyncResult(emptyList(), emptyList(), failed = true)
+        /** Longest wait behind the first-load screen; a slower download goes on in the background. */
+        val FIRST_LOAD_LIMIT = 20.seconds
         /** Every store's file, in reload order. */
         val storeFiles = listOf(
             SleepStore.FILE, NutritionStore.FILE, WellbeingStore.FILE, CognitiveStore.FILE, CalendarStore.FILE, FitnessStore.FILE,

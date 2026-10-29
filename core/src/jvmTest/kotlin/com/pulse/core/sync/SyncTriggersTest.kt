@@ -42,6 +42,8 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitCancellation
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.test.TestCoroutineScheduler
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
 import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.json.Json
@@ -67,6 +69,7 @@ import kotlin.test.assertNull
 import kotlin.test.assertTrue
 import kotlin.time.Clock
 import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
 
@@ -91,6 +94,12 @@ private class TriggerServer {
     @Volatile var beforeGet: ((String) -> Unit)? = null
     /** Runs before a document write is checked (e.g. another phone writes first). */
     @Volatile var beforePut: ((String) -> Unit)? = null
+    /** Completed when a document write arrives. */
+    val putArrived = CompletableDeferred<Unit>()
+    /** Document writes wait for this before answering. */
+    @Volatile var putGate: CompletableDeferred<Unit>? = null
+    /** Document writes fail with 500. */
+    @Volatile var failPuts = false
     private val active = AtomicInteger()
     /** Most sync requests the server was answering at the same time. */
     val maxActive = AtomicInteger()
@@ -143,7 +152,10 @@ private class TriggerServer {
         else -> put(path.removePrefix("sync/"), Json.parseToJsonElement((body as TextContent).text).jsonObject)
     }
 
-    private fun put(collection: String, body: JsonObject): Pair<Int, String> {
+    private suspend fun put(collection: String, body: JsonObject): Pair<Int, String> {
+        putArrived.complete(Unit)
+        putGate?.await()
+        if (failPuts) return 500 to fail("server_error")
         beforePut?.invoke(collection)
         val base = body.getValue("base_version").let { if (it is JsonNull) null else it.jsonPrimitive.content.toInt() }
         val current = documents[collection]
@@ -181,10 +193,11 @@ class SyncTriggersTest {
     private val backgroundJob = SupervisorJob()
     private val folder = "accounts/6F1B6A2E-1C2D-4E5F-8A9B-0C1D2E3F4A5B"
 
-    private fun core(backend: Backend = Backend.Remote("https://api.test/v1/"), health: HealthDataProvider? = null) = PulseCore(
-        files, MemorySecretStore(), HttpClient(server.engine()), CoroutineScope(Dispatchers.Unconfined + backgroundJob), health,
-        backend = backend, ui = Dispatchers.Unconfined
-    )
+    private fun core(
+        backend: Backend = Backend.Remote("https://api.test/v1/"),
+        health: HealthDataProvider? = null,
+        background: CoroutineScope = CoroutineScope(Dispatchers.Unconfined + backgroundJob)
+    ) = PulseCore(files, MemorySecretStore(), HttpClient(server.engine()), background, health, backend = backend, ui = Dispatchers.Unconfined)
 
     /** Health Connect with one night of sleep and resting pulse, the same on every read. */
     private class FakeHealth(night: SleepSession) : HealthDataProvider {
@@ -251,6 +264,66 @@ class SyncTriggersTest {
         assertEquals(SyncStatus.FirstLoadFailed, core.syncStatus.value)
         core.acknowledgeFirstLoadFailure()
         assertEquals(SyncStatus.Idle, core.syncStatus.value)
+    }
+
+    @Test fun slowFirstLoadHidesTheLoaderAfterTwentySeconds() = runTest {
+        val night = night(27)
+        server.write("sleep", sleepDocument(night))
+        val gate = CompletableDeferred<Unit>()
+        server.gate = gate
+        // The loader's clock, apart from the test's own.
+        val clock = TestCoroutineScheduler()
+        val core = core(background = CoroutineScope(UnconfinedTestDispatcher(clock) + backgroundJob))
+        core.signIn()
+        clock.advanceTimeBy(19.seconds)
+        assertEquals(SyncStatus.FirstLoad, core.syncStatus.value)
+
+        clock.advanceTimeBy(2.seconds)
+        assertEquals(SyncStatus.Running, core.syncStatus.value, "the player gets the app after 20 s, the download goes on")
+
+        gate.complete(Unit)
+        awaitBackground()
+        assertEquals(SyncStatus.Idle, core.syncStatus.value)
+        assertEquals(listOf(night.id), core.sleep.sessions.map { it.id })
+    }
+
+    @Test fun firstLoadEndsWithThePullAndAFailedUploadShowsNoMessage() = runTest {
+        // A night from an earlier session of this account still waits to be sent.
+        val local = night(26)
+        val scope = DataScope(files).also { it.current = folder.substringAfterLast('/') }
+        JsonFileStorage(SleepStore.FILE, SleepStore.Saved.serializer(), scope).save(SleepStore.Saved(listOf(local)))
+        val putGate = CompletableDeferred<Unit>()
+        server.putGate = putGate
+        val core = core()
+        core.signIn()
+
+        server.putArrived.await()
+        assertEquals(SyncStatus.Running, core.syncStatus.value, "the download is done: no loader while the upload runs")
+        server.failPuts = true
+        putGate.complete(Unit)
+        awaitBackground()
+        assertEquals(SyncStatus.Idle, core.syncStatus.value)
+        assertEquals(listOf(local.id), core.sleep.sessions.map { it.id })
+    }
+
+    @Test fun syncFailuresReachTheLogHook() = runTest {
+        val core = core()
+        val messages = ConcurrentLinkedQueue<String>()
+        core.log = { messages += it }
+        core.signIn()
+        awaitBackground()
+        assertTrue(messages.isEmpty(), messages.toString())
+
+        server.write("sleep", sleepDocument(night(27)))
+        files.refuses = { it.endsWith("/sleep.json") }
+        assertTrue(core.syncNow().failed)
+        assertTrue(messages.any { "sleep" in it && "IOException" in it }, messages.toString())
+
+        files.refuses = { false }
+        server.syncOffline = true
+        assertTrue(core.syncNow().failed)
+        assertTrue(messages.any { "OFFLINE" in it }, messages.toString())
+        assertTrue(messages.none { "nova@team.gg" in it || "A1" in it || "R1" in it }, messages.toString())
     }
 
     @Test fun saveNotifiesLocalChange() = runTest {
