@@ -15,10 +15,16 @@ function requireMealId(mealId: string): string {
   return parsed.data;
 }
 
-/** Authenticates and applies the per-user rate limit shared with sync; returns the user id. */
+/**
+ * Photos have their own per-user bucket, apart from sync's 120/min: a phone sends or
+ * fetches one request per photo, and a month of meals must not use up the document sync.
+ */
+export const PHOTO_REQUESTS_PER_MINUTE = 600;
+
+/** Authenticates and applies the per-user photo rate limit; returns the user id. */
 async function authorize(req: Request, deps: Deps): Promise<string> {
   const userId = await requireUser(deps, req);
-  await rateLimit(deps, "user:" + userId, 120, 60_000);
+  await rateLimit(deps, "photos:" + userId, PHOTO_REQUESTS_PER_MINUTE, 60_000);
   return userId;
 }
 

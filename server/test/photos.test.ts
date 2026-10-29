@@ -5,7 +5,7 @@ import { registerHandler } from "../lib/auth/register";
 import { verifyEmailHandler } from "../lib/auth/verify";
 import { deleteMe } from "../lib/me";
 import { getPhoto, putPhoto } from "../lib/photos";
-import { putSyncDocument } from "../lib/sync";
+import { listSync, putSyncDocument } from "../lib/sync";
 import { resetDb, testDeps } from "./helpers";
 
 const deps = testDeps();
@@ -278,5 +278,29 @@ describe("meal photos", () => {
     expect((await handle(() => deleteMe(req, deps))).status).toBe(200);
     const after = await deps.sql`select 1 from meal_photos`;
     expect(after).toHaveLength(0);
+  });
+
+  it("photosHaveTheirOwnRateLimit", async () => {
+    const { access_token: token } = await signUp("nova@team.gg");
+    const listSyncStatus = async () => {
+      const req = new Request("http://localhost/v1/sync", { headers: authHeaders(token) });
+      return (await handle(() => listSync(req, deps))).status;
+    };
+    // The sync bucket (120/min) is used up; photos still go through.
+    for (let i = 0; i < 120; i++) expect(await listSyncStatus()).toBe(200);
+    expect(await listSyncStatus()).toBe(429);
+    const meal = randomUUID();
+    expect((await putRaw(meal, JPEG, token)).status).toBe(200);
+
+    // Photos: 600 per minute, then 429 — while sync stays limited on its own.
+    for (let i = 1; i < 600; i++) expect((await getRaw(meal, token)).status).toBe(200);
+    const limited = await getRaw(meal, token);
+    expect(limited.status).toBe(429);
+    expect((await limited.json()).error.code).toBe("rate_limited");
+
+    // A new minute opens both buckets again.
+    deps.advance(60_000);
+    expect(await listSyncStatus()).toBe(200);
+    expect((await getRaw(meal, token)).status).toBe(200);
   });
 });
