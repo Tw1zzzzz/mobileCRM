@@ -11,6 +11,8 @@ export interface TokenPair {
 
 const ACCESS_TTL_SECONDS = 15 * 60;
 const REFRESH_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+/** How long a rotated-away token may be retried when its successor never reached the phone. */
+const REUSE_GRACE_MS = 60 * 60 * 1000;
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Queryable = Sql | TransactionSql;
@@ -63,9 +65,29 @@ type RotateOutcome =
   | { kind: "replayed" }
   | { kind: "rejected" };
 
+interface SuccessorRow {
+  revoked_at: Date | null;
+  created_at: Date;
+}
+
+/**
+ * A rotated-away token comes back while its successor was never used and is at
+ * most an hour old: the answer with the successor was lost on the way to the
+ * phone. The token itself keeps pointing at that (now revoked) successor, so a
+ * second retry is treated as a leak.
+ */
+async function isLostResponseRetry(tx: TransactionSql, successorId: string, now: Date): Promise<boolean> {
+  const [successor] = await tx<SuccessorRow[]>`
+    select revoked_at, created_at from refresh_tokens where id = ${successorId} for update`;
+  if (!successor || successor.revoked_at) return false;
+  return now.getTime() - successor.created_at.getTime() <= REUSE_GRACE_MS;
+}
+
 /**
  * Exchanges a refresh token for a new pair. Presenting a token that was already
- * rotated away means it leaked, so every session of that user is revoked.
+ * rotated away means it leaked, so every session of that user is revoked —
+ * except for one retry of a lost answer ([isLostResponseRetry]), which revokes
+ * the undelivered successor and issues a fresh pair instead.
  */
 export async function rotateRefresh(
   deps: Deps,
@@ -79,6 +101,11 @@ export async function rotateRefresh(
     if (!row) return { kind: "rejected" };
     if (row.revoked_at) {
       if (!row.replaced_by) return { kind: "rejected" };
+      if (await isLostResponseRetry(tx, row.replaced_by, now)) {
+        await tx`update refresh_tokens set revoked_at = ${now} where id = ${row.replaced_by}`;
+        const retry = await insertRefresh(tx, deps, row.user_id);
+        return { kind: "rotated", userId: row.user_id, refreshToken: retry.token };
+      }
       await tx`
         update refresh_tokens set revoked_at = ${now}
         where user_id = ${row.user_id} and revoked_at is null`;

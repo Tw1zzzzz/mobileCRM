@@ -43,7 +43,7 @@ async function call(
 
 const login = (email: string, password: string, ip?: string) =>
   call(loginHandler, "login", { email, password }, ip);
-const refresh = (refresh_token: string) => call(refreshHandler, "refresh", { refresh_token });
+const refresh = (refresh_token: string, ip?: string) => call(refreshHandler, "refresh", { refresh_token }, ip);
 const logout = (refresh_token: unknown) => call(logoutHandler, "logout", { refresh_token });
 const requestReset = (email: string) => call(passwordResetHandler, "password-reset", { email });
 const confirmReset = (email: string, code: string, new_password: string) =>
@@ -137,7 +137,6 @@ describe("login", () => {
 
   it("everySessionEndpointIsRateLimited", async () => {
     const endpoints: Array<[typeof loginHandler, string, unknown]> = [
-      [refreshHandler, "refresh", { refresh_token: "x" }],
       [logoutHandler, "logout", { refresh_token: "x" }],
       [passwordResetHandler, "password-reset", { email: "a@b.cc" }],
       [passwordResetConfirmHandler, "password-reset/confirm", { email: "a@b.cc", code: "1", new_password: "secret123" }],
@@ -152,6 +151,23 @@ describe("login", () => {
 });
 
 describe("refresh and logout", () => {
+  it("refreshHasItsOwnRateLimitOf60PerMinute", async () => {
+    const session = await signUp();
+    // The sign-in bucket of this IP is used up: refreshing still works.
+    for (let i = 0; i < 10; i++) await login(EMAIL, "wrong-pass-1", "6.6.6.6");
+    expect((await login(EMAIL, PASSWORD, "6.6.6.6")).status).toBe(429);
+    let token = session.refresh_token;
+    for (let i = 0; i < 60; i++) {
+      const res = await refresh(token, "6.6.6.6");
+      expect(res.status, `refresh ${i + 1}`).toBe(200);
+      token = res.body.data.refresh_token;
+    }
+    const over = await refresh(token, "6.6.6.6");
+    expect(over.status).toBe(429);
+    expect(over.body.error.code).toBe("rate_limited");
+    expect((await refresh(token, "6.6.6.7")).status).toBe(200);
+  });
+
   it("refreshAndLogout", async () => {
     const session = await signUp();
     const refreshed = await refresh(session.refresh_token);

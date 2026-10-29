@@ -120,11 +120,62 @@ describe("refresh tokens", () => {
   });
 
   it("reusedRefreshTokenRevokesAll", async () => {
+    // A rotated-away token comes back after its successor was used: it leaked, every session ends.
     const userId = await insertUser();
     const a = await issueSession(deps, userId);
     const b = await rotateRefresh(deps, a.refresh_token);
+    const c = await rotateRefresh(deps, b.tokens.refresh_token);
+    const tablet = await issueSession(deps, userId);
+    await expectApiError(rotateRefresh(deps, a.refresh_token), "unauthorized", 401);
+    await expectApiError(rotateRefresh(deps, c.tokens.refresh_token), "unauthorized", 401);
+    await expectApiError(rotateRefresh(deps, tablet.refresh_token), "unauthorized", 401);
+  });
+
+  it("lostRefreshResponseIsRetriedWithinGrace", async () => {
+    // The phone never received b (connection dropped after the server rotated) and retries with a.
+    const userId = await insertUser();
+    const tablet = await issueSession(deps, userId);
+    const a = await issueSession(deps, userId);
+    const lost = await rotateRefresh(deps, a.refresh_token);
+    deps.advance(59 * MINUTE);
+    const retried = await rotateRefresh(deps, a.refresh_token);
+    expect(retried.userId).toBe(userId);
+    expect(retried.tokens.refresh_token).not.toBe(lost.tokens.refresh_token);
+    expect(await requireUser(deps, bearer(retried.tokens.access_token))).toBe(userId);
+    // The undelivered successor is revoked (without ending anything else); the retried pair and the tablet work.
+    await expectApiError(rotateRefresh(deps, lost.tokens.refresh_token), "unauthorized", 401);
+    expect((await rotateRefresh(deps, retried.tokens.refresh_token)).userId).toBe(userId);
+    expect((await rotateRefresh(deps, tablet.refresh_token)).userId).toBe(userId);
+  });
+
+  it("aTokenIsGracedOnlyOnce", async () => {
+    const userId = await insertUser();
+    const tablet = await issueSession(deps, userId);
+    const a = await issueSession(deps, userId);
+    await rotateRefresh(deps, a.refresh_token);
+    const graced = await rotateRefresh(deps, a.refresh_token);
+    await expectApiError(rotateRefresh(deps, a.refresh_token), "unauthorized", 401);
+    await expectApiError(rotateRefresh(deps, graced.tokens.refresh_token), "unauthorized", 401);
+    await expectApiError(rotateRefresh(deps, tablet.refresh_token), "unauthorized", 401);
+  });
+
+  it("noGraceAfterAnHour", async () => {
+    const userId = await insertUser();
+    const a = await issueSession(deps, userId);
+    const b = await rotateRefresh(deps, a.refresh_token);
+    deps.advance(61 * MINUTE);
     await expectApiError(rotateRefresh(deps, a.refresh_token), "unauthorized", 401);
     await expectApiError(rotateRefresh(deps, b.tokens.refresh_token), "unauthorized", 401);
+  });
+
+  it("noGraceWhenTheSuccessorWasLoggedOut", async () => {
+    const userId = await insertUser();
+    const tablet = await issueSession(deps, userId);
+    const a = await issueSession(deps, userId);
+    const b = await rotateRefresh(deps, a.refresh_token);
+    await revokeRefresh(deps, b.tokens.refresh_token);
+    await expectApiError(rotateRefresh(deps, a.refresh_token), "unauthorized", 401);
+    await expectApiError(rotateRefresh(deps, tablet.refresh_token), "unauthorized", 401);
   });
 
   it("rejects an unknown refresh token", async () => {
@@ -161,16 +212,18 @@ describe("refresh tokens", () => {
     expect((await rotateRefresh(deps, other.refresh_token)).userId).toBe(otherId);
   });
 
-  it("two concurrent rotations of one token never both succeed", async () => {
+  it("two concurrent rotations of one token never leave two live sessions", async () => {
+    // The second one waits for the first and is then the "lost response" retry: it replaces the first one's token.
     const userId = await insertUser();
     const { refresh_token } = await issueSession(deps, userId);
     const results = await Promise.allSettled([
       rotateRefresh(deps, refresh_token),
       rotateRefresh(deps, refresh_token),
     ]);
-    expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
-    const rejected = results.find((r) => r.status === "rejected");
-    expect((rejected as PromiseRejectedResult).reason).toMatchObject({ code: "unauthorized" });
+    expect(results.filter((r) => r.status === "fulfilled").length).toBeGreaterThanOrEqual(1);
+    const live = await deps.sql<{ count: number }[]>`
+      select count(*)::int as count from refresh_tokens where user_id = ${userId} and revoked_at is null`;
+    expect(live[0].count).toBe(1);
   });
 });
 
