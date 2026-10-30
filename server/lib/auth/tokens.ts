@@ -132,6 +132,17 @@ export async function rotateRefresh(
   };
 }
 
+/**
+ * The user a refresh token belongs to, without rotating it (the staff website keeps one token in its cookie for the
+ * whole session). Null when the token is unknown, revoked or expired.
+ */
+export async function refreshTokenUserId(deps: Deps, refresh: string): Promise<string | null> {
+  const [row] = await deps.sql<{ user_id: string }[]>`
+    select user_id from refresh_tokens
+    where token_hash = ${sha256Hex(refresh)} and revoked_at is null and expires_at > ${deps.now()}`;
+  return row?.user_id ?? null;
+}
+
 /** Logs out one session. Unknown or already revoked tokens are ignored. */
 export async function revokeRefresh(deps: Deps, refresh: string): Promise<void> {
   await deps.sql`

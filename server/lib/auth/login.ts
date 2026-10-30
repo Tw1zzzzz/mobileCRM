@@ -6,7 +6,7 @@ import { normalizeEmail } from "@/lib/auth/validation";
 import type { Deps } from "@/lib/deps";
 import { ApiError, ok, parseBody } from "@/lib/http";
 import { clientIp, rateLimit } from "@/lib/rateLimit";
-import { findCredentials, isDemoEmail, userJson } from "@/lib/users";
+import { findCredentials, isDemoEmail, userJson, type CredentialsRow } from "@/lib/users";
 
 const LoginBody = z.object({ email: z.string(), password: z.string() });
 
@@ -22,14 +22,16 @@ function invalidCredentials(): ApiError {
   return new ApiError("invalid_credentials", "Invalid email or password.", 401);
 }
 
-export async function loginHandler(req: Request, deps: Deps): Promise<Response> {
-  await rateLimit(deps, "auth:" + clientIp(req), 10, 60_000);
-  const body = await parseBody(req, LoginBody);
-
+/**
+ * Checks an email and password and returns the confirmed account; the one sign-in rule for the app and the staff
+ * website. Wrong credentials, unknown and demo emails all answer `401 invalid_credentials`; an unconfirmed email
+ * gets a fresh code and `403 email_not_verified`.
+ */
+export async function authenticate(deps: Deps, rawEmail: string, password: string): Promise<CredentialsRow> {
   // Demo addresses are never server accounts: they behave like any unknown email.
-  const email = normalizeEmail(body.email);
+  const email = normalizeEmail(rawEmail);
   const user = isDemoEmail(email) ? null : await findCredentials(deps, email);
-  const passwordOk = await verifyPassword(user?.password_hash ?? (await getDummyHash()), body.password);
+  const passwordOk = await verifyPassword(user?.password_hash ?? (await getDummyHash()), password);
   if (!user || !passwordOk) throw invalidCredentials();
 
   if (!user.email_verified_at) {
@@ -42,6 +44,13 @@ export async function loginHandler(req: Request, deps: Deps): Promise<Response> 
     throw new ApiError("email_not_verified", "Email is not verified.", 403);
   }
 
+  return user;
+}
+
+export async function loginHandler(req: Request, deps: Deps): Promise<Response> {
+  await rateLimit(deps, "auth:" + clientIp(req), 10, 60_000);
+  const body = await parseBody(req, LoginBody);
+  const user = await authenticate(deps, body.email, body.password);
   const tokens = await issueSession(deps, user.id);
   return ok({ user: await userJson(deps, user.id), ...tokens });
 }
