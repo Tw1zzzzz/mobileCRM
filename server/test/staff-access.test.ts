@@ -232,7 +232,6 @@ describe("playerDocuments", () => {
     });
     const docs = await playerDocuments(deps, await ctxOf(a.staffId), p, ["player-survey"]);
     expect(docs["player-survey"]).toEqual({
-      survey,
       mindset: [
         {
           id: "m1",
@@ -242,8 +241,10 @@ describe("playerDocuments", () => {
         },
       ],
     });
-    expect(JSON.stringify(docs)).not.toContain("answers");
-    expect(JSON.stringify(docs)).not.toContain("q1");
+    const text = JSON.stringify(docs["player-survey"]);
+    for (const leaked of ["answers", "q1", "survey", "goals", "awper", "semiPro", "yearsPlaying", "hoursPerWeek", "onboardingDismissed"]) {
+      expect(text).not.toContain(leaked);
+    }
   });
 
   it("surveyScoresMatchTheAppFormula", async () => {
@@ -256,15 +257,14 @@ describe("playerDocuments", () => {
     // Composure only partly answered with an out-of-range value: that item is ignored (as in the app).
     const partial = { ...answers, q1: 9, q7: 2 };
     await putDoc(p, "player-survey", {
-      survey: null,
+      survey: { role: "rifler", goals: ["tilt"] },
       mindset: [
         { id: "m1", date: "2026-10-01T10:00:00Z", answers },
         { id: "m2", date: "2026-11-01T10:00:00Z", answers: partial },
       ],
     });
     const docs = await playerDocuments(deps, await ctxOf(a.staffId), p, ["player-survey"]);
-    const survey = docs["player-survey"] as { survey: unknown; mindset: { scores: Record<string, number> }[] };
-    expect(survey.survey).toBeNull();
+    const survey = docs["player-survey"] as { mindset: { scores: Record<string, number> }[] };
     expect(survey.mindset[0].scores).toEqual({
       composure: 100,
       resilience: 100,
@@ -282,7 +282,7 @@ describe("playerDocuments", () => {
     const p = await addUser("p", "teamPlayer", a.teamId);
     await putDoc(p, "player-survey", { survey: { role: "igl" }, mindset: "oops", answers: { q1: 1 } });
     const docs = await playerDocuments(deps, await ctxOf(a.staffId), p, ["player-survey"]);
-    expect(docs["player-survey"]).toEqual({ survey: { role: "igl" }, mindset: [] });
+    expect(docs["player-survey"]).toEqual({ mindset: [] });
   });
 
   it("otherCollectionsPassThroughUnchanged", async () => {

@@ -72,8 +72,8 @@ function sharedLineups(document: unknown): unknown[] {
   return document.filter((entry) => isRecord(entry) && entry.visibility === "team");
 }
 
-/** The questionnaire and the scores of each test run; the answers themselves are dropped. */
-function surveyWithScores(document: unknown): { survey: unknown; mindset: unknown[] } {
+/** Scores of each test run only: the questionnaire (goals, role, level, ...) and the answers are dropped. */
+function surveyScores(document: unknown): { mindset: unknown[] } {
   const doc = isRecord(document) ? document : {};
   const runs = Array.isArray(doc.mindset) ? doc.mindset : [];
   const mindset = runs.filter(isRecord).map((run) => ({
@@ -81,7 +81,7 @@ function surveyWithScores(document: unknown): { survey: unknown; mindset: unknow
     date: run.date,
     scores: mindsetScores(run.answers),
   }));
-  return { survey: doc.survey ?? null, mindset };
+  return { mindset };
 }
 
 function filtered(collection: Collection, document: unknown): unknown {
@@ -89,7 +89,7 @@ function filtered(collection: Collection, document: unknown): unknown {
     case "lineups":
       return sharedLineups(document);
     case "player-survey":
-      return surveyWithScores(document);
+      return surveyScores(document);
     default:
       return document;
   }

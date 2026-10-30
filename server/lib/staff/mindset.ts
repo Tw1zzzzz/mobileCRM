@@ -1,6 +1,7 @@
 /**
  * Scores of the «Игровой характер» test, computed from a player's answers so that staff get the scores and never
  * the answers. Mirrors `MindsetMath.scores` and the question list in core (model/Survey.kt, SurveyTexts.kt).
+ * The trait table below is copied from core: keep it in sync when the questions there change.
  */
 
 export type MindsetTrait = "composure" | "resilience" | "focus" | "teamwork" | "leadership" | "drive";
