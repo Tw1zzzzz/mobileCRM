@@ -6,7 +6,7 @@ import { dropOrphanPhotos } from "@/lib/photos";
 import { rateLimit } from "@/lib/rateLimit";
 
 /** The only collections a phone may store; the document name is the file name without `.json`. */
-export const COLLECTIONS: readonly string[] = [
+export const COLLECTIONS = [
   "sleep",
   "nutrition",
   "wellbeing",
@@ -19,7 +19,9 @@ export const COLLECTIONS: readonly string[] = [
   "faceit",
   "player-survey",
   "body-profile",
-];
+] as const;
+
+export type SyncCollection = (typeof COLLECTIONS)[number];
 
 export const MAX_DOCUMENT_BYTES = 4_000_000;
 const MAX_VERSION = 2_147_483_647;
@@ -33,7 +35,7 @@ const PutBody = z.object({
 });
 
 function requireCollection(collection: string): void {
-  if (!COLLECTIONS.includes(collection)) {
+  if (!(COLLECTIONS as readonly string[]).includes(collection)) {
     throw new ApiError("validation_failed", `Unknown collection: ${collection}`, 422);
   }
 }

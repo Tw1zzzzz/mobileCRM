@@ -7,6 +7,7 @@ export type ErrorCode =
   | "weak_password"
   | "invalid_credentials"
   | "unauthorized"
+  | "forbidden"
   | "token_expired"
   | "email_not_verified"
   | "team_not_found"
