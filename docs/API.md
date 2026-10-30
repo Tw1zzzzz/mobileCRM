@@ -41,7 +41,7 @@
 | Метод | Путь | Тело | Ответ `data` |
 |---|---|---|---|
 | POST | `/auth/login` | `{ email, password }` | `{ user, access_token, refresh_token }` |
-| POST | `/auth/register` | `{ nickname, email, password, role, faceit_url?, team_code?, team_name?, accepted_terms, accepted_privacy, accepted_beta_terms, beta_terms_version }` | `201 { pending_verification: true, email }` (письмо с 6-значным кодом) |
+| POST | `/auth/register` | `{ nickname, email, password, role, faceit_url?, team_code?, team_name?, staff_code?, accepted_terms, accepted_privacy, accepted_beta_terms, beta_terms_version }` | `201 { pending_verification: true, email }` (письмо с 6-значным кодом) |
 | POST | `/auth/verify-email` | `{ email, code, password }` | `{ user, access_token, refresh_token }` |
 | POST | `/auth/resend-code` | `{ email }` | `{}` |
 | POST | `/auth/refresh` | `{ refresh_token }` | `{ access_token, refresh_token }` |
@@ -62,15 +62,24 @@ Refresh-токен одноразовый: каждый `/auth/refresh` выда
 
 `nickname` — 1–40 символов, `team_name` — 1–60 (после обрезки пробелов); приложение не даёт ввести больше.
 
-`role`: `soloPlayer` · `teamPlayer` · `staff`. Для `teamPlayer` обязателен `team_code` (проверка кода → `team_not_found`),
-для `staff` — `team_name` (создаёт команду и возвращает её код для приглашения игроков).
+`role`: `soloPlayer` · `teamPlayer` · `staff`. Для `teamPlayer` обязателен `team_code` (проверка кода → `team_not_found`).
+Для `staff` — одно из двух: `team_name` (создаёт команду; коды команды потом приходят в `user`, см. ниже) или
+`staff_code` (вступить в существующую команду как стафф). `team_name` и `staff_code` вместе — `422 validation_failed`;
+без `staff_code` обязателен `team_name`. Неизвестный `staff_code` → `404 team_not_found`; код игрока как `staff_code`
+не подходит. `staff_code` у других ролей игнорируется. Код сравнивается без учёта регистра и пробелов по краям.
+Вступивший по коду появляется в списке команды после подтверждения почты.
 
 `user`:
 
 ```json
 { "id": "uuid", "nickname": "Nova", "email": "nova@team.gg", "role": "teamPlayer", "tariff": "free",
-  "team": "Pulse Esports", "streak_days": 12, "faceit_url": "https://www.faceit.com/ru/players/Nova" }
+  "team": "Pulse Esports", "team_id": "uuid", "invite_code": null, "staff_code": null,
+  "streak_days": 12, "faceit_url": "https://www.faceit.com/ru/players/Nova" }
 ```
+
+`invite_code` (код игроков) и `staff_code` (код стаффа) лежат плоско рядом с остальными полями и приходят только
+стаффу команды; у всех остальных — `null`, как и у стаффа без команды. Тот же `user` возвращают `/me`,
+`/auth/login`, `/auth/verify-email` и `/auth/password-reset/confirm`.
 
 ## Профиль
 
