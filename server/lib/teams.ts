@@ -93,3 +93,11 @@ export async function playerCodeOf(deps: Deps, teamId: string): Promise<string> 
   if (!row) throw new ApiError("not_found", "No such team.", 404);
   return row.invite_code;
 }
+
+/** Both codes of a team: the one players enter and the one staff enter. Staff of the team only. */
+export async function teamCodes(deps: Deps, teamId: string): Promise<{ player: string; staff: string }> {
+  const [row] = await deps.sql<{ invite_code: string; staff_code: string }[]>`
+    select invite_code, staff_code from teams where id = ${teamId}`;
+  if (!row) throw new ApiError("not_found", "No such team.", 404);
+  return { player: row.invite_code, staff: row.staff_code };
+}

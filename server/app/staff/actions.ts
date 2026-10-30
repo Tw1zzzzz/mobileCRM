@@ -7,6 +7,7 @@ import { defaultDeps } from "@/lib/deps";
 import { ApiError } from "@/lib/http";
 import { clientIp } from "@/lib/rateLimit";
 import type { FormState } from "@/lib/staff/form-state";
+import { requireStaffContext } from "@/lib/staff/current";
 import { MESSAGES, authMessage } from "@/lib/staff/messages";
 import {
   STAFF_COOKIE,
@@ -16,6 +17,7 @@ import {
   staffSignIn,
   staffSignOut,
 } from "@/lib/staff/session";
+import { removeMemberCore, rotateCodeCore, teamHref } from "@/lib/staff/team-management";
 
 const SignInFields = z.object({ email: z.string().trim().min(1), password: z.string().min(1) });
 const RequestFields = z.object({ email: z.string().trim().min(1) });
@@ -93,4 +95,20 @@ export async function signOutAction(): Promise<void> {
   await staffSignOut(defaultDeps(), jar.get(STAFF_COOKIE)?.value);
   jar.delete(STAFF_COOKIE);
   redirect("/staff/login");
+}
+
+// ---- «Игроки → Команда» ----
+// Every action starts with requireStaffContext(): a logged-out or non-staff caller is redirected before anything
+// is read or written. The team always comes from that context, never from the form.
+
+export async function rotateCodeAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const result = await rotateCodeCore(defaultDeps(), ctx, form);
+  redirect(teamHref(result.ok ? undefined : result.error));
+}
+
+export async function removeMemberAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const result = await removeMemberCore(defaultDeps(), ctx, form);
+  redirect(teamHref(result.ok ? undefined : result.error));
 }
