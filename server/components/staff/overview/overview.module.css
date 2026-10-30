@@ -1,0 +1,467 @@
+/* «Обзор»: ported from docs/superpowers/specs/2026-10-28-staff-panel-design-boards/TeamOverview.dc.html.
+   Colour and font tokens come from the panel root (app/staff/staff.module.css). */
+
+.panel {
+  padding: 28px;
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.panelHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.panelTitle {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 700;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 440px), 1fr));
+  gap: 20px;
+}
+
+/* ---- readiness widget in the page header ---- */
+
+.readiness {
+  height: 48px;
+  padding: 0 14px;
+  box-sizing: border-box;
+  border-radius: 14px;
+  background: rgba(23, 31, 52, 0.85);
+  border: 1px solid rgba(120, 150, 220, 0.14);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.readinessValue {
+  font-size: 16px;
+  font-weight: 700;
+}
+.readinessLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+/* ---- filters ---- */
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--text-soft) !important;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+a.chip:hover {
+  color: var(--text) !important;
+  border-color: rgba(63, 208, 255, 0.4);
+}
+a.chip:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.chipOn,
+a.chipOn:hover {
+  background: rgba(63, 208, 255, 0.14);
+  border-color: rgba(63, 208, 255, 0.45);
+  color: var(--cyan-soft) !important;
+  font-weight: 600;
+}
+
+/* ---- cards ---- */
+
+.card {
+  border-radius: 22px;
+  background: var(--surface-solid);
+  border: 1px solid var(--line);
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.cardHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 18px 22px 18px 26px;
+  border-bottom: 1px solid var(--line);
+}
+.cardTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.cardTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.cardSub {
+  font-size: 14px;
+  color: var(--muted);
+}
+.cardBody {
+  padding: 22px 26px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.pill {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.pill i {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  display: block;
+}
+.pillGood {
+  background: rgba(63, 208, 255, 0.14);
+  border: 1px solid rgba(63, 208, 255, 0.4);
+  color: var(--cyan-soft);
+}
+.pillGood i {
+  background: var(--cyan);
+}
+.pillMid {
+  background: rgba(255, 170, 60, 0.12);
+  border: 1px solid rgba(255, 170, 60, 0.4);
+  color: #ffc27a;
+}
+.pillMid i {
+  background: #ffaa3c;
+}
+.pillBad {
+  background: rgba(255, 122, 61, 0.14);
+  border: 1px solid var(--danger-line);
+  color: var(--danger);
+}
+.pillBad i {
+  background: #ff7a3d;
+}
+
+.noData {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 28px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(120, 150, 220, 0.25);
+  color: var(--faint);
+  font-size: 14px;
+  text-align: center;
+}
+.noDataInline {
+  color: var(--faint);
+}
+
+/* ---- mood ---- */
+
+.moodBody {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 28px;
+  padding: 26px;
+}
+.donut {
+  position: relative;
+  width: 200px;
+  height: 200px;
+  flex: 0 0 auto;
+  margin: 0 auto;
+}
+.donutCenter {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+}
+.donutValue {
+  font-size: 46px;
+  font-weight: 800;
+  line-height: 1;
+}
+.donutLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+.cats {
+  flex: 1 1 240px;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.catsTitle {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text-soft);
+  margin-bottom: 4px;
+}
+.cat {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--raised);
+}
+.catDot {
+  flex: 0 0 auto;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}
+.catName {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.catNameMain {
+  font-size: 15px;
+  font-weight: 600;
+}
+.catNote {
+  font-size: 12px;
+  color: var(--faint);
+}
+.catNums {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+.catPercent {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* ---- sleep and energy ---- */
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 18px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.legendItem {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.legendBar {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  background: #1f8bff;
+}
+.legendLine {
+  width: 18px;
+  height: 3px;
+  border-radius: 2px;
+  background: #ffaa3c;
+}
+.chart {
+  border-radius: 16px;
+  background: var(--input);
+  border: 1px solid rgba(120, 150, 220, 0.1);
+  padding: 16px 12px 8px;
+}
+.chart svg {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+.weekdays {
+  position: relative;
+  height: 20px;
+  margin-top: -26px;
+}
+.weekday {
+  position: absolute;
+  transform: translateX(-50%);
+  font-size: 13px;
+  color: var(--faint);
+}
+.weekdayToday {
+  color: var(--text);
+}
+.kpis {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+.kpi {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 16px;
+  background: var(--raised);
+  min-width: 0;
+}
+.kpiLabel {
+  font-size: 13px;
+  color: var(--faint);
+}
+.kpiValue {
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+.kpiValueMuted {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--faint);
+}
+.up {
+  color: var(--cyan-soft);
+}
+.down {
+  color: var(--danger);
+}
+
+/* ---- weekly metrics ---- */
+
+.metricValueRow {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.metricValue {
+  font-size: 40px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+.metricDelta {
+  font-size: 14px;
+  font-weight: 600;
+}
+.metricDeltaMuted {
+  font-size: 14px;
+  color: var(--faint);
+}
+.trend {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+/* ---- empty team ---- */
+
+.emptyTeam {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 40px 16px;
+  border-radius: 16px;
+  border: 1px dashed rgba(120, 150, 220, 0.25);
+  color: var(--faint);
+  font-size: 14px;
+  text-align: center;
+}
+.emptyTitle {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--text);
+}
+.codeLabel {
+  font-size: 13px;
+  color: var(--muted);
+}
+.code {
+  padding: 10px 20px;
+  border-radius: 12px;
+  background: var(--input);
+  border: 1px solid rgba(63, 208, 255, 0.3);
+  color: var(--cyan-soft);
+  font-family: inherit;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  user-select: all;
+}
+.hint {
+  max-width: 420px;
+  line-height: 1.45;
+  color: var(--muted);
+}
+
+/* ---- phone ---- */
+
+@media (max-width: 900px) {
+  .panel {
+    padding: 18px;
+    border-radius: 20px;
+  }
+  .panelTitle {
+    font-size: 22px;
+  }
+  .cardHead {
+    padding: 16px 16px 16px 18px;
+    flex-wrap: wrap;
+  }
+  .cardBody {
+    padding: 18px;
+  }
+  .moodBody {
+    padding: 18px;
+    gap: 20px;
+  }
+  .metricValue {
+    font-size: 34px;
+  }
+  .chips {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    margin: 0 -2px;
+    padding: 2px;
+  }
+}

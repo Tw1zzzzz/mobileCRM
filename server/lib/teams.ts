@@ -86,3 +86,10 @@ export async function findTeamByStaffCode(
     select id, name from teams where staff_code = ${normalizeInviteCode(code)}`;
   return row ?? null;
 }
+
+/** The code players enter to join the team (`invite_code`). */
+export async function playerCodeOf(deps: Deps, teamId: string): Promise<string> {
+  const [row] = await deps.sql<{ invite_code: string }[]>`select invite_code from teams where id = ${teamId}`;
+  if (!row) throw new ApiError("not_found", "No such team.", 404);
+  return row.invite_code;
+}
