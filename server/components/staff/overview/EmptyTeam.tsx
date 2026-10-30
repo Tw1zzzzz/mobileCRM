@@ -1,7 +1,7 @@
 import styles from "./overview.module.css";
 
 /** A team nobody has joined yet: the player code to send out, in the place of the numbers. */
-export function EmptyTeam({ playerCode }: { playerCode: string | null }) {
+export function EmptyTeam({ playerCode }: { playerCode: string }) {
   return (
     <section className={styles.panel}>
       <div className={styles.panelHead}>
@@ -9,12 +9,8 @@ export function EmptyTeam({ playerCode }: { playerCode: string | null }) {
       </div>
       <div className={styles.emptyTeam}>
         <p className={styles.emptyTitle}>В команде пока нет игроков</p>
-        {playerCode !== null && (
-          <>
-            <span className={styles.codeLabel}>Код игрока</span>
-            <code className={styles.code}>{playerCode}</code>
-          </>
-        )}
+        <span className={styles.codeLabel}>Код игрока</span>
+        <code className={styles.code}>{playerCode}</code>
         <span className={styles.hint}>
           Отправьте этот код игрокам: они введут его в приложении Pulse и появятся в команде.
         </span>

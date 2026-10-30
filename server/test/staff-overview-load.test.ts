@@ -163,8 +163,26 @@ describe("loadOverview", () => {
   it("neverReadsBodyProfile", async () => {
     const { teamId, staffId } = await makeTeam("Alpha", "PALPHA");
     const player = await addUser("vega", "teamPlayer", teamId);
-    await putDoc(player, "body-profile", { weightKg: 77 });
-    const page = await loadOverview(deps, await ctxOf(staffId), {});
-    expect(JSON.stringify(page)).not.toContain("77");
+    const sentinel = "BODYPROFILE-SENTINEL";
+    await putDoc(player, "body-profile", { note: sentinel });
+    await putDoc(player, "wellbeing", { mood: [{ id: "m1", day: "2026-10-26T08:00:00Z", mood: 6, energy: 6 }] });
+
+    // Every query the page makes goes through this wrapper; it records the template text and the parameters.
+    const queries: unknown[][] = [];
+    const spy = new Proxy(deps.sql, {
+      apply(target, thisArg, args) {
+        queries.push(args);
+        return Reflect.apply(target, thisArg, args);
+      },
+    });
+    const page = await loadOverview({ ...deps, sql: spy }, await ctxOf(staffId), {});
+
+    // Positive control: the spy sees the documents query and the collections it asked for...
+    const asked = JSON.stringify(queries);
+    for (const collection of ["sleep", "wellbeing", "cognitive", "nutrition"]) expect(asked).toContain(collection);
+    expect(page.kind).toBe("data");
+    // ...and none of the queries mentions body-profile, so its content cannot reach the page.
+    expect(asked).not.toContain("body-profile");
+    expect(JSON.stringify(page)).not.toContain(sentinel);
   });
 });

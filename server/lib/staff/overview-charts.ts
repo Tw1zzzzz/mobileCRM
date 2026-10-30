@@ -55,7 +55,7 @@ function roundedBar(x: number, y: number, w: number, h: number, r: number): stri
   );
 }
 
-/** Sleep bars; hours above the axis are drawn at its top (the label carries the real value). */
+/** Sleep bars; hours above the axis are drawn at its top (only the chart's aria-label carries the real value). */
 export function sleepBarsPath(hours: readonly (number | null)[]): string {
   return hours
     .map((v, i) => {
