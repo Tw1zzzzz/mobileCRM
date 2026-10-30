@@ -208,6 +208,9 @@ private fun StatusCard(user: User) {
         DividerLine()
         InfoRow("Команда", user.team ?: "Без команды (Solo)", "person.3")
         DividerLine()
+        // Staff only (the server sends the codes to nobody else): one hands the first to players, the second to a helper.
+        user.inviteCode?.let { InfoRow("Код для игроков", it, "lock.fill"); DividerLine() }
+        user.staffCode?.let { InfoRow("Код для стаффа", it, "lock.fill"); DividerLine() }
         InfoRow("Версия приложения", if (user.role.isStaff) "Staff: команда и аналитика" else "Игрок: трекинг и тесты", "square.grid.2x2")
         // Only web links are opened — the field is free text the user typed.
         user.faceitURL?.takeIf { it.startsWith("https://") }?.let { link ->

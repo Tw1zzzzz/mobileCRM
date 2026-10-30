@@ -281,9 +281,13 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
         val tariff: Tariff,
         val team: String? = null,
         val streakDays: Int? = null,
-        val faceitUrl: String? = null
+        val faceitUrl: String? = null,
+        /** Flat, shown to staff only (null for everyone else). */
+        val inviteCode: String? = null,
+        val staffCode: String? = null
     ) {
-        val model: User get() = User(id, nickname, email, role, tariff, team, streakDays ?: 0, faceitUrl)
+        val model: User
+            get() = User(id, nickname, email, role, tariff, team, streakDays ?: 0, faceitUrl, inviteCode = inviteCode, staffCode = staffCode)
     }
 
     @Serializable
@@ -301,6 +305,7 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
         val faceitUrl: String?,
         val teamCode: String?,
         val teamName: String?,
+        val staffCode: String?,
         val acceptedTerms: Boolean,
         val acceptedPrivacy: Boolean,
         val acceptedBetaTerms: Boolean,
@@ -345,7 +350,8 @@ class RemoteAuthService(private val client: ApiClient, private val background: C
             role = form.resolvedRole,
             faceitUrl = trimmed(form.faceitURL),
             teamCode = if (form.isTeamPlayer) trimmed(form.teamCode)?.uppercase() else null,
-            teamName = if (form.isTeamStaff) trimmed(form.teamName) else null,
+            teamName = if (form.isStaffCreatingTeam) trimmed(form.teamName) else null,
+            staffCode = if (form.isStaffJoiningTeam) trimmed(form.staffCode)?.uppercase() else null,
             acceptedTerms = form.acceptedTerms,
             acceptedPrivacy = form.acceptedPrivacy,
             acceptedBetaTerms = form.acceptedBetaTerms,

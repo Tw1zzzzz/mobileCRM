@@ -34,7 +34,11 @@ data class User(
     val tariff: Tariff,
     val team: String? = null,
     val streakDays: Int,
-    val faceitURL: String? = null
+    val faceitURL: String? = null,
+    /** Staff only (the server sends it to nobody else): the code players join the team with. */
+    val inviteCode: String? = null,
+    /** Staff only: the code a helper joins the team as staff with. */
+    val staffCode: String? = null
 ) {
     val initials: String get() = nickname.take(2).uppercase()
 
@@ -58,6 +62,9 @@ data class RegistrationForm(
     val faceitURL: String = "",
     val teamCode: String = "",
     val teamName: String = "",
+    /** «Вступить по коду стаффа»: a helper joins an existing team instead of creating one. */
+    val staffJoinsTeam: Boolean = false,
+    val staffCode: String = "",
     val accessType: AccessType = AccessType.SOLO,
     val teamRole: TeamRole = TeamRole.PLAYER,
     val acceptedTerms: Boolean = false,
@@ -74,14 +81,21 @@ data class RegistrationForm(
     val isTeamPlayer: Boolean get() = accessType == AccessType.TEAM && teamRole == TeamRole.PLAYER
     val isTeamStaff: Boolean get() = accessType == AccessType.TEAM && teamRole == TeamRole.MANAGER
 
+    /** Staff who open a new team: the name goes to the server. */
+    val isStaffCreatingTeam: Boolean get() = isTeamStaff && !staffJoinsTeam
+
+    /** Staff who join an existing team: only the staff code goes to the server. */
+    val isStaffJoiningTeam: Boolean get() = isTeamStaff && staffJoinsTeam
+
     /** The visible fields in screen order: the keyboard's «Далее» walks them, the last one closes the keyboard. */
     fun fields(): List<AuthFieldId> = listOfNotNull(
         AuthFieldId.NAME, AuthFieldId.EMAIL, AuthFieldId.PASSWORD, AuthFieldId.CONFIRM, AuthFieldId.FACEIT,
-        AuthFieldId.TEAM_CODE.takeIf { isTeamPlayer }, AuthFieldId.TEAM_NAME.takeIf { isTeamStaff }
+        AuthFieldId.TEAM_CODE.takeIf { isTeamPlayer }, AuthFieldId.TEAM_NAME.takeIf { isStaffCreatingTeam },
+        AuthFieldId.STAFF_CODE.takeIf { isStaffJoiningTeam }
     )
 }
 
-enum class AuthFieldId { NAME, EMAIL, PASSWORD, CONFIRM, FACEIT, TEAM_CODE, TEAM_NAME }
+enum class AuthFieldId { NAME, EMAIL, PASSWORD, CONFIRM, FACEIT, TEAM_CODE, TEAM_NAME, STAFF_CODE }
 
 /** Errors and user-facing messages exactly as defined in the spec (раздел «Авторизация»). */
 enum class AuthError(val message: String) {
@@ -135,9 +149,10 @@ object AuthValidator {
             return AuthError.EMPTY_FIELDS
         }
         if (form.isTeamPlayer && form.teamCode.isBlank()) return AuthError.EMPTY_FIELDS
-        if (form.isTeamStaff && form.teamName.isBlank()) return AuthError.EMPTY_FIELDS
+        if (form.isStaffCreatingTeam && form.teamName.isBlank()) return AuthError.EMPTY_FIELDS
+        if (form.isStaffJoiningTeam && form.staffCode.isBlank()) return AuthError.EMPTY_FIELDS
         if (form.nickname.trim().length > NICKNAME_MAX_LENGTH) return AuthError.NICKNAME_TOO_LONG
-        if (form.isTeamStaff && form.teamName.trim().length > TEAM_NAME_MAX_LENGTH) return AuthError.TEAM_NAME_TOO_LONG
+        if (form.isStaffCreatingTeam && form.teamName.trim().length > TEAM_NAME_MAX_LENGTH) return AuthError.TEAM_NAME_TOO_LONG
         if (!isValidEmail(form.email.trim())) return AuthError.INVALID_EMAIL
         if (!isStrongPassword(form.password)) return AuthError.WEAK_PASSWORD
         if (form.password != form.confirmPassword) return AuthError.PASSWORD_MISMATCH

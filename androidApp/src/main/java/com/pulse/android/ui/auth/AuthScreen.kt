@@ -236,7 +236,7 @@ private fun LoginCard(session: SessionStore, onRegister: () -> Unit, onForgotPas
 internal val RegistrationFormSaver: Saver<RegistrationForm, List<String>> = Saver(
     save = {
         listOf(it.nickname, it.email, it.faceitURL, it.teamCode, it.teamName, it.accessType.name, it.teamRole.name, "${it.acceptedTerms}",
-            "${it.acceptedPrivacy}", "${it.acceptedBetaTerms}")
+            "${it.acceptedPrivacy}", "${it.acceptedBetaTerms}", "${it.staffJoinsTeam}", it.staffCode)
     },
     restore = { saved ->
         RegistrationForm(
@@ -245,7 +245,9 @@ internal val RegistrationFormSaver: Saver<RegistrationForm, List<String>> = Save
             teamRole = TeamRole.entries.firstOrNull { it.name == saved[6] } ?: TeamRole.PLAYER,
             acceptedTerms = saved[7].toBoolean(), acceptedPrivacy = saved[8].toBoolean(),
             // Saved before the beta-terms consent existed: nine entries.
-            acceptedBetaTerms = saved.getOrNull(9).toBoolean()
+            acceptedBetaTerms = saved.getOrNull(9).toBoolean(),
+            // Saved before staff could join by code: ten entries.
+            staffJoinsTeam = saved.getOrNull(10).toBoolean(), staffCode = saved.getOrNull(11).orEmpty()
         )
     }
 )
@@ -278,8 +280,15 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
                         ) { Text(role.title, color = if (selected) Color.White else AuthStyle.placeholder, fontSize = 16.sp, fontWeight = FontWeight.SemiBold) }
                     }
                 }
-                Text(teamHint(form.isTeamStaff, remote), color = if (form.isTeamStaff && !remote) Palette.orange else AuthStyle.placeholder,
-                    fontSize = 13.sp)
+                // Only on the server a helper can join an existing team; the local build has no teams to join.
+                if (remote && form.isTeamStaff) {
+                    Segmented(listOf("Создать команду", "Вступить по коду стаффа"), if (form.staffJoinsTeam) 1 else 0) {
+                        form = form.copy(staffJoinsTeam = it == 1)
+                        session.clearError()
+                    }
+                }
+                Text(teamHint(form.isTeamStaff, remote, form.staffJoinsTeam),
+                    color = if (form.isTeamStaff && !remote) Palette.orange else AuthStyle.placeholder, fontSize = 13.sp)
             }
         }
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -292,7 +301,8 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
                 ime = ime(AuthFieldId.CONFIRM))
             AuthField("Ссылка Faceit", form.faceitURL, { form = form.copy(faceitURL = it) }, keyboard = KeyboardType.Uri, ime = ime(AuthFieldId.FACEIT))
             if (form.isTeamPlayer) AuthField("Код команды", form.teamCode, { form = form.copy(teamCode = it) }, ime = ime(AuthFieldId.TEAM_CODE))
-            if (form.isTeamStaff) AuthField("Название команды", form.teamName, { form = form.copy(teamName = it.take(AuthValidator.TEAM_NAME_MAX_LENGTH)) }, ime = ime(AuthFieldId.TEAM_NAME))
+            if (form.isStaffCreatingTeam) AuthField("Название команды", form.teamName, { form = form.copy(teamName = it.take(AuthValidator.TEAM_NAME_MAX_LENGTH)) }, ime = ime(AuthFieldId.TEAM_NAME))
+            if (form.isStaffJoiningTeam) AuthField("Код стаффа", form.staffCode, { form = form.copy(staffCode = it) }, ime = ime(AuthFieldId.STAFF_CODE))
         }
         // Consents before the button: «Создать аккаунт» is the last thing to press, not the first error to read.
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -317,7 +327,8 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
 }
 
 /** Under the team role: on the server a staff member creates the team; on the phone both wait for the server. */
-private fun teamHint(isStaff: Boolean, remote: Boolean): String = when {
+private fun teamHint(isStaff: Boolean, remote: Boolean, joinsTeam: Boolean): String = when {
+    remote && isStaff && joinsTeam -> "Код стаффа даёт тренер команды."
     remote && isStaff -> "После регистрации вы получите код команды — отправьте его игрокам."
     remote -> "Код команды выдаёт стафф."
     isStaff -> "Кабинет стаффа с данными игроков откроется вместе с сервером команды. Сейчас его можно посмотреть в демо на экране входа."
