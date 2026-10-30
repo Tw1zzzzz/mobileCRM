@@ -328,6 +328,16 @@ describe("rotate code", () => {
     expect((await codesOf(ids.team)).invite_code).not.toBe("PALPHA");
   });
 
+  it("rotateForATeamThatNoLongerExistsIsAnInlineFailure", async () => {
+    const { ctx, ids } = await seedRoster();
+    // the team is gone (e.g. deleted in another tab) while the session still carries its id
+    const gone = { ...ctx, teamId: "00000000-0000-4000-8000-000000000000" };
+    for (const kind of ["player", "staff"]) {
+      expect(await rotateCodeCore(deps, gone, form({ kind }))).toEqual({ ok: false, error: "failed" });
+    }
+    expect(await codesOf(ids.team)).toEqual({ invite_code: "PALPHA", staff_code: "SALPHA" });
+  });
+
   it("unknownKindChangesNothing", async () => {
     const { ctx, ids } = await seedRoster();
     for (const kind of ["", "admin", "both"]) {

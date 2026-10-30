@@ -11,6 +11,7 @@ import { requireStaffContext } from "@/lib/staff/current";
 import { MESSAGES, authMessage } from "@/lib/staff/messages";
 import {
   STAFF_COOKIE,
+  replaceStaffSession,
   staffCookieOptions,
   staffResetConfirm,
   staffResetRequest,
@@ -41,7 +42,10 @@ async function ipOfRequest(): Promise<string> {
 }
 
 async function startSession(token: string): Promise<never> {
-  (await cookies()).set(STAFF_COOKIE, token, staffCookieOptions());
+  const jar = await cookies();
+  // Signing in again from a browser that still has a session: the old token must not outlive it.
+  await replaceStaffSession(defaultDeps(), jar.get(STAFF_COOKIE)?.value, token);
+  jar.set(STAFF_COOKIE, token, staffCookieOptions());
   redirect("/staff");
 }
 

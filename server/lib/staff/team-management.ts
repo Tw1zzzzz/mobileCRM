@@ -47,7 +47,13 @@ export function teamHref(error?: TeamError): string {
 export async function rotateCodeCore(deps: Deps, ctx: StaffContext, form: FormData): Promise<TeamActionResult> {
   const input = RotateFields.safeParse({ kind: field(form, "kind") });
   if (!input.success) return failed;
-  await rotateCode(deps, ctx.teamId, input.data.kind);
+  try {
+    await rotateCode(deps, ctx.teamId, input.data.kind);
+  } catch (e) {
+    // 404: the team is gone; 500: no free code after the retries. Both are shown inline, like removing a member.
+    if (e instanceof ApiError) return failed;
+    throw e;
+  }
   return done;
 }
 

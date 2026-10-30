@@ -70,6 +70,18 @@ export async function staffSignIn(deps: Deps, ip: string, email: string, passwor
   return (await issueSession(deps, user.id)).refresh_token;
 }
 
+/**
+ * Called once a new session exists: a browser that signs in again still carries the previous cookie, whose token
+ * would otherwise stay valid for 30 days with nobody holding it. Revokes that one token (only this browser's).
+ */
+export async function replaceStaffSession(
+  deps: Deps,
+  previousCookie: string | null | undefined,
+  newToken: string,
+): Promise<void> {
+  if (previousCookie && previousCookie !== newToken) await revokeRefresh(deps, previousCookie);
+}
+
 /** Ends this browser's session only. Unknown or missing cookies are ignored. */
 export async function staffSignOut(deps: Deps, cookieValue: string | null | undefined): Promise<void> {
   if (cookieValue) await revokeRefresh(deps, cookieValue);

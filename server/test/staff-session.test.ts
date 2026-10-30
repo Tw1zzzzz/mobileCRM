@@ -1,8 +1,9 @@
 import { createHash } from "node:crypto";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { loginHandler } from "../lib/auth/login";
 import { hashPassword } from "../lib/auth/passwords";
 import { ApiError, handle } from "../lib/http";
+import { IDLE } from "../lib/staff/form-state";
 import {
   STAFF_COOKIE,
   resolveSession,
@@ -16,11 +17,25 @@ import {
 import { resetDb, testDeps } from "./helpers";
 
 const deps = testDeps();
+
+// The sign-in Server Action runs against the test database with a cookie jar we control.
+const jar = vi.hoisted(() => ({ cookie: undefined as string | undefined, set: [] as string[] }));
+vi.mock("@/lib/deps", () => ({ defaultDeps: () => deps }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: (name: string) => (name === "pulse_staff" && jar.cookie ? { value: jar.cookie } : undefined),
+    set: (_name: string, value: string) => void jar.set.push(value),
+    delete: () => undefined,
+  }),
+  headers: async () => new Headers({ "x-forwarded-for": "6.6.6.6" }),
+}));
 const PASSWORD = "secret123";
 const DAY = 24 * 60 * 60 * 1000;
 
 beforeEach(async () => {
   deps.mailer.sent.length = 0;
+  jar.cookie = undefined;
+  jar.set.length = 0;
   await resetDb(deps.sql);
 });
 afterAll(() => deps.sql.end());
@@ -200,6 +215,36 @@ describe("staff web session", () => {
     expect(await staffSession(deps, other)).not.toBeNull();
     await staffSignOut(deps, token);
     await staffSignOut(deps, undefined);
+  });
+
+  it("signingInAgainRevokesThePreviousCookie", async () => {
+    const { staff } = await makeTeam();
+    const { signInAction } = await import("../app/staff/actions");
+    const form = new FormData();
+    form.set("email", staff.email);
+    form.set("password", PASSWORD);
+    const signIn = async () => {
+      try {
+        await signInAction(IDLE, form);
+      } catch (e) {
+        if (!String((e as { digest?: unknown }).digest).startsWith("NEXT_REDIRECT")) throw e;
+      }
+    };
+
+    await signIn(); // first browser visit: no cookie yet
+    const first = jar.set[0];
+    expect(await staffSession(deps, first)).not.toBeNull();
+
+    jar.cookie = first; // the same browser signs in again with the old cookie attached
+    await signIn();
+    const second = jar.set[1];
+    expect(second).not.toBe(first);
+    const hash = createHash("sha256").update(first).digest("hex");
+    const [row] = await deps.sql<{ revoked_at: Date | null }[]>`
+      select revoked_at from refresh_tokens where token_hash = ${hash}`;
+    expect(row.revoked_at).not.toBeNull();
+    expect(await staffSession(deps, first)).toBeNull();
+    expect(await staffSession(deps, second)).not.toBeNull();
   });
 
   it("signInRateLimited", async () => {
