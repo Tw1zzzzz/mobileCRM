@@ -1,0 +1,3326 @@
+{
+ "comment": [
+  "Shared by the TypeScript test (server/test/staff-metrics.test.ts) and the Kotlin test",
+  "(core/src/jvmTest/.../StaffMetricsParityTest.kt). Generated from an independent reference, then frozen.",
+  "ROUNDING: roundHalfUp(x) = floor(x + 0.5) in both languages (never banker's rounding). round2(x) = roundHalfUp(x * 100) / 100.",
+  "dailyInputs and every number in teamOverview except counts, percents and readiness are round2; readiness, teamReadiness and percent are whole numbers.",
+  "A day is a calendar day (YYYY-MM-DD) in the given IANA zone. Sleep belongs to the day its session ENDS; sessions under 60 minutes are not sleep.",
+  "mood and energy must be in 1..10, cognitive score in 0..100 (CognitiveScoring clamps it to 0..100, so cog needs no normalising), kcal >= 0; others are skipped.",
+  "Absent keys and null are the same thing for dailyInputs/teamOverview objects; null inside arrays means 'no data that day'.",
+  "teamOverview: the 7-day window is today and the 6 days before it; the previous week is the 7 days before that."
+ ],
+ "thresholds": {
+  "mood": {
+   "ok": 6.8,
+   "mid": 5.2
+  },
+  "sleep": {
+   "ok": 7.3,
+   "mid": 6.6
+  },
+  "readiness": {
+   "ok": 70,
+   "mid": 55
+  },
+  "cognitive": {
+   "ok": 66,
+   "mid": 56
+  },
+  "nutrition": {
+   "ok": 2100,
+   "mid": 1700
+  },
+  "kd": {
+   "ok": 1.05,
+   "mid": 0.95
+  },
+  "winRate": {
+   "ok": 55,
+   "mid": 45
+  }
+ },
+ "readiness": [
+  {
+   "name": "allFourInputsAreTheDesignFormula",
+   "inputs": {
+    "sleepHours": 8,
+    "mood": 7,
+    "energy": 6,
+    "cog": 70
+   },
+   "expected": 83
+  },
+  {
+   "name": "allFourInputsLowerExample",
+   "inputs": {
+    "sleepHours": 6,
+    "mood": 5,
+    "energy": 5,
+    "cog": 50
+   },
+   "expected": 54
+  },
+  {
+   "name": "halfRoundsUp",
+   "inputs": {
+    "sleepHours": 6.5,
+    "mood": 5,
+    "energy": 5,
+    "cog": 0
+   },
+   "expected": 43
+  },
+  {
+   "name": "cogMissingScalesBy115Over85",
+   "inputs": {
+    "sleepHours": 8,
+    "mood": 7,
+    "energy": 6
+   },
+   "expected": 84
+  },
+  {
+   "name": "sleepMissingScalesBy115Over85",
+   "inputs": {
+    "mood": 7,
+    "energy": 6,
+    "cog": 70
+   },
+   "expected": 77
+  },
+  {
+   "name": "moodMissingScalesBy115Over85",
+   "inputs": {
+    "sleepHours": 7,
+    "energy": 6,
+    "cog": 70
+   },
+   "expected": 74
+  },
+  {
+   "name": "energyMissingScalesBy115Over90",
+   "inputs": {
+    "sleepHours": 8,
+    "mood": 7,
+    "cog": 70
+   },
+   "expected": 87
+  },
+  {
+   "name": "sleepOnly",
+   "inputs": {
+    "sleepHours": 7
+   },
+   "expected": 72
+  },
+  {
+   "name": "sleepOnlyClampsTo100",
+   "inputs": {
+    "sleepHours": 8
+   },
+   "expected": 100
+  },
+  {
+   "name": "moodOnly",
+   "inputs": {
+    "mood": 6
+   },
+   "expected": 69
+  },
+  {
+   "name": "energyOnly",
+   "inputs": {
+    "energy": 4
+   },
+   "expected": 46
+  },
+  {
+   "name": "cogOnly",
+   "inputs": {
+    "cog": 80
+   },
+   "expected": 92
+  },
+  {
+   "name": "nothingIsNull",
+   "inputs": {},
+   "expected": null
+  },
+  {
+   "name": "kcalAloneIsNotAReadinessInput",
+   "inputs": {
+    "kcal": 2000
+   },
+   "expected": null
+  },
+  {
+   "name": "clampsAbove100",
+   "inputs": {
+    "sleepHours": 12,
+    "mood": 10,
+    "energy": 10,
+    "cog": 100
+   },
+   "expected": 100
+  },
+  {
+   "name": "clampsBelow0",
+   "inputs": {
+    "sleepHours": 3,
+    "mood": 1,
+    "energy": 1,
+    "cog": 0
+   },
+   "expected": 0
+  },
+  {
+   "name": "zeroCogIsAnInputNotMissing",
+   "inputs": {
+    "sleepHours": 4.5,
+    "mood": 1,
+    "energy": 1,
+    "cog": 0
+   },
+   "expected": 6
+  }
+ ],
+ "readinessStatus": [
+  {
+   "name": "100IsReady",
+   "value": 100,
+   "expected": "ready"
+  },
+  {
+   "name": "70IsReady",
+   "value": 70,
+   "expected": "ready"
+  },
+  {
+   "name": "69IsDoubt",
+   "value": 69,
+   "expected": "doubt"
+  },
+  {
+   "name": "55IsDoubt",
+   "value": 55,
+   "expected": "doubt"
+  },
+  {
+   "name": "54IsRisk",
+   "value": 54,
+   "expected": "risk"
+  },
+  {
+   "name": "0IsRisk",
+   "value": 0,
+   "expected": "risk"
+  },
+  {
+   "name": "69.99IsDoubt",
+   "value": 69.99,
+   "expected": "doubt"
+  },
+  {
+   "name": "54.99IsRisk",
+   "value": 54.99,
+   "expected": "risk"
+  }
+ ],
+ "moodCategories": [
+  {
+   "name": "everyEdge",
+   "entries": [
+    10,
+    8,
+    7.5,
+    7,
+    6,
+    5.5,
+    5,
+    4,
+    3.5,
+    3,
+    1
+   ],
+   "expected": [
+    {
+     "name": "Отличное",
+     "range": "8–10",
+     "count": 3
+    },
+    {
+     "name": "Хорошее",
+     "range": "6–7",
+     "count": 3
+    },
+    {
+     "name": "Среднее",
+     "range": "4–5",
+     "count": 3
+    },
+    {
+     "name": "Плохое",
+     "range": "1–3",
+     "count": 2
+    }
+   ]
+  },
+  {
+   "name": "justBelowEdges",
+   "entries": [
+    7.49,
+    5.49,
+    3.49
+   ],
+   "expected": [
+    {
+     "name": "Отличное",
+     "range": "8–10",
+     "count": 0
+    },
+    {
+     "name": "Хорошее",
+     "range": "6–7",
+     "count": 1
+    },
+    {
+     "name": "Среднее",
+     "range": "4–5",
+     "count": 1
+    },
+    {
+     "name": "Плохое",
+     "range": "1–3",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "wholeScores",
+   "entries": [
+    8,
+    8,
+    6,
+    5,
+    2
+   ],
+   "expected": [
+    {
+     "name": "Отличное",
+     "range": "8–10",
+     "count": 2
+    },
+    {
+     "name": "Хорошее",
+     "range": "6–7",
+     "count": 1
+    },
+    {
+     "name": "Среднее",
+     "range": "4–5",
+     "count": 1
+    },
+    {
+     "name": "Плохое",
+     "range": "1–3",
+     "count": 1
+    }
+   ]
+  },
+  {
+   "name": "empty",
+   "entries": [],
+   "expected": [
+    {
+     "name": "Отличное",
+     "range": "8–10",
+     "count": 0
+    },
+    {
+     "name": "Хорошее",
+     "range": "6–7",
+     "count": 0
+    },
+    {
+     "name": "Среднее",
+     "range": "4–5",
+     "count": 0
+    },
+    {
+     "name": "Плохое",
+     "range": "1–3",
+     "count": 0
+    }
+   ]
+  }
+ ],
+ "pill": [
+  {
+   "name": "moodAtOk",
+   "value": 6.8,
+   "ok": 6.8,
+   "mid": 5.2,
+   "expected": "good"
+  },
+  {
+   "name": "moodJustBelowOk",
+   "value": 6.79,
+   "ok": 6.8,
+   "mid": 5.2,
+   "expected": "mid"
+  },
+  {
+   "name": "moodAtMid",
+   "value": 5.2,
+   "ok": 6.8,
+   "mid": 5.2,
+   "expected": "mid"
+  },
+  {
+   "name": "moodBelowMid",
+   "value": 5.19,
+   "ok": 6.8,
+   "mid": 5.2,
+   "expected": "bad"
+  },
+  {
+   "name": "sleepAtOk",
+   "value": 7.3,
+   "ok": 7.3,
+   "mid": 6.6,
+   "expected": "good"
+  },
+  {
+   "name": "sleepAtMid",
+   "value": 6.6,
+   "ok": 7.3,
+   "mid": 6.6,
+   "expected": "mid"
+  },
+  {
+   "name": "sleepBelowMid",
+   "value": 6.59,
+   "ok": 7.3,
+   "mid": 6.6,
+   "expected": "bad"
+  },
+  {
+   "name": "readinessAtOk",
+   "value": 70,
+   "ok": 70,
+   "mid": 55,
+   "expected": "good"
+  },
+  {
+   "name": "readinessAtMid",
+   "value": 55,
+   "ok": 70,
+   "mid": 55,
+   "expected": "mid"
+  },
+  {
+   "name": "cognitiveAtMid",
+   "value": 56,
+   "ok": 66,
+   "mid": 56,
+   "expected": "mid"
+  },
+  {
+   "name": "cognitiveBelowMid",
+   "value": 55.9,
+   "ok": 66,
+   "mid": 56,
+   "expected": "bad"
+  },
+  {
+   "name": "kcalAtOk",
+   "value": 2100,
+   "ok": 2100,
+   "mid": 1700,
+   "expected": "good"
+  },
+  {
+   "name": "kcalAtMid",
+   "value": 1700,
+   "ok": 2100,
+   "mid": 1700,
+   "expected": "mid"
+  },
+  {
+   "name": "kcalBelowMid",
+   "value": 1699,
+   "ok": 2100,
+   "mid": 1700,
+   "expected": "bad"
+  }
+ ],
+ "dailyInputs": [
+  {
+   "name": "allInputsOfADay",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000001",
+       "start": "2026-10-14T20:00:00Z",
+       "end": "2026-10-15T04:00:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000002",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "morning",
+       "mood": 6,
+       "energy": 5
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000003",
+       "day": "2026-10-15T16:00:00Z",
+       "slot": "evening",
+       "mood": 8,
+       "energy": 7
+      }
+     ],
+     "balance": []
+    },
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000004",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": 60,
+       "metric": "x"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000005",
+       "kind": "stroop",
+       "date": "2026-10-15T15:00:00Z",
+       "score": 80,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000006",
+       "date": "2026-10-15T06:00:00Z",
+       "name": "m",
+       "kcal": 600,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000007",
+       "date": "2026-10-15T10:00:00Z",
+       "name": "m",
+       "kcal": 850,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000008",
+       "date": "2026-10-15T17:00:00Z",
+       "name": "m",
+       "kcal": 550,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleepHours": 8,
+    "mood": 7,
+    "energy": 6,
+    "cog": 70,
+    "kcal": 2000
+   }
+  },
+  {
+   "name": "otherDayHasNothing",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000001",
+       "start": "2026-10-14T20:00:00Z",
+       "end": "2026-10-15T04:00:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000002",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "morning",
+       "mood": 6,
+       "energy": 5
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000003",
+       "day": "2026-10-15T16:00:00Z",
+       "slot": "evening",
+       "mood": 8,
+       "energy": 7
+      }
+     ],
+     "balance": []
+    },
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000004",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": 60,
+       "metric": "x"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000005",
+       "kind": "stroop",
+       "date": "2026-10-15T15:00:00Z",
+       "score": 80,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000006",
+       "date": "2026-10-15T06:00:00Z",
+       "name": "m",
+       "kcal": 600,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000007",
+       "date": "2026-10-15T10:00:00Z",
+       "name": "m",
+       "kcal": 850,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000008",
+       "date": "2026-10-15T17:00:00Z",
+       "name": "m",
+       "kcal": 550,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-14",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "sessionEndingAt2330UtcIsNextDayInMoscow",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000009",
+       "start": "2026-10-14T16:00:00Z",
+       "end": "2026-10-14T23:30:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000010",
+       "day": "2026-10-14T21:30:00Z",
+       "slot": "morning",
+       "mood": 9,
+       "energy": 8
+      }
+     ],
+     "balance": []
+    },
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000011",
+       "kind": "aim",
+       "date": "2026-10-14T23:59:59Z",
+       "score": 71,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000012",
+       "date": "2026-10-14T21:00:00Z",
+       "name": "m",
+       "kcal": 400,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000013",
+       "date": "2026-10-14T20:59:59Z",
+       "name": "m",
+       "kcal": 300,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleepHours": 7.5,
+    "mood": 9,
+    "energy": 8,
+    "cog": 71,
+    "kcal": 400
+   }
+  },
+  {
+   "name": "sessionEndingAt2330UtcIsNotThatUtcDay",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000009",
+       "start": "2026-10-14T16:00:00Z",
+       "end": "2026-10-14T23:30:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000010",
+       "day": "2026-10-14T21:30:00Z",
+       "slot": "morning",
+       "mood": 9,
+       "energy": 8
+      }
+     ],
+     "balance": []
+    },
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000011",
+       "kind": "aim",
+       "date": "2026-10-14T23:59:59Z",
+       "score": 71,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000012",
+       "date": "2026-10-14T21:00:00Z",
+       "name": "m",
+       "kcal": 400,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000013",
+       "date": "2026-10-14T20:59:59Z",
+       "name": "m",
+       "kcal": 300,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-14",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "kcal": 300
+   }
+  },
+  {
+   "name": "sameDocumentsInNewYork",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000009",
+       "start": "2026-10-14T16:00:00Z",
+       "end": "2026-10-14T23:30:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000010",
+       "day": "2026-10-14T21:30:00Z",
+       "slot": "morning",
+       "mood": 9,
+       "energy": 8
+      }
+     ],
+     "balance": []
+    },
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000011",
+       "kind": "aim",
+       "date": "2026-10-14T23:59:59Z",
+       "score": 71,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000012",
+       "date": "2026-10-14T21:00:00Z",
+       "name": "m",
+       "kcal": 400,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000013",
+       "date": "2026-10-14T20:59:59Z",
+       "name": "m",
+       "kcal": 300,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-14",
+   "tz": "America/New_York",
+   "expected": {
+    "sleepHours": 7.5,
+    "mood": 9,
+    "energy": 8,
+    "cog": 71,
+    "kcal": 700
+   }
+  },
+  {
+   "name": "newYorkNextDayIsEmpty",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000009",
+       "start": "2026-10-14T16:00:00Z",
+       "end": "2026-10-14T23:30:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000010",
+       "day": "2026-10-14T21:30:00Z",
+       "slot": "morning",
+       "mood": 9,
+       "energy": 8
+      }
+     ],
+     "balance": []
+    },
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000011",
+       "kind": "aim",
+       "date": "2026-10-14T23:59:59Z",
+       "score": 71,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000012",
+       "date": "2026-10-14T21:00:00Z",
+       "name": "m",
+       "kcal": 400,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000013",
+       "date": "2026-10-14T20:59:59Z",
+       "name": "m",
+       "kcal": 300,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "America/New_York",
+   "expected": {}
+  },
+  {
+   "name": "onlySleep",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000014",
+       "start": "2026-10-14T20:40:00Z",
+       "end": "2026-10-15T04:00:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleepHours": 7.33
+   }
+  },
+  {
+   "name": "onlyMoodAndEnergy",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000015",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "day",
+       "mood": 4,
+       "energy": 3
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "mood": 4,
+    "energy": 3
+   }
+  },
+  {
+   "name": "onlyCognitiveThreeScores",
+   "docs": {
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000016",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": 65,
+       "metric": "x"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000017",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": 70,
+       "metric": "x"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000018",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": 71,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "cog": 68.67
+   }
+  },
+  {
+   "name": "onlyMeals",
+   "docs": {
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000019",
+       "date": "2026-10-15T10:00:00Z",
+       "name": "m",
+       "kcal": 1200,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "kcal": 1200
+   }
+  },
+  {
+   "name": "noDocuments",
+   "docs": {},
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "emptyCollections",
+   "docs": {
+    "sleep": {
+     "sessions": [],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    },
+    "wellbeing": {
+     "mood": [],
+     "balance": []
+    },
+    "cognitive": {
+     "results": [],
+     "gameResults": []
+    },
+    "nutrition": {
+     "meals": [],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "shortSessionsAreNotSleep",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000020",
+       "start": "2026-10-15T03:01:00Z",
+       "end": "2026-10-15T04:00:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "exactlyOneHourCounts",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000021",
+       "start": "2026-10-15T03:00:00Z",
+       "end": "2026-10-15T04:00:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleepHours": 1
+   }
+  },
+  {
+   "name": "nightAndNapAddUp",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000022",
+       "start": "2026-10-14T22:00:00Z",
+       "end": "2026-10-15T04:00:00Z"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000023",
+       "start": "2026-10-15T10:30:00Z",
+       "end": "2026-10-15T12:00:00Z"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000024",
+       "start": "2026-10-15T13:30:00Z",
+       "end": "2026-10-15T14:00:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleepHours": 7.5
+   }
+  },
+  {
+   "name": "endBeforeStartIgnored",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "00000000-0000-4000-8000-000000000025",
+       "start": "2026-10-15T08:00:00Z",
+       "end": "2026-10-15T01:00:00Z"
+      }
+     ],
+     "window": {
+      "bedtimeHour": 23,
+      "bedtimeMinute": 0,
+      "wakeHour": 7,
+      "wakeMinute": 0,
+      "smartAlarmEnabled": true
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "moodOutOfRangeIgnored",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-000000000026",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "day",
+       "mood": 11,
+       "energy": 0
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000027",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "day",
+       "mood": 0,
+       "energy": 11
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000028",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "evening",
+       "mood": 10,
+       "energy": 1
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "mood": 10,
+    "energy": 1
+   }
+  },
+  {
+   "name": "scoreOutOfRangeIgnored",
+   "docs": {
+    "cognitive": {
+     "results": [
+      {
+       "id": "00000000-0000-4000-8000-000000000029",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": 101,
+       "metric": "x"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000030",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": -1,
+       "metric": "x"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000031",
+       "kind": "reaction",
+       "date": "2026-10-15T07:00:00Z",
+       "score": 0,
+       "metric": "x"
+      }
+     ],
+     "gameResults": []
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "cog": 0
+   }
+  },
+  {
+   "name": "negativeKcalIgnored",
+   "docs": {
+    "nutrition": {
+     "meals": [
+      {
+       "id": "00000000-0000-4000-8000-000000000032",
+       "date": "2026-10-15T10:00:00Z",
+       "name": "m",
+       "kcal": -500,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "00000000-0000-4000-8000-000000000033",
+       "date": "2026-10-15T10:00:00Z",
+       "name": "m",
+       "kcal": 300,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ],
+     "water": {},
+     "goals": {
+      "kcal": 2400
+     }
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "kcal": 300
+   }
+  },
+  {
+   "name": "garbageDocumentsGiveNothing",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      "x",
+      null,
+      5,
+      {
+       "start": "nope",
+       "end": "2026-10-15T04:00:00Z"
+      },
+      {
+       "start": "2026-10-15T01:00:00Z"
+      }
+     ]
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "day": "2026-10-15T09:00:00Z",
+       "mood": "7",
+       "energy": null
+      },
+      {
+       "day": 123,
+       "mood": 5,
+       "energy": 5
+      },
+      {
+       "mood": 5
+      },
+      true
+     ]
+    },
+    "cognitive": {
+     "results": "oops"
+    },
+    "nutrition": [
+     "not",
+     "an",
+     "object"
+    ]
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "documentsOfWrongTypeGiveNothing",
+   "docs": {
+    "sleep": 5,
+    "wellbeing": null,
+    "cognitive": [],
+    "nutrition": "x"
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "offsetTimestampsAreInstants",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "a",
+       "start": "2026-10-15T00:30:00+03:00",
+       "end": "2026-10-15T07:30:00+03:00"
+      }
+     ]
+    }
+   },
+   "day": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleepHours": 7
+   }
+  }
+ ],
+ "rosters": {
+  "main": [
+   {
+    "id": "p1",
+    "docs": {
+     "sleep": {
+      "sessions": [
+       {
+        "id": "00000000-0000-4000-8000-000000000034",
+        "start": "2026-09-30T18:00:00Z",
+        "end": "2026-10-01T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000035",
+        "start": "2026-10-01T21:00:00Z",
+        "end": "2026-10-02T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000036",
+        "start": "2026-10-02T20:30:00Z",
+        "end": "2026-10-03T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000037",
+        "start": "2026-10-03T21:40:00Z",
+        "end": "2026-10-04T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000038",
+        "start": "2026-10-04T22:00:00Z",
+        "end": "2026-10-05T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000039",
+        "start": "2026-10-05T20:10:00Z",
+        "end": "2026-10-06T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000040",
+        "start": "2026-10-06T20:50:00Z",
+        "end": "2026-10-07T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000041",
+        "start": "2026-10-07T21:10:00Z",
+        "end": "2026-10-08T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000042",
+        "start": "2026-10-08T20:30:00Z",
+        "end": "2026-10-09T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000043",
+        "start": "2026-10-09T22:00:00Z",
+        "end": "2026-10-10T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000044",
+        "start": "2026-10-10T20:00:00Z",
+        "end": "2026-10-11T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000045",
+        "start": "2026-10-11T20:40:00Z",
+        "end": "2026-10-12T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000046",
+        "start": "2026-10-12T22:30:00Z",
+        "end": "2026-10-13T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000047",
+        "start": "2026-10-13T19:45:00Z",
+        "end": "2026-10-14T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000048",
+        "start": "2026-10-14T21:00:00Z",
+        "end": "2026-10-15T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000049",
+        "start": "2026-10-15T20:00:00Z",
+        "end": "2026-10-16T04:00:00Z"
+       }
+      ],
+      "window": {
+       "bedtimeHour": 23,
+       "bedtimeMinute": 0,
+       "wakeHour": 7,
+       "wakeMinute": 0,
+       "smartAlarmEnabled": true
+      }
+     },
+     "wellbeing": {
+      "mood": [
+       {
+        "id": "00000000-0000-4000-8000-000000000050",
+        "day": "2026-10-03T05:00:00Z",
+        "slot": "morning",
+        "mood": 6,
+        "energy": 5
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000051",
+        "day": "2026-10-05T05:00:00Z",
+        "slot": "morning",
+        "mood": 5,
+        "energy": 6
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000052",
+        "day": "2026-10-07T10:00:00Z",
+        "slot": "day",
+        "mood": 7,
+        "energy": 7
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000053",
+        "day": "2026-10-09T05:00:00Z",
+        "slot": "morning",
+        "mood": 7,
+        "energy": 6
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000054",
+        "day": "2026-10-09T17:00:00Z",
+        "slot": "evening",
+        "mood": 8,
+        "energy": 7
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000055",
+        "day": "2026-10-10T05:00:00Z",
+        "slot": "morning",
+        "mood": 4,
+        "energy": 4
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000056",
+        "day": "2026-10-11T05:00:00Z",
+        "slot": "morning",
+        "mood": 9,
+        "energy": 8
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000057",
+        "day": "2026-10-11T11:00:00Z",
+        "slot": "day",
+        "mood": 6,
+        "energy": 6
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000058",
+        "day": "2026-10-12T05:00:00Z",
+        "slot": "morning",
+        "mood": 5,
+        "energy": 5
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000059",
+        "day": "2026-10-13T05:00:00Z",
+        "slot": "morning",
+        "mood": 3,
+        "energy": 3
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000060",
+        "day": "2026-10-13T17:00:00Z",
+        "slot": "evening",
+        "mood": 4,
+        "energy": 5
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000061",
+        "day": "2026-10-14T05:00:00Z",
+        "slot": "morning",
+        "mood": 7,
+        "energy": 7
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000062",
+        "day": "2026-10-15T05:00:00Z",
+        "slot": "morning",
+        "mood": 8,
+        "energy": 7
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000063",
+        "day": "2026-10-15T20:00:00Z",
+        "slot": "evening",
+        "mood": 6,
+        "energy": 5
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000064",
+        "day": "2026-10-15T21:00:00Z",
+        "slot": "morning",
+        "mood": 1,
+        "energy": 1
+       }
+      ],
+      "balance": []
+     },
+     "cognitive": {
+      "results": [
+       {
+        "id": "00000000-0000-4000-8000-000000000065",
+        "kind": "reaction",
+        "date": "2026-10-04T07:00:00Z",
+        "score": 55,
+        "metric": "x"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000066",
+        "kind": "reaction",
+        "date": "2026-10-06T08:00:00Z",
+        "score": 62,
+        "metric": "x"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000067",
+        "kind": "reaction",
+        "date": "2026-10-10T07:00:00Z",
+        "score": 70,
+        "metric": "x"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000068",
+        "kind": "reaction",
+        "date": "2026-10-10T15:00:00Z",
+        "score": 66,
+        "metric": "x"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000069",
+        "kind": "reaction",
+        "date": "2026-10-12T07:00:00Z",
+        "score": 58,
+        "metric": "x"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000070",
+        "kind": "reaction",
+        "date": "2026-10-14T07:00:00Z",
+        "score": 74,
+        "metric": "x"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000071",
+        "kind": "reaction",
+        "date": "2026-10-15T06:00:00Z",
+        "score": 69,
+        "metric": "x"
+       }
+      ],
+      "gameResults": []
+     },
+     "nutrition": {
+      "meals": [
+       {
+        "id": "00000000-0000-4000-8000-000000000072",
+        "date": "2026-10-03T10:00:00Z",
+        "name": "m",
+        "kcal": 1900,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000073",
+        "date": "2026-10-05T10:00:00Z",
+        "name": "m",
+        "kcal": 2300,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000074",
+        "date": "2026-10-07T10:00:00Z",
+        "name": "m",
+        "kcal": 1600,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000075",
+        "date": "2026-10-10T06:00:00Z",
+        "name": "m",
+        "kcal": 1500,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000076",
+        "date": "2026-10-10T16:00:00Z",
+        "name": "m",
+        "kcal": 700,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000077",
+        "date": "2026-10-11T10:00:00Z",
+        "name": "m",
+        "kcal": 2200,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000078",
+        "date": "2026-10-12T10:00:00Z",
+        "name": "m",
+        "kcal": 1800,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000079",
+        "date": "2026-10-13T10:00:00Z",
+        "name": "m",
+        "kcal": 900,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000080",
+        "date": "2026-10-14T10:00:00Z",
+        "name": "m",
+        "kcal": 2500,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000081",
+        "date": "2026-10-15T06:00:00Z",
+        "name": "m",
+        "kcal": 800,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000082",
+        "date": "2026-10-15T11:00:00Z",
+        "name": "m",
+        "kcal": 1100,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       }
+      ],
+      "water": {},
+      "goals": {
+       "kcal": 2400
+      }
+     }
+    }
+   },
+   {
+    "id": "p2",
+    "docs": {
+     "sleep": {
+      "sessions": [
+       {
+        "id": "00000000-0000-4000-8000-000000000083",
+        "start": "2026-10-05T23:00:00Z",
+        "end": "2026-10-06T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000084",
+        "start": "2026-10-12T19:00:00Z",
+        "end": "2026-10-13T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000085",
+        "start": "2026-10-13T21:55:00Z",
+        "end": "2026-10-14T04:00:00Z"
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000086",
+        "start": "2026-10-14T21:20:00Z",
+        "end": "2026-10-15T04:00:00Z"
+       }
+      ],
+      "window": {
+       "bedtimeHour": 23,
+       "bedtimeMinute": 0,
+       "wakeHour": 7,
+       "wakeMinute": 0,
+       "smartAlarmEnabled": true
+      }
+     },
+     "wellbeing": {
+      "mood": [
+       {
+        "id": "00000000-0000-4000-8000-000000000087",
+        "day": "2026-10-14T06:00:00Z",
+        "slot": "morning",
+        "mood": 2,
+        "energy": 2
+       },
+       {
+        "id": "00000000-0000-4000-8000-000000000088",
+        "day": "2026-10-15T06:00:00Z",
+        "slot": "morning",
+        "mood": 3,
+        "energy": 4
+       }
+      ],
+      "balance": []
+     },
+     "nutrition": {
+      "meals": [
+       {
+        "id": "00000000-0000-4000-8000-000000000089",
+        "date": "2026-10-15T09:00:00Z",
+        "name": "m",
+        "kcal": 1500,
+        "protein": 1,
+        "fat": 1,
+        "carbs": 1,
+        "source": "manual"
+       }
+      ],
+      "water": {},
+      "goals": {
+       "kcal": 2400
+      }
+     }
+    }
+   },
+   {
+    "id": "p3",
+    "docs": {}
+   },
+   {
+    "id": "p4",
+    "docs": {
+     "sleep": {
+      "sessions": [
+       "x",
+       null,
+       5,
+       {
+        "start": "nope",
+        "end": "2026-10-15T04:00:00Z"
+       },
+       {
+        "start": "2026-10-15T01:00:00Z"
+       }
+      ]
+     },
+     "wellbeing": {
+      "mood": [
+       {
+        "day": "2026-10-15T09:00:00Z",
+        "mood": "7",
+        "energy": null
+       },
+       {
+        "day": 123,
+        "mood": 5,
+        "energy": 5
+       },
+       {
+        "mood": 5
+       },
+       true
+      ]
+     },
+     "cognitive": {
+      "results": "oops"
+     },
+     "nutrition": [
+      "not",
+      "an",
+      "object"
+     ]
+    }
+   }
+  ]
+ },
+ "teamOverview": [
+  {
+   "name": "wholeTeam",
+   "roster": "main",
+   "ids": null,
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "team",
+   "expected": {
+    "who": "team",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": 62,
+    "teamReadinessStatus": "doubt",
+    "playerReadiness": [
+     {
+      "id": "p1",
+      "readiness": 75,
+      "status": "ready"
+     },
+     {
+      "id": "p2",
+      "readiness": 48,
+      "status": "risk"
+     },
+     {
+      "id": "p3",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p4",
+      "readiness": null,
+      "status": null
+     }
+    ],
+    "mood": {
+     "count": 13,
+     "average": 5.54,
+     "pill": "mid",
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 3,
+       "percent": 23
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 4,
+       "percent": 31
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 3,
+       "percent": 23
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 3,
+       "percent": 23
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      7.5,
+      6.0,
+      8.0,
+      7.33,
+      7.25,
+      7.17,
+      6.84
+     ],
+     "average": 7.15,
+     "pill": "mid",
+     "lowest": {
+      "day": "2026-10-10",
+      "hours": 6.0
+     }
+    },
+    "energy": {
+     "daily": [
+      6.5,
+      4.0,
+      7.0,
+      5.0,
+      4.0,
+      4.5,
+      5.0
+     ],
+     "today": 5.0,
+     "trend": "up"
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": 69.07,
+      "previous": 64.71,
+      "delta": 4.36,
+      "direction": "up",
+      "pill": "mid",
+      "series": [
+       83.0,
+       54.0,
+       90.0,
+       66.0,
+       69.0,
+       60.0,
+       61.5
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": 67.25,
+      "previous": 58.5,
+      "delta": 8.75,
+      "direction": "up",
+      "pill": "good",
+      "series": [
+       null,
+       68.0,
+       null,
+       58.0,
+       null,
+       74.0,
+       69.0
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": 1883.33,
+      "previous": 1933.33,
+      "delta": -50.0,
+      "direction": "down",
+      "pill": "mid",
+      "series": [
+       null,
+       2200.0,
+       2200.0,
+       1800.0,
+       900.0,
+       2500.0,
+       1700.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "onePlayer",
+   "roster": "main",
+   "ids": null,
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "p1",
+   "expected": {
+    "who": "p1",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": 62,
+    "teamReadinessStatus": "doubt",
+    "playerReadiness": [
+     {
+      "id": "p1",
+      "readiness": 75,
+      "status": "ready"
+     },
+     {
+      "id": "p2",
+      "readiness": 48,
+      "status": "risk"
+     },
+     {
+      "id": "p3",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p4",
+      "readiness": null,
+      "status": null
+     }
+    ],
+    "mood": {
+     "count": 11,
+     "average": 6.09,
+     "pill": "mid",
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 3,
+       "percent": 27
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 4,
+       "percent": 36
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 3,
+       "percent": 27
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 1,
+       "percent": 9
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      7.5,
+      6.0,
+      8.0,
+      7.33,
+      5.5,
+      8.25,
+      7.0
+     ],
+     "average": 7.08,
+     "pill": "mid",
+     "lowest": {
+      "day": "2026-10-13",
+      "hours": 5.5
+     }
+    },
+    "energy": {
+     "daily": [
+      6.5,
+      4.0,
+      7.0,
+      5.0,
+      4.0,
+      7.0,
+      6.0
+     ],
+     "today": 6.0,
+     "trend": "down"
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": 70.71,
+      "previous": 69.71,
+      "delta": 1.0,
+      "direction": "up",
+      "pill": "good",
+      "series": [
+       83.0,
+       54.0,
+       90.0,
+       66.0,
+       38.0,
+       89.0,
+       75.0
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": 67.25,
+      "previous": 58.5,
+      "delta": 8.75,
+      "direction": "up",
+      "pill": "good",
+      "series": [
+       null,
+       68.0,
+       null,
+       58.0,
+       null,
+       74.0,
+       69.0
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": 1916.67,
+      "previous": 1933.33,
+      "delta": -16.67,
+      "direction": "down",
+      "pill": "mid",
+      "series": [
+       null,
+       2200.0,
+       2200.0,
+       1800.0,
+       900.0,
+       2500.0,
+       1900.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "playerWithLittleData",
+   "roster": "main",
+   "ids": null,
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "p2",
+   "expected": {
+    "who": "p2",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": 62,
+    "teamReadinessStatus": "doubt",
+    "playerReadiness": [
+     {
+      "id": "p1",
+      "readiness": 75,
+      "status": "ready"
+     },
+     {
+      "id": "p2",
+      "readiness": 48,
+      "status": "risk"
+     },
+     {
+      "id": "p3",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p4",
+      "readiness": null,
+      "status": null
+     }
+    ],
+    "mood": {
+     "count": 2,
+     "average": 2.5,
+     "pill": "bad",
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 2,
+       "percent": 100
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      9.0,
+      6.08,
+      6.67
+     ],
+     "average": 7.25,
+     "pill": "mid",
+     "lowest": {
+      "day": "2026-10-14",
+      "hours": 6.08
+     }
+    },
+    "energy": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      2.0,
+      4.0
+     ],
+     "today": 4.0,
+     "trend": "up"
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": 59.67,
+      "previous": 14.0,
+      "delta": 45.67,
+      "direction": "up",
+      "pill": "mid",
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       100.0,
+       31.0,
+       48.0
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": 1500.0,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": "bad",
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       1500.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "playerWithoutDataShowsNoData",
+   "roster": "main",
+   "ids": null,
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "p3",
+   "expected": {
+    "who": "p3",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": 62,
+    "teamReadinessStatus": "doubt",
+    "playerReadiness": [
+     {
+      "id": "p1",
+      "readiness": 75,
+      "status": "ready"
+     },
+     {
+      "id": "p2",
+      "readiness": 48,
+      "status": "risk"
+     },
+     {
+      "id": "p3",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p4",
+      "readiness": null,
+      "status": null
+     }
+    ],
+    "mood": {
+     "count": 0,
+     "average": null,
+     "pill": null,
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 0,
+       "percent": 0
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "average": null,
+     "pill": null,
+     "lowest": null
+    },
+    "energy": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "today": null,
+     "trend": null
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "unknownPlayerShowsNoData",
+   "roster": "main",
+   "ids": null,
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "nobody",
+   "expected": {
+    "who": "nobody",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": 62,
+    "teamReadinessStatus": "doubt",
+    "playerReadiness": [
+     {
+      "id": "p1",
+      "readiness": 75,
+      "status": "ready"
+     },
+     {
+      "id": "p2",
+      "readiness": 48,
+      "status": "risk"
+     },
+     {
+      "id": "p3",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p4",
+      "readiness": null,
+      "status": null
+     }
+    ],
+    "mood": {
+     "count": 0,
+     "average": null,
+     "pill": null,
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 0,
+       "percent": 0
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "average": null,
+     "pill": null,
+     "lowest": null
+    },
+    "energy": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "today": null,
+     "trend": null
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "emptyTeam",
+   "roster": "main",
+   "ids": [],
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "team",
+   "expected": {
+    "who": "team",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": null,
+    "teamReadinessStatus": null,
+    "playerReadiness": [],
+    "mood": {
+     "count": 0,
+     "average": null,
+     "pill": null,
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 0,
+       "percent": 0
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "average": null,
+     "pill": null,
+     "lowest": null
+    },
+    "energy": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "today": null,
+     "trend": null
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "playersWithoutDataAreSkipped",
+   "roster": "main",
+   "ids": [
+    "p3",
+    "p4"
+   ],
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "team",
+   "expected": {
+    "who": "team",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": null,
+    "teamReadinessStatus": null,
+    "playerReadiness": [
+     {
+      "id": "p3",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p4",
+      "readiness": null,
+      "status": null
+     }
+    ],
+    "mood": {
+     "count": 0,
+     "average": null,
+     "pill": null,
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 0,
+       "percent": 0
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 0,
+       "percent": 0
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "average": null,
+     "pill": null,
+     "lowest": null
+    },
+    "energy": {
+     "daily": [
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+     ],
+     "today": null,
+     "trend": null
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": null,
+      "previous": null,
+      "delta": null,
+      "direction": null,
+      "pill": null,
+      "series": [
+       null,
+       null,
+       null,
+       null,
+       null,
+       null,
+       null
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "skippingEmptyPlayersChangesNothing",
+   "roster": "main",
+   "ids": [
+    "p1",
+    "p2"
+   ],
+   "today": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "who": "team",
+   "expected": {
+    "who": "team",
+    "today": "2026-10-15",
+    "days": [
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15"
+    ],
+    "teamReadiness": 62,
+    "teamReadinessStatus": "doubt",
+    "playerReadiness": [
+     {
+      "id": "p1",
+      "readiness": 75,
+      "status": "ready"
+     },
+     {
+      "id": "p2",
+      "readiness": 48,
+      "status": "risk"
+     }
+    ],
+    "mood": {
+     "count": 13,
+     "average": 5.54,
+     "pill": "mid",
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 3,
+       "percent": 23
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 4,
+       "percent": 31
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 3,
+       "percent": 23
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 3,
+       "percent": 23
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      7.5,
+      6.0,
+      8.0,
+      7.33,
+      7.25,
+      7.17,
+      6.84
+     ],
+     "average": 7.15,
+     "pill": "mid",
+     "lowest": {
+      "day": "2026-10-10",
+      "hours": 6.0
+     }
+    },
+    "energy": {
+     "daily": [
+      6.5,
+      4.0,
+      7.0,
+      5.0,
+      4.0,
+      4.5,
+      5.0
+     ],
+     "today": 5.0,
+     "trend": "up"
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": 69.07,
+      "previous": 64.71,
+      "delta": 4.36,
+      "direction": "up",
+      "pill": "mid",
+      "series": [
+       83.0,
+       54.0,
+       90.0,
+       66.0,
+       69.0,
+       60.0,
+       61.5
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": 67.25,
+      "previous": 58.5,
+      "delta": 8.75,
+      "direction": "up",
+      "pill": "good",
+      "series": [
+       null,
+       68.0,
+       null,
+       58.0,
+       null,
+       74.0,
+       69.0
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": 1883.33,
+      "previous": 1933.33,
+      "delta": -50.0,
+      "direction": "down",
+      "pill": "mid",
+      "series": [
+       null,
+       2200.0,
+       2200.0,
+       1800.0,
+       900.0,
+       2500.0,
+       1700.0
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "name": "tomorrowSlidesTheWindow",
+   "roster": "main",
+   "ids": null,
+   "today": "2026-10-16",
+   "tz": "Europe/Moscow",
+   "who": "team",
+   "expected": {
+    "who": "team",
+    "today": "2026-10-16",
+    "days": [
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15",
+     "2026-10-16"
+    ],
+    "teamReadiness": 43,
+    "teamReadinessStatus": "risk",
+    "playerReadiness": [
+     {
+      "id": "p1",
+      "readiness": 43,
+      "status": "risk"
+     },
+     {
+      "id": "p2",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p3",
+      "readiness": null,
+      "status": null
+     },
+     {
+      "id": "p4",
+      "readiness": null,
+      "status": null
+     }
+    ],
+    "mood": {
+     "count": 12,
+     "average": 4.83,
+     "pill": "bad",
+     "categories": [
+      {
+       "name": "Отличное",
+       "range": "8–10",
+       "count": 2,
+       "percent": 17
+      },
+      {
+       "name": "Хорошее",
+       "range": "6–7",
+       "count": 3,
+       "percent": 25
+      },
+      {
+       "name": "Среднее",
+       "range": "4–5",
+       "count": 3,
+       "percent": 25
+      },
+      {
+       "name": "Плохое",
+       "range": "1–3",
+       "count": 4,
+       "percent": 33
+      }
+     ]
+    },
+    "sleep": {
+     "daily": [
+      6.0,
+      8.0,
+      7.33,
+      7.25,
+      7.17,
+      6.84,
+      8.0
+     ],
+     "average": 7.23,
+     "pill": "mid",
+     "lowest": {
+      "day": "2026-10-10",
+      "hours": 6.0
+     }
+    },
+    "energy": {
+     "daily": [
+      4.0,
+      7.0,
+      5.0,
+      4.0,
+      4.5,
+      5.0,
+      1.0
+     ],
+     "today": 1.0,
+     "trend": "down"
+    },
+    "metrics": [
+     {
+      "key": "readiness",
+      "value": 63.36,
+      "previous": 66.29,
+      "delta": -2.93,
+      "direction": "down",
+      "pill": "mid",
+      "series": [
+       54.0,
+       90.0,
+       66.0,
+       69.0,
+       60.0,
+       61.5,
+       43.0
+      ]
+     },
+     {
+      "key": "cognitive",
+      "value": 67.25,
+      "previous": 58.5,
+      "delta": 8.75,
+      "direction": "up",
+      "pill": "good",
+      "series": [
+       68.0,
+       null,
+       58.0,
+       null,
+       74.0,
+       69.0,
+       null
+      ]
+     },
+     {
+      "key": "nutrition",
+      "value": 1883.33,
+      "previous": 1933.33,
+      "delta": -50.0,
+      "direction": "down",
+      "pill": "mid",
+      "series": [
+       2200.0,
+       2200.0,
+       1800.0,
+       900.0,
+       2500.0,
+       1700.0,
+       null
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

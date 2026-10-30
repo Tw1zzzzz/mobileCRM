@@ -30,3 +30,8 @@ kotlin {
         }
     }
 }
+
+// The Kotlin parity test reads the staff-metrics fixture shared with the server's tests: a change to it must rerun the test.
+tasks.named("jvmTest") {
+    inputs.file(rootProject.file("server/test/fixtures/staff-metrics.json")).withPropertyName("staffMetricsFixture")
+}
