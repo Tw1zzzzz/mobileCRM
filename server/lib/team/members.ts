@@ -24,6 +24,10 @@ function isUniqueViolation(e: unknown): boolean {
 /**
  * Replaces one of the team's codes; the old code stops working at once. Who may do this is the caller's
  * business. Returns the new code.
+ *
+ * Rotating the STAFF code also detaches the team's staff who have not confirmed their email: they joined with the
+ * old code and could otherwise confirm later and become staff, which is what the rotation is meant to prevent. They
+ * become solo players and can still confirm their email and sign in; players are untouched.
  */
 export async function rotateCode(
   deps: Deps,
@@ -39,12 +43,21 @@ export async function rotateCode(
           ? await deps.sql`update teams set invite_code = ${code} where id = ${teamId} returning id`
           : await deps.sql`update teams set staff_code = ${code} where id = ${teamId} returning id`;
       if (rows.length === 0) throw new ApiError("not_found", "No such team.", 404);
-      return code;
     } catch (e) {
       if (!isUniqueViolation(e)) throw e; // lost a race for this code: draw another
+      continue;
     }
+    if (kind === "staff") await detachUnconfirmedStaff(deps, teamId);
+    return code;
   }
   throw new ApiError("internal", "Could not allocate a team code", 500);
+}
+
+/** Unconfirmed staff of the team become solo players (a separate statement: the retry loop above is not a transaction). */
+async function detachUnconfirmedStaff(deps: Deps, teamId: string): Promise<void> {
+  await deps.sql`
+    update users set role = 'soloPlayer', team_id = null, updated_at = ${deps.now()}
+    where team_id = ${teamId} and role = 'staff' and email_verified_at is null`;
 }
 
 /** Members who have confirmed their email, longest-standing first. */

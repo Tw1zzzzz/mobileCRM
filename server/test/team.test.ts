@@ -216,6 +216,72 @@ describe("codes", () => {
   });
 });
 
+describe("rotating the staff code", () => {
+  const roleAndTeam = async (email: string) =>
+    (await deps.sql`select role, team_id from users where email = ${email}`)[0];
+
+  it("unconfirmedStaffAreDetachedWhenTheStaffCodeIsRotated", async () => {
+    const t = await team();
+    await register("pending@team.gg", { role: "staff", staff_code: t.staff_code }); // never confirmed
+    expect(await roleAndTeam("pending@team.gg")).toMatchObject({ role: "staff", team_id: t.id });
+
+    await rotateCode(deps, t.id, "staff");
+
+    expect(await roleAndTeam("pending@team.gg")).toMatchObject({ role: "soloPlayer", team_id: null });
+  });
+
+  it("confirmedStaffAndPlayersKeepTheirTeamWhenTheStaffCodeIsRotated", async () => {
+    const t = await team();
+    await signUp("second@team.gg", { role: "staff", staff_code: t.staff_code });
+    await signUp("player@team.gg", { role: "teamPlayer", team_code: t.invite_code });
+    await register("pendingplayer@team.gg", { role: "teamPlayer", team_code: t.invite_code });
+
+    await rotateCode(deps, t.id, "staff");
+
+    expect(await roleAndTeam("owner@team.gg")).toMatchObject({ role: "staff", team_id: t.id });
+    expect(await roleAndTeam("second@team.gg")).toMatchObject({ role: "staff", team_id: t.id });
+    expect(await roleAndTeam("player@team.gg")).toMatchObject({ role: "teamPlayer", team_id: t.id });
+    expect(await roleAndTeam("pendingplayer@team.gg")).toMatchObject({ role: "teamPlayer", team_id: t.id });
+  });
+
+  it("staffOfOtherTeamsAreNotDetached", async () => {
+    const t = await team();
+    const other = await signUp("other@beta.gg", { role: "staff", team_name: "Beta" });
+    const [beta] = await deps.sql`select id, staff_code from teams where owner_id = ${other.id}`;
+    await register("pending@beta.gg", { role: "staff", staff_code: beta.staff_code });
+
+    await rotateCode(deps, t.id, "staff");
+
+    expect(await roleAndTeam("pending@beta.gg")).toMatchObject({ role: "staff", team_id: beta.id });
+  });
+
+  it("unconfirmedStaffStayAttachedWhenThePlayerCodeIsRotated", async () => {
+    const t = await team();
+    await register("pending@team.gg", { role: "staff", staff_code: t.staff_code });
+
+    await rotateCode(deps, t.id, "player");
+
+    expect(await roleAndTeam("pending@team.gg")).toMatchObject({ role: "staff", team_id: t.id });
+  });
+
+  it("aDetachedAccountCanStillConfirmItsEmailAndIsASoloPlayer", async () => {
+    const t = await team();
+    await register("pending@team.gg", { role: "staff", staff_code: t.staff_code });
+    await rotateCode(deps, t.id, "staff");
+
+    const verified = await send(verifyEmailHandler, "POST", "auth/verify-email", {
+      email: "pending@team.gg",
+      code: deps.mailer.lastCode("pending@team.gg")!,
+      password: PASSWORD,
+    });
+    expect(verified.status).toBe(200);
+    expect(verified.body.data.user).toMatchObject({ role: "soloPlayer", team_id: null, team: null });
+    expect(verified.body.data.user.invite_code).toBeNull();
+    expect(verified.body.data.user.staff_code).toBeNull();
+    expect(await teamMembers(deps, t.id)).toHaveLength(1);
+  });
+});
+
 describe("members", () => {
   it("teamMembersListsVerifiedMembersOldestFirst", async () => {
     const t = await team();
