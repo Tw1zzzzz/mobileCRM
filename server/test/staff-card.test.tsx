@@ -85,14 +85,14 @@ describe("card frame", () => {
     const t = await seedCardTeam(deps);
     const { markup } = await frame(t, { player: t.ids.vega });
     const words = text(markup);
-    expect(words).toContain("Средний score 70 +20,0 за период");
-    expect(words).toContain("Индекс состояния 70 +0,5 за период");
+    expect(words).toContain("Средний score 70 +20.0 за период");
+    expect(words).toContain("Индекс состояния 70 +0.5 за период");
     expect(words).toContain("Фокус high 1 из 2 дней с фокусом 8+");
     expect(words).toContain("Усталость high 1 из 2 дней с усталостью 8+");
     expect(markup).toContain('data-tone="up"');
     const nova = await frame(t, { player: t.ids.nova });
     expect(nova.markup).toContain('data-tone="down"');
-    expect(text(nova.markup)).toContain("−20,0 за период");
+    expect(text(nova.markup)).toContain("−20.0 за период");
   });
 
   it("everyTabIsBuilt", async () => {
@@ -182,6 +182,26 @@ describe("card frame", () => {
         expect(text(markup), `${tab} ${player}`).not.toMatch(demo);
       }
     }
+  });
+
+  it("offLinksAreFocusableDisabledLinksWithoutHref", async () => {
+    const t = await seedCardTeam(deps);
+    const { markup } = await frame(t, { player: t.ids.vega, tab: "tests" });
+    const identity = markup.slice(markup.indexOf('aria-labelledby="pname"'), markup.indexOf('aria-label="Разделы карточки"'));
+    const off = [...identity.matchAll(/<a [^>]*aria-disabled="true"[^>]*>[\s\S]*?<\/a>/g)].map((m) => m[0]);
+    // no Telegram or Steam address in the app, and vega has no faceit.com address
+    expect(off.map((a) => text(a))).toEqual(["Telegram нет данных", "FACEIT нет данных", "Steam нет данных"]);
+    const ids: string[] = [];
+    for (const a of off) {
+      expect(a).toContain('role="link"');
+      expect(a).toContain('tabindex="0"');
+      expect(a).not.toContain("href");
+      const described = a.match(/aria-describedby="([^"]+)"/)?.[1] ?? "";
+      expect(a).toContain(`<span id="${described}"`);
+      expect(a).toMatch(/<span id="[^"]+" class="[^"]*srOnly[^"]*">нет данных<\/span>/);
+      ids.push(described);
+    }
+    expect(new Set(ids).size).toBe(3);
   });
 
   it("noCardForAnEmptyTeam", () => {

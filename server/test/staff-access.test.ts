@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { removeMember } from "../lib/team/members";
-import { playerDocuments, requireStaff, rosterMember, rosterPlayer, teamPlayers, type StaffContext } from "../lib/staff/access";
+import { playerDocuments, requireStaff, rosterMember, rosterMembers, rosterPlayer, teamPlayers, type StaffContext } from "../lib/staff/access";
 import { handle } from "../lib/http";
 import { resetDb, testDeps } from "./helpers";
 
@@ -159,6 +159,28 @@ describe("faceitUrl and rosterPlayer", () => {
     }
     await removeMember(deps, a.teamId, a.staffId, mine);
     expect(await rosterPlayer(deps, ctx, mine)).toBeNull();
+  });
+});
+
+describe("rosterMembers", () => {
+  it("rosterMembersAreTheTeamPlayersWithoutTheHeavyLookups", async () => {
+    const a = await makeTeam("Alpha");
+    const b = await makeTeam("Bravo");
+    const first = await addUser("first", "teamPlayer", a.teamId);
+    const second = await addUser("second", "teamPlayer", a.teamId);
+    await addUser("theirs", "teamPlayer", b.teamId);
+    await addUser("solo", "soloPlayer", null);
+    await addUser("unverified", "teamPlayer", a.teamId, { verified: false });
+    const ctx = await ctxOf(a.staffId);
+    const members = await rosterMembers(deps, ctx);
+    expect(members).toEqual([
+      { id: first, nickname: "first" },
+      { id: second, nickname: "second" },
+    ]);
+    // the same people, in the same order, as the full roster
+    expect(members.map((m) => m.id)).toEqual((await teamPlayers(deps, ctx)).map((p) => p.id));
+    await removeMember(deps, a.teamId, a.staffId, first);
+    expect((await rosterMembers(deps, ctx)).map((m) => m.id)).toEqual([second]);
   });
 });
 

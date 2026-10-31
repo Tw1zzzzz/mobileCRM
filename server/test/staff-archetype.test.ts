@@ -213,9 +213,12 @@ describe("identity row", () => {
   it("telegramAndSteamAreDisabledWithoutData", () => {
     const markup = identity({ faceitUrl: "https://www.faceit.com/ru/players/Nova" });
     for (const name of ["Telegram", "Steam"]) {
-      const button = new RegExp(`<span[^>]*aria-disabled[^>]*>(?:(?!</span>).)*${name}</span>`).exec(markup)?.[0] ?? "";
+      const button = new RegExp(`<a [^>]*aria-disabled="true"[^>]*>(?:(?!</a>).)*${name}(?:(?!</a>).)*</a>`).exec(markup)?.[0] ?? "";
       expect(button, name).toContain('aria-disabled="true"');
+      expect(button, name).toContain('role="link"');
+      expect(button, name).toContain('tabindex="0"'); // still reachable by keyboard
       expect(button, name).toContain('title="нет данных"');
+      expect(button, name).toMatch(/aria-describedby="([^"]+)"/);
       expect(button, name).not.toContain("href");
     }
   });
@@ -229,12 +232,14 @@ describe("identity row", () => {
 
     for (const bad of [null, "javascript:alert(1)", "https://evil.example/", 'https://www.faceit.com.evil.example/"onmouseover="x']) {
       const markup = identity({ faceitUrl: bad });
-      expect(markup, String(bad)).not.toContain("<a ");
+      expect(markup, String(bad)).not.toMatch(/<a [^>]*href=/);
       expect(markup, String(bad)).not.toContain("href");
+      expect(markup, String(bad)).not.toContain("target=");
       expect(markup, String(bad)).not.toContain("<button");
       expect(markup, String(bad)).not.toContain("javascript:");
-      const button = /<span[^>]*aria-disabled[^>]*>(?:(?!<\/span>).)*FACEIT<\/span>/.exec(markup)?.[0] ?? "";
+      const button = /<a [^>]*aria-disabled="true"[^>]*>(?:(?!<\/a>).)*FACEIT(?:(?!<\/a>).)*<\/a>/.exec(markup)?.[0] ?? "";
       expect(button, String(bad)).toContain('aria-disabled="true"');
+      expect(button, String(bad)).toContain('tabindex="0"');
       expect(button, String(bad)).toContain('title="нет данных"');
     }
   });

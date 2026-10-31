@@ -12,7 +12,11 @@ import { IMAGE_KINDS, IMAGE_MAX_BYTES, type ImageKind, type NoticeToken } from "
  * constants only, never from a URL in the form.
  */
 
-/** Anything that cannot be resolved (foreign or unknown player, unknown kind): one answer for all of it. */
+/**
+ * Anything that cannot be resolved (foreign or unknown player): one answer, without a player in the URL, so the page
+ * falls back to the first player's card, where the notice is shown. A request whose player is a valid roster member
+ * but whose kind is unknown keeps that player: see `failedHref`.
+ */
 export const FAILED_HREF = `${CARD_PATH}?notice=failed#notes`;
 
 interface Target {
@@ -40,6 +44,9 @@ async function targetOf(deps: Deps, ctx: StaffContext, form: FormData): Promise<
 const back = (target: Target, notice: NoticeToken): string =>
   `${cardHref(target.params, { tab: "profile" })}&notice=${notice}#notes`;
 
+/** «Не удалось» on the selected player's «Профиль» when the player is known and valid, else the generic URL. */
+const failedHref = (target: Target | null): string => (target === null ? FAILED_HREF : back(target, "failed"));
+
 const kindOf = (form: FormData): ImageKind | null => IMAGE_KINDS.find((k) => k === field(form, "kind")) ?? null;
 
 export async function saveNoteCore(deps: Deps, ctx: StaffContext, form: FormData): Promise<string> {
@@ -49,7 +56,7 @@ export async function saveNoteCore(deps: Deps, ctx: StaffContext, form: FormData
     await saveNote(deps, ctx, target.playerId, field(form, "text") ?? "");
   } catch (e) {
     if (e instanceof ApiError && e.status === 422) return back(target, "note-too-long");
-    if (e instanceof ApiError && e.status === 404) return FAILED_HREF;
+    if (e instanceof ApiError && e.status === 404) return failedHref(target);
     throw e;
   }
   return back(target, "note-saved");
@@ -58,7 +65,7 @@ export async function saveNoteCore(deps: Deps, ctx: StaffContext, form: FormData
 export async function uploadImageCore(deps: Deps, ctx: StaffContext, form: FormData): Promise<string> {
   const kind = kindOf(form);
   const target = await targetOf(deps, ctx, form);
-  if (kind === null || target === null) return FAILED_HREF;
+  if (kind === null || target === null) return failedHref(target);
   const file = form.get("file");
   if (file === null || typeof file === "string" || file.size === 0) return back(target, `${kind}-empty`);
   // The declared size is checked before the bytes are read; saveImage checks the real length again.
@@ -68,7 +75,7 @@ export async function uploadImageCore(deps: Deps, ctx: StaffContext, form: FormD
   } catch (e) {
     if (e instanceof ApiError && e.status === 413) return back(target, `${kind}-size`);
     if (e instanceof ApiError && e.status === 422) return back(target, `${kind}-type`);
-    if (e instanceof ApiError && e.status === 404) return FAILED_HREF;
+    if (e instanceof ApiError && e.status === 404) return failedHref(target);
     throw e;
   }
   return back(target, `${kind}-saved`);
@@ -77,11 +84,11 @@ export async function uploadImageCore(deps: Deps, ctx: StaffContext, form: FormD
 export async function deleteImageCore(deps: Deps, ctx: StaffContext, form: FormData): Promise<string> {
   const kind = kindOf(form);
   const target = await targetOf(deps, ctx, form);
-  if (kind === null || target === null) return FAILED_HREF;
+  if (kind === null || target === null) return failedHref(target);
   try {
     await deleteImage(deps, ctx, target.playerId, kind);
   } catch (e) {
-    if (e instanceof ApiError && e.status === 404) return FAILED_HREF;
+    if (e instanceof ApiError && e.status === 404) return failedHref(target);
     throw e;
   }
   return back(target, `${kind}-deleted`);

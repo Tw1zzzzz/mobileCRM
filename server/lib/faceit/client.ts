@@ -33,6 +33,7 @@ async function getJson(http: typeof fetch, apiKey: string, url: string): Promise
     response = await http(url, {
       headers: { Authorization: `Bearer ${apiKey}`, Accept: "application/json" },
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      redirect: "error", // only open.faceit.com is ever called; the key must not follow a redirect elsewhere
     });
   } catch {
     return { ok: false, failure: "unavailable" }; // network, timeout

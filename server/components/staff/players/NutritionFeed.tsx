@@ -129,8 +129,8 @@ export function NutritionFeed({ data }: { data: NutritionData }) {
                     <span className={nutrition.daySub}>{group.sub}</span>
                   </div>
                   <ul className={nutrition.meals}>
-                    {group.meals.map((meal, i) => (
-                      <Meal key={`${meal.href ?? i}-${meal.nickname}`} meal={meal} />
+                    {group.meals.map((meal) => (
+                      <Meal key={meal.key} meal={meal} />
                     ))}
                   </ul>
                 </section>

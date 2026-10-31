@@ -319,8 +319,10 @@ describe("images", () => {
     const t = await seed();
     const { uploadImageAction, deleteImageAction } = await import("../app/staff/actions");
     for (const kind of ["avatar", "", "SCHEME", "scheme ", "../scheme", "scheme';--"]) {
-      expect(await redirectOf(() => uploadImageAction(form({ player: t.ids.vega, kind, file: fileOf(PNG) })))).toBe(GENERIC_FAILURE);
-      expect(await redirectOf(() => deleteImageAction(form({ player: t.ids.vega, kind })))).toBe(GENERIC_FAILURE);
+      // the player is a valid roster member: the notice is shown on that player's «Профиль»
+      const expected = `/staff/players?player=${t.ids.vega}&notice=failed#notes`;
+      expect(await redirectOf(() => uploadImageAction(form({ player: t.ids.vega, kind, file: fileOf(PNG) })))).toBe(expected);
+      expect(await redirectOf(() => deleteImageAction(form({ player: t.ids.vega, kind })))).toBe(expected);
     }
     await expectApiError(() => saveImage(deps, t.ctx, t.ids.vega, "avatar" as never, PNG), 422);
     expect(await count("staff_player_images")).toBe(0);
@@ -403,6 +405,28 @@ describe("file route", () => {
     ] as const) {
       expect(await observable(await get(player, kind)), `${player}/${kind}`).toEqual(none);
     }
+  });
+
+  it("aPngWithAScriptAfterTheHeaderIsServedAsAHarmlessPng", async () => {
+    const t = await seed();
+    const { uploadImageAction } = await import("../app/staff/actions");
+    // a polyglot: a real PNG header followed by markup that a sniffing browser could run
+    const polyglot = Uint8Array.from([...PNG, ...new TextEncoder().encode("<script>alert(1)</script>")]);
+    const sent = form({ player: t.ids.vega, kind: "scheme", file: fileOf(polyglot, "pwn.html", "text/html") });
+    expect(await redirectOf(() => uploadImageAction(sent))).toContain("scheme-saved");
+    const [stored] = await deps.sql<{ content_type: string; n: number }[]>`
+      select content_type, length(bytes) as n from staff_player_images where player_id = ${t.ids.vega}`;
+    expect(stored.content_type).toBe("image/png"); // by the magic bytes, not by what the client said
+    expect(stored.n).toBe(polyglot.length);
+
+    const served = await get(t.ids.vega, "scheme");
+    expect(served.status).toBe(200);
+    expect(served.headers.get("content-type")).toBe("image/png");
+    expect(served.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(served.headers.get("cache-control")).toBe("private, no-store");
+    expect(served.headers.get("content-security-policy")).toBe("default-src 'none'; sandbox; frame-ancestors 'none'");
+    expect(served.headers.get("content-disposition")).toBe("inline");
+    expect(new Uint8Array(await served.arrayBuffer())).toEqual(polyglot);
   });
 
   it("anotherTeamsStaffAndPlayersAreTurnedAway", async () => {
@@ -622,6 +646,22 @@ describe("profile tab", () => {
     expect(markup.match(/>Удалить</g)).toHaveLength(2);
     expect(markup.match(/>Загрузить</g)).toHaveLength(1); // roadmap has none yet
     expect(text).toContain("План развития игрока");
+  });
+
+  it("failedNoticeKeepsTheSelectedPlayerAndSelection", async () => {
+    const t = await seed();
+    const { uploadImageAction } = await import("../app/staff/actions");
+    const href = await redirectOf(() =>
+      uploadImageAction(form({ player: t.ids.nova, kind: "avatar", file: fileOf(PNG), period: "90", type: "cog", tab: "sleep" })),
+    );
+    // the selection of the form is kept (tab goes back to «Профиль»), the notice is added
+    expect(href).toBe(`/staff/players?player=${t.ids.nova}&period=90&type=cog&notice=failed#notes`);
+    const query = Object.fromEntries(new URL(href, "http://x").searchParams);
+    const shown = cardOf(await loadCard(deps, t.ctx, query, TZ));
+    expect(shown.params.player).toBe(t.ids.nova);
+    expect(words(html(shown))).toContain("Не удалось");
+    // an unknown player carries no player at all
+    expect(await redirectOf(() => uploadImageAction(form({ player: "garbage", kind: "avatar", file: fileOf(PNG) })))).toBe(GENERIC_FAILURE);
   });
 
   it("noticesAreWhitelistedTexts", async () => {

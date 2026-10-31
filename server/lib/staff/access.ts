@@ -84,6 +84,15 @@ export async function rosterPlayer(deps: Deps, ctx: StaffContext, id: string): P
 }
 
 /**
+ * The caller's roster with nicknames only, longest-standing first: the same predicate as `teamPlayers` (role
+ * `teamPlayer`, this team, confirmed email) without the last-activity and Faceit lookups. For pages that only need
+ * who is on the roster and read the players' documents themselves (`playerDocuments`).
+ */
+export async function rosterMembers(deps: Deps, ctx: StaffContext): Promise<{ id: string; nickname: string }[]> {
+  return rosterPlayers(deps, ctx.teamId);
+}
+
+/**
  * Whether `id` is a player of the caller's roster, with the nickname; null for anyone else. The same roster
  * predicate as `rosterPlayer` (role `teamPlayer`, this team, confirmed email) in ONE query and without the
  * last-activity and Faceit lookups: for routes that only need the yes/no (meal photos, staff images).
@@ -93,7 +102,7 @@ export async function rosterMember(
   ctx: StaffContext,
   id: string,
 ): Promise<{ id: string; nickname: string } | null> {
-  return (await rosterPlayers(deps, ctx.teamId)).find((p) => p.id === id) ?? null;
+  return (await rosterMembers(deps, ctx)).find((p) => p.id === id) ?? null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

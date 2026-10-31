@@ -296,19 +296,25 @@ describe("summary", () => {
       water: { "2026-11-05": 9999, "2026-11-5": 2100, "2026-10-26": 500 },
     });
     deps.advance(10 * 24 * 3600 * 1000); // 2026-11-05, 15:00 in Moscow
-    const d = await load(t);
-    expect(d.summary.find((s) => s.nickname === "vega")?.water).toBe("Вода 2,1 / 2,5 л");
-    expect(d.summary.find((s) => s.nickname === "nova")?.water).toBe("Вода нет данных");
-    deps.advance(-10 * 24 * 3600 * 1000);
+    try {
+      const d = await load(t);
+      expect(d.summary.find((s) => s.nickname === "vega")?.water).toBe("Вода 2,1 / 2,5 л");
+      expect(d.summary.find((s) => s.nickname === "nova")?.water).toBe("Вода нет данных");
+    } finally {
+      deps.advance(-10 * 24 * 3600 * 1000); // the clock is shared by every test of the file
+    }
   });
 
   it("waterKeyUsesTheStaffDayAroundMidnight", async () => {
     const t = await seedCardTeam(deps);
     await putDoc(deps, t.ids.vega, "nutrition", { meals: [], water: { "2026-10-26": 700, "2026-10-27": 1500 } });
     deps.advance(9 * 3600 * 1000 + 30 * 60 * 1000); // 21:30 UTC = 00:30 on the 27th in Moscow
-    const d = await load(t);
-    expect(d.summary.find((s) => s.nickname === "vega")?.water).toBe("Вода 1,5 / 2,5 л");
-    deps.advance(-(9 * 3600 * 1000 + 30 * 60 * 1000));
+    try {
+      const d = await load(t);
+      expect(d.summary.find((s) => s.nickname === "vega")?.water).toBe("Вода 1,5 / 2,5 л");
+    } finally {
+      deps.advance(-(9 * 3600 * 1000 + 30 * 60 * 1000));
+    }
   });
 
   it("summarySubNamesTodayAndFooterTheNorm", async () => {
@@ -367,6 +373,81 @@ describe("dialog", () => {
     const t = await seed();
     await removeMember(deps, t.ids.team, t.ids.staff, t.ids.nova);
     expect((await load(t, { meal: NOVA_MEAL })).dialog).toBeNull();
+  });
+});
+
+describe("meal ids chosen by the players", () => {
+  const SHARED = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1";
+
+  async function seedShared(): Promise<CardTeam> {
+    const t = await seedCardTeam(deps);
+    await putDoc(deps, t.ids.vega, "nutrition", {
+      meals: [
+        { id: SHARED, date: "2026-10-26T06:00:00Z", name: "Овсянка vega", kcal: 340 },
+        { id: SHARED.toUpperCase(), date: "2026-10-26T07:00:00Z", name: "Банан vega", kcal: 100 }, // same id, same player
+        { id: PASTA, date: "2026-10-26T10:30:00Z", name: "Паста", kcal: 687 },
+      ],
+    });
+    await putDoc(deps, t.ids.nova, "nutrition", {
+      meals: [{ id: SHARED, date: "2026-10-26T08:00:00Z", name: "Курица nova", kcal: 528 }],
+    });
+    return t;
+  }
+
+  it("aRepeatedIdOpensNoDialogAndHasNoLink", async () => {
+    const t = await seedShared();
+    const d = await load(t, { meal: SHARED });
+    expect(d.params.meal).toBe(SHARED);
+    expect(d.dialog).toBeNull();
+    expect(await load(t, { meal: SHARED.toUpperCase() }).then((x) => x.dialog)).toBeNull();
+    const cards = d.groups.flatMap((g) => g.meals);
+    expect(cards).toHaveLength(4);
+    // the three meals with the shared id have no link, the unique one keeps its own
+    expect(cards.filter((m) => m.href === null).map((m) => m.name).sort()).toEqual(["Банан vega", "Курица nova", "Овсянка vega"]);
+    expect(cards.find((m) => m.name === "Паста")?.href).toBe(`/staff/players?section=nutrition&meal=${PASTA}`);
+    expect((await load(t, { meal: PASTA })).dialog?.name).toBe("Паста");
+    // the links of the page are unique, whatever the players wrote
+    const links = cards.flatMap((m) => (m.href === null ? [] : [m.href]));
+    expect(new Set(links).size).toBe(links.length);
+  });
+
+  it("feedKeysAreUniqueEvenForTheSameIdTwice", async () => {
+    const t = await seedShared();
+    const keys = (await load(t)).groups.flatMap((g) => g.meals.map((m) => m.key));
+    expect(keys).toHaveLength(4);
+    expect(new Set(keys).size).toBe(4);
+    expect(keys).toContain(`${t.ids.nova}:${SHARED}`);
+    expect(keys).toContain(`${t.ids.vega}:${SHARED}`);
+  });
+
+  it("anIdSharedWithAMealOutsideThePeriodStillOpens", async () => {
+    const t = await seedCardTeam(deps);
+    await putDoc(deps, t.ids.vega, "nutrition", {
+      meals: [{ id: SHARED, date: "2026-10-26T06:00:00Z", name: "Сегодня", kcal: 1 }],
+    });
+    await putDoc(deps, t.ids.nova, "nutrition", {
+      meals: [{ id: SHARED, date: "2026-10-01T06:00:00Z", name: "Давно", kcal: 2 }],
+    });
+    // only one of the two is visible in the default three days
+    expect((await load(t, { meal: SHARED })).dialog?.name).toBe("Сегодня");
+    expect((await load(t, { meal: SHARED, days: "7" })).dialog?.name).toBe("Сегодня");
+  });
+});
+
+describe("roster read", () => {
+  it("loadNutritionDoesNotAskForActivityOrFaceitLinks", async () => {
+    const t = await seed();
+    const seen: string[] = [];
+    const spy = new Proxy(deps.sql, {
+      apply: (target, thisArg, args) => {
+        seen.push(Array.isArray(args[0]) && "raw" in args[0] ? (args[0] as TemplateStringsArray).join("?") : "");
+        return Reflect.apply(target as never, thisArg, args);
+      },
+    });
+    const data = await loadNutrition({ ...deps, sql: spy } as typeof deps, t.ctx, { section: "nutrition" }, TZ);
+    expect(data.players.map((p) => p.nickname)).toEqual(["vega", "nova", "ghost"]);
+    expect(seen.length).toBeGreaterThan(0);
+    expect(seen.join("\n")).not.toMatch(/max\(updated_at\)|faceit_url/);
   });
 });
 

@@ -9,7 +9,7 @@ import { putDoc, seedCardTeam, type CardTeam } from "./staff-card-fixture";
 
 const deps = testDeps();
 const TZ = "Europe/Moscow";
-const KEY = "test-faceit-key";
+const KEY = "test-faceit-key-LEAK-CANARY-7c41";
 
 const FACEIT_IDS = {
   vega: "aaaaaaaa-0000-4000-8000-00000000000a",
@@ -388,6 +388,7 @@ describe("Faceit problems", () => {
         const { markup } = await open(t, { player: t.ids.vega, tab }, faceit);
         expect(text(markup), `${tab} ${name}`).toContain(message);
         expect(markup, `${tab} ${name}`).toContain('role="status"');
+        expect(markup, `${tab} ${name}`).not.toContain(KEY); // the server key never reaches the page
         expect(text(markup), `${tab} ${name}`).not.toContain("Данные от");
         expect(text(markup), `${tab} ${name}`).not.toMatch(/Убийства|Таблица|мало данных|Главное/);
       }
@@ -397,6 +398,7 @@ describe("Faceit problems", () => {
     vi.stubEnv("FACEIT_API_KEY", "");
     const noKey = await open(t, { player: t.ids.vega, tab: "game" });
     expect(text(noKey.markup)).toContain(MESSAGES.noKey);
+    expect(noKey.markup).not.toContain(KEY);
     vi.stubEnv("FACEIT_API_KEY", KEY);
 
     // the player has not connected Faceit: nova has no `faceit` document, and a document without id and nickname counts too
@@ -438,9 +440,11 @@ describe("Faceit problems", () => {
   it("freshDataHasNoNotice", async () => {
     const t = await seedCardTeam(deps);
     await connect(t.ids.vega, FACEIT_IDS.vega);
-    const { markup } = await open(t, { player: t.ids.vega, tab: "game" }, fakeFaceit({ [FACEIT_IDS.vega]: GAME_ITEMS }));
+    const { data, markup } = await open(t, { player: t.ids.vega, tab: "game" }, fakeFaceit({ [FACEIT_IDS.vega]: GAME_ITEMS }));
     expect(markup).not.toContain('role="status"');
     expect(text(markup)).not.toMatch(/Данные от|Матчи покрыты/);
+    expect(markup).not.toContain(KEY);
+    expect(JSON.stringify(data)).not.toContain(KEY);
   });
 
   it("periodBeyondCoverageSaysFromWhichDate", async () => {

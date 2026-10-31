@@ -144,8 +144,8 @@ describe("loadCard", () => {
     // Readiness (owner's formula) on the same days: 81, 58, 92, 48 -> mean 69.75; halves 69.5 and 70.
     // Focus by day: 22 Oct 8 (9 and 7), 25 Oct 6; fatigue: 22 Oct 5 (2 and 8), 25 Oct 9.
     expect(card.kpis).toEqual([
-      { label: "Средний score", value: "70", note: { text: "+20,0 за период", tone: "up" } },
-      { label: "Индекс состояния", value: "70", note: { text: "+0,5 за период", tone: "up" } },
+      { label: "Средний score", value: "70", note: { text: "+20.0 за период", tone: "up" } },
+      { label: "Индекс состояния", value: "70", note: { text: "+0.5 за период", tone: "up" } },
       { label: "Фокус high", value: "1 из 2", note: { text: "дней с фокусом 8+", tone: "flat" } },
       { label: "Усталость high", value: "1 из 2", note: { text: "дней с усталостью 8+", tone: "flat" } },
     ]);
@@ -155,8 +155,8 @@ describe("loadCard", () => {
     const t = await seedCardTeam(deps);
     const card = cardOf(await loadCard(deps, t.ctx, { player: t.ids.nova }, TZ));
     // Score 80 then 60; readiness 92 then 69 (cognitive alone, scaled): mean 80.5 -> 81.
-    expect(card.kpis[0]).toMatchObject({ value: "70", note: { text: "−20,0 за период", tone: "down" } });
-    expect(card.kpis[1]).toMatchObject({ value: "81", note: { text: "−23,0 за период", tone: "down" } });
+    expect(card.kpis[0]).toMatchObject({ value: "70", note: { text: "−20.0 за период", tone: "down" } });
+    expect(card.kpis[1]).toMatchObject({ value: "81", note: { text: "−23.0 за период", tone: "down" } });
     // No game tests at all: the counters have no days to count.
     expect(card.kpis[2]).toEqual({ label: "Фокус high", value: "нет данных", note: { text: "дней с фокусом 8+", tone: "flat" } });
   });
@@ -172,10 +172,10 @@ describe("loadCard", () => {
     });
     const month = cardOf(await loadCard(deps, t.ctx, { player: t.ids.nova }, TZ));
     // Days 5, 24, 26 Oct: 100, 80, 60 -> mean 80; halves (floor(3 / 2) = 1): 100 and 70.
-    expect(month.kpis[0]).toMatchObject({ value: "80", note: { text: "−30,0 за период" } });
+    expect(month.kpis[0]).toMatchObject({ value: "80", note: { text: "−30.0 за период" } });
     expect(month.rangeLabel).toBe("27 сен – 26 окт");
     const week = cardOf(await loadCard(deps, t.ctx, { player: t.ids.nova, period: "7" }, TZ));
-    expect(week.kpis[0]).toMatchObject({ value: "70", note: { text: "−20,0 за период" } });
+    expect(week.kpis[0]).toMatchObject({ value: "70", note: { text: "−20.0 за период" } });
     expect(week.rangeLabel).toBe("20 окт – 26 окт");
     const quarter = cardOf(await loadCard(deps, t.ctx, { player: t.ids.nova, period: "90" }, TZ));
     expect(quarter.rangeLabel).toBe("29 июл – 26 окт");

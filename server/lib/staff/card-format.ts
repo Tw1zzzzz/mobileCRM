@@ -1,6 +1,5 @@
 import { MONTHS } from "@/lib/staff/players";
 import { roundHalfUp, shiftDay, type Day } from "@/lib/staff/metrics";
-import { fmt1 } from "@/lib/staff/overview-format";
 
 /** Text formats of the player card (`Players.dc.html`): day labels, «7 ч 05 мин», signed deltas, initials. */
 
@@ -29,11 +28,11 @@ export function hoursMinutes(hours: number): string {
   return `${h} ч ${String(m).padStart(2, "0")} мин`;
 }
 
-/** The board's `sgn(v, 1)` with a comma: «+1,2», «−0,5» (U+2212), «±0,0». */
+/** The board's `sgn(v, 1)`, decimal dot as on the board: «+1.2», «−0.5» (U+2212), «±0.0». */
 export function signed1(value: number): string {
   const rounded = roundHalfUp(value * 10) / 10;
   const sign = rounded > 0 ? "+" : rounded < 0 ? "−" : "±";
-  return `${sign}${fmt1(Math.abs(rounded))}`;
+  return `${sign}${Math.abs(rounded).toFixed(1)}`;
 }
 
 /** The avatar's two letters. */

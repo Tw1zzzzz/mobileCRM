@@ -279,7 +279,22 @@ describe("loadMatches", () => {
     const { http, calls } = fakeHttp({});
     expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http)).toEqual({ status: "no-key" });
     expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, "")).toEqual({ status: "no-key" });
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, "  \t\n ")).toEqual({ status: "no-key" });
+    process.env.FACEIT_API_KEY = "   ";
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http)).toEqual({ status: "no-key" });
     expect(calls).toHaveLength(0);
+  });
+
+  it("theKeyIsTrimmedBeforeItIsSent", async () => {
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json(statsBody()) });
+    await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, `  ${KEY}\n`);
+    expect(new Headers(calls[0].init?.headers).get("authorization")).toBe(`Bearer ${KEY}`);
+  });
+
+  it("neverFollowsRedirects", async () => {
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json(statsBody()) });
+    await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    expect(calls[0].init?.redirect).toBe("error");
   });
 
   it("readsTheKeyFromTheEnvironmentWhenCalled", async () => {

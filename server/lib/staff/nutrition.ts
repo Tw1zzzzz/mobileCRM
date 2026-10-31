@@ -1,6 +1,6 @@
 import type { Deps } from "@/lib/deps";
 import { parseMealId } from "@/lib/photos";
-import { playerDocuments, teamPlayers, type StaffContext } from "@/lib/staff/access";
+import { playerDocuments, rosterMembers, type StaffContext } from "@/lib/staff/access";
 import { initials } from "@/lib/staff/card-format";
 import { STAFF_TIME_ZONE, dayOf, roundHalfUp, shiftDay, type Day } from "@/lib/staff/metrics";
 import {
@@ -92,6 +92,8 @@ export function nutritionHref(params: NutritionParams, patch: Partial<NutritionP
 // ---------------------------------------------------------------- shape
 
 export interface MealCard {
+  /** Unique within the feed (React key): meal ids are chosen by the players and may repeat across players. */
+  key: string;
   nickname: string;
   name: string;
   /** Kilocalories as a number, or «—». */
@@ -100,7 +102,7 @@ export interface MealCard {
   time: string;
   /** The staff photo route; null shows the «без фото» placeholder. */
   photo: string | null;
-  /** Opens the dialog; null for a meal whose id the app did not write as a UUID. */
+  /** Opens the dialog; null for a meal whose id is not a UUID or is shared by several visible meals. */
   href: string | null;
 }
 
@@ -191,22 +193,60 @@ const gramsText = (value: number | null): string => (value === null ? EMPTY_CELL
 /** The links of the page never keep the dialog open: only a meal card sets `meal`. */
 const withoutDialog = (params: NutritionParams): NutritionParams => ({ ...params, meal: null });
 
-function card(meal: Meal, params: NutritionParams, tz: string): MealCard {
+/** The lower-case ids that more than one of `meals` carries: the dialog cannot tell those meals apart. */
+function repeatedIds(meals: readonly Meal[]): ReadonlySet<string> {
+  const seen = new Set<string>();
+  const repeated = new Set<string>();
+  for (const meal of meals) {
+    const id = meal.id.toLowerCase();
+    if (seen.has(id)) repeated.add(id);
+    seen.add(id);
+  }
+  return repeated;
+}
+
+function card(meal: Meal, key: string, repeated: ReadonlySet<string>, params: NutritionParams, tz: string): MealCard {
+  const id = meal.id.toLowerCase();
   return {
+    key,
     nickname: meal.nickname,
     name: meal.name,
     kcal: kcalText(meal.kcal),
     time: clock(meal.at, tz),
     photo: meal.photo,
-    href: parseMealId(meal.id) === null ? null : nutritionHref(params, { meal: meal.id.toLowerCase() }),
+    href: parseMealId(meal.id) === null || repeated.has(id) ? null : nutritionHref(params, { meal: id }),
   };
 }
 
-function groupsOf(meals: readonly Meal[], today: Day, params: NutritionParams, tz: string): DayGroup[] {
+/** `playerId:mealId`, with a counter when even that repeats (one player writing the same id twice). */
+function uniqueKeys(meals: readonly Meal[]): Map<Meal, string> {
+  const used = new Map<string, number>();
+  const keys = new Map<Meal, string>();
+  for (const meal of meals) {
+    const base = `${meal.playerId}:${meal.id.toLowerCase()}`;
+    const n = used.get(base) ?? 0;
+    used.set(base, n + 1);
+    keys.set(meal, n === 0 ? base : `${base}:${n}`);
+  }
+  return keys;
+}
+
+function groupsOf(
+  meals: readonly Meal[],
+  repeated: ReadonlySet<string>,
+  today: Day,
+  params: NutritionParams,
+  tz: string,
+): DayGroup[] {
+  const keys = uniqueKeys(meals);
   const days = [...new Set(meals.map((m) => m.day))].sort().reverse();
   return days.map((day) => {
     const ofDay = meals.filter((m) => m.day === day).sort((a, b) => b.at.getTime() - a.at.getTime());
-    return { label: feedLabel(day, today), sub: records(ofDay.length), meals: ofDay.map((m) => card(m, params, tz)) };
+    return {
+      label: feedLabel(day, today),
+      sub: records(ofDay.length),
+      meals: ofDay.map((m) => card(m, keys.get(m) as string, repeated, params, tz)),
+    };
   });
 }
 
@@ -289,7 +329,7 @@ export async function loadNutrition(
   query: SearchParams,
   tz: string = STAFF_TIME_ZONE,
 ): Promise<NutritionData> {
-  const roster = await teamPlayers(deps, ctx);
+  const roster = await rosterMembers(deps, ctx);
   const players = roster.slice(0, MAX_PLAYERS).map((p) => ({ id: p.id, nickname: p.nickname }));
   const params = parseNutritionParams(query, players.map((p) => p.id));
   const links = withoutDialog(params);
@@ -309,6 +349,7 @@ export async function loadNutrition(
   });
 
   const inRange = perPlayer.flatMap((p) => p.meals);
+  const repeated = repeatedIds(inRange);
   const shown = inRange.filter((m) => (params.who === ALL_PLAYERS || m.playerId === params.who) && (!params.photos || m.photo !== null));
   const withPhoto = shown.filter((m) => m.photo !== null).length;
   const nickname = players.find((p) => p.id === params.who)?.nickname;
@@ -319,11 +360,12 @@ export async function loadNutrition(
     players,
     hidden: roster.length - players.length,
     countText: `${records(shown.length)} · ${withPhoto} с фото${nickname === undefined ? "" : ` · ${nickname}`}`,
-    groups: groupsOf(shown, today, links, tz),
+    groups: groupsOf(shown, repeated, today, links, tz),
     summarySub: `Сегодня, ${d} ${month}. Нажмите на игрока, чтобы показать только его записи`,
     summary: perPlayer.map((p) => summaryRow(p.day, links)),
+    // An id carried by several visible meals opens nothing: it would show somebody else's dish.
     dialog: dialogOf(
-      params.meal === null ? undefined : inRange.find((m) => m.id.toLowerCase() === params.meal),
+      params.meal === null || repeated.has(params.meal) ? undefined : inRange.find((m) => m.id.toLowerCase() === params.meal),
       links,
       today,
       tz,

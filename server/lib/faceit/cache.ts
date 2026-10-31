@@ -68,7 +68,8 @@ function cleanNickname(value: string | null | undefined): string | null {
 /**
  * The player's last matches (newest first, at most 100). `userId` is the player's user id (the cache key);
  * `faceit` is what the player's synced `faceit` document says. The key is read from `FACEIT_API_KEY` when called.
- * Nothing here throws for a Faceit problem: it becomes a status, or the stale cached list.
+ * Nothing here throws for a Faceit problem: it becomes a status, or the stale cached list. The caller must already
+ * have authorized access to this player: the cache is keyed by user id and shared by all staff.
  */
 export async function loadMatches(
   deps: Deps,
@@ -77,7 +78,8 @@ export async function loadMatches(
   http: typeof fetch = fetch,
   apiKey: string | undefined = process.env.FACEIT_API_KEY,
 ): Promise<FaceitResult> {
-  if (!apiKey) return { status: "no-key" };
+  const key = apiKey?.trim();
+  if (!key) return { status: "no-key" };
   const knownId = faceit.playerId?.trim();
   const playerId = knownId && isPlayerId(knownId) ? knownId : null;
   const nickname = cleanNickname(faceit.nickname);
@@ -91,11 +93,11 @@ export async function loadMatches(
 
   let id = playerId;
   if (id === null) {
-    const resolved = await resolvePlayerId(http, apiKey, nickname as string);
+    const resolved = await resolvePlayerId(http, key, nickname as string);
     if (!resolved.ok) return failed(cached, resolved.failure);
     id = resolved.value;
   }
-  const items = await fetchMatchItems(http, apiKey, id);
+  const items = await fetchMatchItems(http, key, id);
   if (!items.ok) return failed(cached, items.failure);
 
   const fetchedAt = deps.now();

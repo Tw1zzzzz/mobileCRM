@@ -1,5 +1,5 @@
 import { renderToStaticMarkup } from "react-dom/server";
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { NutritionFeed } from "@/components/staff/players/NutritionFeed";
 import { removeMember } from "../lib/team/members";
 import { loadNutrition } from "../lib/staff/nutrition";
@@ -191,6 +191,31 @@ describe("dish dialog", () => {
     expect(markup).not.toContain("<input");
     expect(text(markup)).not.toContain("Комментарий");
     expect(text(markup)).not.toContain("Отправить");
+  });
+});
+
+describe("meal ids that repeat", () => {
+  it("rendersWithoutDuplicateKeysOrLinksAndOpensNoDialog", async () => {
+    const t = await seedCardTeam(deps);
+    const same = "eeeeeeee-eeee-4eee-8eee-eeeeeeeeeee1";
+    await putDoc(deps, t.ids.vega, "nutrition", {
+      meals: [
+        { id: same, date: "2026-10-26T06:00:00Z", name: "Овсянка", kcal: 340 },
+        { id: same, date: "2026-10-26T07:00:00Z", name: "Банан", kcal: 100 },
+      ],
+    });
+    await putDoc(deps, t.ids.nova, "nutrition", { meals: [{ id: same, date: "2026-10-26T08:00:00Z", name: "Курица", kcal: 528 }] });
+    const errors = vi.spyOn(console, "error").mockImplementation(() => undefined);
+    try {
+      const { markup, data } = await render(t, { meal: same });
+      expect(errors).not.toHaveBeenCalled(); // React reports duplicate keys with console.error
+      expect(data.dialog).toBeNull();
+      expect(text(markup)).toContain("Овсянка");
+      expect(text(markup)).toContain("Курица");
+      expect(hrefs(markup).filter((h) => h.includes(`meal=${same}`))).toEqual([]);
+    } finally {
+      errors.mockRestore();
+    }
   });
 });
 
