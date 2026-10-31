@@ -15,13 +15,13 @@ import {
  * `test/fixtures/staff-archetype.json` and `StaffArchetypeParityTest`.
  */
 
-/** The most strengths shown as tags (the board draws three; the app shows two). */
-export const MAX_TAGS = 3;
+/** The most strengths shown as tags: the app's `MindsetProfile.strengths` takes two. */
+export const MAX_TAGS = 2;
 
 export interface Archetype {
   title: string;
   summary: string;
-  /** Short titles of the traits at 70 or more, strongest first. */
+  /** The app's strengths: short titles of the traits at 70 or more, strongest first, two at most; the top trait if none. */
   tags: string[];
 }
 
@@ -36,13 +36,13 @@ export function archetypeOf(scores: MindsetScores | null): Archetype | null {
   const ranked = [...MINDSET_TRAITS].sort((a, b) => value(b) - value(a));
   const spread = value(ranked[0]) - value(ranked[ranked.length - 1]);
   const texts = spread < BALANCED_SPREAD ? BALANCED_TEXTS : TRAIT_TEXTS[ranked[0]];
+  // `MindsetProfile.strengths`: the traits at 70+, or just the top one when none reaches it; two at most.
+  const strong = ranked.filter((trait) => value(trait) >= STRENGTH_THRESHOLD);
+  const strengths = (strong.length > 0 ? strong : ranked.slice(0, 1)).slice(0, MAX_TAGS);
   return {
     title: texts.title,
     summary: texts.summary,
-    tags: ranked
-      .filter((trait) => value(trait) >= STRENGTH_THRESHOLD)
-      .slice(0, MAX_TAGS)
-      .map((trait) => TRAIT_TEXTS[trait].shortTitle),
+    tags: strengths.map((trait) => TRAIT_TEXTS[trait].shortTitle),
   };
 }
 

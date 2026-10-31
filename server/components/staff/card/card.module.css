@@ -74,7 +74,7 @@
   text-decoration: none;
   cursor: pointer;
 }
-.btnGhost:hover:not(:disabled) {
+.btnGhost:hover:not([aria-disabled="true"]) {
   background: var(--raised-hover);
   color: #fff;
 }
@@ -82,7 +82,7 @@
   outline: 2px solid var(--cyan);
   outline-offset: 2px;
 }
-.btnGhost:disabled {
+.btnGhost[aria-disabled="true"] {
   opacity: 0.45;
   cursor: default;
 }

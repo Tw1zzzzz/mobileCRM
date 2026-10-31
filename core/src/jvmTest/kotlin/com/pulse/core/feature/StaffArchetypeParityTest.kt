@@ -22,9 +22,8 @@ import kotlin.test.fail
  * reads too) to the app's real `MindsetProfile` / `MindsetArchetype` and compares title, summary and tags: the panel
  * must name the same archetype the player sees in the app.
  *
- * Tags: the panel shows the traits at 70 or more, strongest first, at most three (the board draws three tags). The
- * app's `MindsetProfile.strengths` is capped at two and falls back to the top trait below 70, so it is compared as
- * the leading part of the tags.
+ * Tags are compared with the short titles of `MindsetProfile.strengths` as they are: the traits at 70 or more,
+ * strongest first, two at most, the top trait when none reaches 70.
  */
 class StaffArchetypeParityTest {
     private val fixture: JsonObject = loadFixture()
@@ -92,21 +91,8 @@ class StaffArchetypeParityTest {
     }
 
     private fun assertTags(name: String, profile: MindsetProfile, tags: List<String>) {
-        val strong = MindsetTrait.entries.count { (profile.scores[it] ?: 0) >= MindsetMath.STRENGTH_THRESHOLD }
-        assertEquals(minOf(3, strong), tags.size, "$name tag count")
-        // the panel's tags are core's ranking (score, then trait order) cut at the strength threshold and at three
-        val ranked = MindsetTrait.entries.sortedWith(
-            compareByDescending<MindsetTrait> { profile.scores[it] ?: 0 }.thenBy { it.ordinal }
-        )
-        val byRanking = ranked.filter { (profile.scores[it] ?: 0) >= MindsetMath.STRENGTH_THRESHOLD }.take(3)
-        assertEquals(byRanking.map { it.shortTitle }, tags, "$name ranked tags")
-        if (strong == 0) {
-            // the app falls back to its top trait here; the panel shows no tag
-            assertTrue((profile.scores[profile.strengths.single()] ?: 0) < MindsetMath.STRENGTH_THRESHOLD, name)
-        } else {
-            val appTags = profile.strengths.map { it.shortTitle }
-            assertEquals(appTags, tags.take(appTags.size), "$name tags")
-        }
+        // the panel shows exactly what the app shows: `strengths` (traits at 70+, two at most, else the top trait)
+        assertEquals(profile.strengths.map { it.shortTitle }, tags, "$name tags")
     }
 
     private fun cases(): List<JsonObject> = fixture.getValue("cases").jsonArray.map { it.jsonObject }

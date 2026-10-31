@@ -3,12 +3,12 @@ import { faceitLink } from "@/lib/staff/card-format";
 import { NO_DATA } from "@/lib/staff/overview-format";
 import styles from "./card.module.css";
 
-/** A link button whose target the app does not have: shown, but off. */
+/** A link whose target the app does not have: shown, but off (a span, so the tooltip still shows). */
 function Unavailable({ children }: { children: React.ReactNode }) {
   return (
-    <button type="button" className={styles.btnGhost} disabled title={NO_DATA}>
+    <span role="link" aria-disabled="true" className={styles.btnGhost} title={NO_DATA}>
       {children}
-    </button>
+    </span>
   );
 }
 

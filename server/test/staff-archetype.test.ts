@@ -62,7 +62,7 @@ describe("archetype", () => {
 
   it("archetypeTiesGoToTheEarlierTrait", () => {
     expect(archetypeOf(named("tieAtTopFirstTraitWins").scores)?.title).toBe("Хладнокровие");
-    expect(archetypeOf(named("threeWayTieKeepsTraitOrder").scores)?.tags).toEqual(["Антитильт", "Команда", "Дисциплина"]);
+    expect(archetypeOf(named("threeWayTieKeepsTraitOrder").scores)?.tags).toEqual(["Антитильт", "Команда"]);
     expect(archetypeOf(named("tieOfLastTwoTraits").scores)?.title).toBe("Лидерство");
   });
 
@@ -74,11 +74,15 @@ describe("archetype", () => {
     expect(archetypeOf(scores(60, 60, 60, 60, 60, 60))?.title).toBe("Ровный по всем чертам");
   });
 
-  it("archetypeTagsAreStrengthsFrom70UpToThree", () => {
-    expect(archetypeOf(scores(40, 40, 70, 40, 40, 40))?.tags).toEqual(["Фокус"]);
-    expect(archetypeOf(scores(40, 40, 69, 40, 40, 40))?.tags).toEqual([]);
-    expect(archetypeOf(scores(95, 90, 85, 80, 20, 20))?.tags).toEqual(["Хладнокр.", "Антитильт", "Фокус"]);
-    expect(archetypeOf(scores(70, 85, 40, 40, 40, 99))?.tags).toEqual(["Дисциплина", "Антитильт", "Хладнокр."]);
+  it("archetypeTagsAreTheAppsStrengths", () => {
+    expect(archetypeOf(scores(40, 40, 70, 40, 40, 40))?.tags).toEqual(["Фокус"]); // exactly 70 is a strength
+    // below 70 the app falls back to the top trait
+    expect(archetypeOf(scores(40, 40, 69, 40, 40, 40))?.tags).toEqual(["Фокус"]);
+    expect(archetypeOf(scores(60, 60, 60, 60, 60, 60))?.tags).toEqual(["Хладнокр."]);
+    // at most two, strongest first, however many reach 70
+    expect(archetypeOf(scores(95, 90, 85, 80, 20, 20))?.tags).toEqual(["Хладнокр.", "Антитильт"]);
+    expect(archetypeOf(scores(85, 40, 75, 40, 72, 40))?.tags).toEqual(["Хладнокр.", "Фокус"]);
+    expect(archetypeOf(scores(70, 85, 40, 40, 40, 99))?.tags).toEqual(["Дисциплина", "Антитильт"]);
   });
 
   it("archetypeMissingTraitCountsAsZero", () => {
@@ -209,8 +213,8 @@ describe("identity row", () => {
   it("telegramAndSteamAreDisabledWithoutData", () => {
     const markup = identity({ faceitUrl: "https://www.faceit.com/ru/players/Nova" });
     for (const name of ["Telegram", "Steam"]) {
-      const button = new RegExp(`<button[^>]*>(?:(?!</button>).)*${name}</button>`).exec(markup)?.[0] ?? "";
-      expect(button, name).toContain("disabled");
+      const button = new RegExp(`<span[^>]*aria-disabled[^>]*>(?:(?!</span>).)*${name}</span>`).exec(markup)?.[0] ?? "";
+      expect(button, name).toContain('aria-disabled="true"');
       expect(button, name).toContain('title="нет данных"');
       expect(button, name).not.toContain("href");
     }
@@ -227,9 +231,10 @@ describe("identity row", () => {
       const markup = identity({ faceitUrl: bad });
       expect(markup, String(bad)).not.toContain("<a ");
       expect(markup, String(bad)).not.toContain("href");
+      expect(markup, String(bad)).not.toContain("<button");
       expect(markup, String(bad)).not.toContain("javascript:");
-      const button = /<button[^>]*>(?:(?!<\/button>).)*FACEIT<\/button>/.exec(markup)?.[0] ?? "";
-      expect(button, String(bad)).toContain("disabled");
+      const button = /<span[^>]*aria-disabled[^>]*>(?:(?!<\/span>).)*FACEIT<\/span>/.exec(markup)?.[0] ?? "";
+      expect(button, String(bad)).toContain('aria-disabled="true"');
       expect(button, String(bad)).toContain('title="нет данных"');
     }
   });
