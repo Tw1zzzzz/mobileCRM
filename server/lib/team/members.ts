@@ -112,6 +112,9 @@ export async function removeMember(
     await tx`
       update users set role = 'soloPlayer', team_id = null, updated_at = ${deps.now()}
       where id = ${memberId}`;
+    // The staff notes and images belong to the player's place in this team: they go with them.
+    await tx`delete from staff_player_notes where player_id = ${memberId}`;
+    await tx`delete from staff_player_images where player_id = ${memberId}`;
   });
 }
 

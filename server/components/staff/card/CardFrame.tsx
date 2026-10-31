@@ -93,8 +93,8 @@ export function CardFrame({ card }: { card: CardData }) {
         })}
       </nav>
 
-      {params.tab === "profile" ? (
-        <ProfileTab archetype={card.archetype} />
+      {params.tab === "profile" && card.profile !== null ? (
+        <ProfileTab archetype={card.archetype} profile={card.profile} params={params} />
       ) : params.tab === "tests" ? (
         <TestsTab tests={card.tests} />
       ) : params.tab === "game" && card.game !== null ? (

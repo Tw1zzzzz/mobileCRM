@@ -18,6 +18,7 @@ import {
   staffSignIn,
   staffSignOut,
 } from "@/lib/staff/session";
+import { deleteImageCore, saveNoteCore, uploadImageCore } from "@/lib/staff/notes-actions";
 import { removeMemberCore, rotateCodeCore, teamHref } from "@/lib/staff/team-management";
 
 const SignInFields = z.object({ email: z.string().trim().min(1), password: z.string().min(1) });
@@ -115,4 +116,22 @@ export async function removeMemberAction(form: FormData): Promise<void> {
   const ctx = await requireStaffContext();
   const result = await removeMemberCore(defaultDeps(), ctx, form);
   redirect(teamHref(result.ok ? undefined : result.error));
+}
+
+// ---- «Игроки → карточка → Профиль»: notes and images ----
+// Same rule: the session check first, the team from the context, the player resolved through the roster.
+
+export async function saveNoteAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  redirect(await saveNoteCore(defaultDeps(), ctx, form));
+}
+
+export async function uploadImageAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  redirect(await uploadImageCore(defaultDeps(), ctx, form));
+}
+
+export async function deleteImageAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  redirect(await deleteImageCore(defaultDeps(), ctx, form));
 }

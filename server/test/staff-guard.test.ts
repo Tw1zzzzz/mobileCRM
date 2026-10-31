@@ -96,8 +96,12 @@ describe("staff panel guard", () => {
         expect(firstAwait?.[1], `${name}: first await is not requireStaffContext()`).toBe("requireStaffContext");
       }
     }
-    // The two team actions exist today; seeing them proves the parser found real functions.
-    expect(checked).toEqual(expect.arrayContaining(["rotateCodeAction", "removeMemberAction"]));
+    // The team and notes actions exist today; seeing them proves the parser found real functions.
+    expect(checked).toEqual(
+      expect.arrayContaining([
+        "rotateCodeAction", "removeMemberAction", "saveNoteAction", "uploadImageAction", "deleteImageAction",
+      ]),
+    );
   });
 
   it("allExportsOfAnActionsFileAreFunctions", () => {
@@ -110,7 +114,12 @@ describe("staff panel guard", () => {
   const routes = walk(PANEL_DIR).filter((f) => f.endsWith("/route.ts"));
 
   it("findsTheRouteHandlers", () => {
-    expect(routes.map(rel)).toContain("app/staff/(panel)/photos/[playerId]/[mealId]/route.ts");
+    expect(routes.map(rel)).toEqual(
+      expect.arrayContaining([
+        "app/staff/(panel)/photos/[playerId]/[mealId]/route.ts",
+        "app/staff/(panel)/files/[playerId]/[kind]/route.ts",
+      ]),
+    );
   });
 
   it("everyPanelRouteHandlerChecksTheSessionBeforeAnythingElse", () => {

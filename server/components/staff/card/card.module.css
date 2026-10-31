@@ -631,3 +631,135 @@ a.chipOn:hover {
     padding: 14px;
   }
 }
+
+/* ---- «Профиль»: staff notes and images (the board's `.note`, `.drop`, `.btn-ghost`) ---- */
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.noteForm {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+.note {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 110px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--input);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  line-height: 1.45;
+  resize: vertical;
+}
+.note:focus {
+  outline: 2px solid var(--cyan);
+  border-color: transparent;
+}
+.noteRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 14px;
+}
+.noteMeta {
+  font-size: 13px;
+  color: var(--faint);
+}
+.statusOk,
+.statusError {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 600;
+}
+.statusOk {
+  color: var(--cyan-soft);
+}
+.statusError {
+  color: var(--danger);
+}
+.slots {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr));
+  gap: 14px;
+}
+.slot {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-width: 0;
+}
+.dropBox {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 140px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px dashed rgba(120, 150, 220, 0.3);
+  background: var(--input);
+  color: var(--faint);
+  font-size: 13px;
+  text-align: center;
+}
+.imageBox {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid var(--line-strong);
+  background: var(--input);
+}
+.slotImage {
+  display: block;
+  max-width: 100%;
+  height: auto;
+  border-radius: 8px;
+}
+.imageActions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 8px;
+}
+.imageActions .uploadForm {
+  justify-content: flex-start;
+}
+.uploadForm {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  max-width: 100%;
+}
+.fileInput {
+  max-width: 100%;
+  min-width: 0;
+  font-family: inherit;
+  font-size: 13px;
+  color: var(--text-soft);
+}
+.fileInput::file-selector-button {
+  margin-right: 8px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-soft);
+  font-family: inherit;
+  cursor: pointer;
+}

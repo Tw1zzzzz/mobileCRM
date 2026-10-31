@@ -255,13 +255,14 @@ describe("identity row", () => {
   });
 });
 
+const EMPTY_PROFILE = { note: null, images: { scheme: null, roadmap: null, mindmap: null }, notice: null };
+const TAB_PARAMS = { player: "p1", period: 30, tab: "profile", type: "all", src: "all", day: null } as const;
+const profileTab = (archetype: Archetype | null): string =>
+  renderToStaticMarkup(createElement(ProfileTab, { archetype, profile: EMPTY_PROFILE, params: TAB_PARAMS }));
+
 describe("profile tab", () => {
   it("archetypeCardShowsTitleSummaryAndTags", () => {
-    const markup = renderToStaticMarkup(
-      createElement(ProfileTab, {
-        archetype: { title: "Дисциплина", summary: "Тренируется регулярно и по плану.", tags: ["Дисциплина", "Фокус"] },
-      }),
-    );
+    const markup = profileTab({ title: "Дисциплина", summary: "Тренируется регулярно и по плану.", tags: ["Дисциплина", "Фокус"] });
     const text = words(markup);
     expect(text).toContain("Архетип");
     expect(text).toContain("Дисциплина");
@@ -272,23 +273,21 @@ describe("profile tab", () => {
   });
 
   it("archetypeCardWithoutTagsHasNoTagRow", () => {
-    const markup = renderToStaticMarkup(
-      createElement(ProfileTab, { archetype: { title: "Ровный по всем чертам", summary: "x", tags: [] } }),
-    );
+    const markup = profileTab({ title: "Ровный по всем чертам", summary: "x", tags: [] });
     expect(markup).not.toContain("<ul");
   });
 
   it("noFinishedRunShowsNoDataInsideTheArchetypeCard", () => {
-    const markup = renderToStaticMarkup(createElement(ProfileTab, { archetype: null }));
+    const markup = profileTab(null);
     const text = words(markup);
     expect(text).toContain("Архетип");
     expect(text).toContain("нет данных");
   });
 
-  it("noRoleCardNoCommunicationNotesNoDeadUploadButtons", () => {
+  it("noRoleCardAndTheQuestionnaireStaysClosed", () => {
     for (const archetype of [null, { title: "t", summary: "s", tags: [] }]) {
-      const markup = renderToStaticMarkup(createElement(ProfileTab, { archetype }));
-      for (const absent of ["Роль в CS2", "Основная роль", "Коммуникативная линия", "Схема общения", "Roadmap", "Mindmap", "Загрузить", "<textarea", "<button"]) {
+      const markup = profileTab(archetype);
+      for (const absent of ["Роль в CS2", "Основная роль", "Вторичная роль", "Предпочтительная сторона", "Сильная фаза"]) {
         expect(markup, absent).not.toContain(absent);
       }
     }
@@ -365,7 +364,8 @@ describe("profile through the card", () => {
     const vega = renderToStaticMarkup(createElement(CardFrame, { card: card(await loadCard(deps, t.ctx, { player: t.ids.vega }, TZ)) }));
     expect(vega).toContain('href="https://www.faceit.com/ru/players/Vega"');
     const nova = renderToStaticMarkup(createElement(CardFrame, { card: card(await loadCard(deps, t.ctx, { player: t.ids.nova }, TZ)) }));
-    expect(nova).not.toContain("javascript:");
+    // (React's own placeholder for Server Action forms in static markup is `action="javascript:throw …"`)
+    expect(nova).not.toMatch(/href="javascript:/i);
     expect(nova).not.toContain("faceit.com");
     const ghost = renderToStaticMarkup(createElement(CardFrame, { card: card(await loadCard(deps, t.ctx, { player: t.ids.ghost }, TZ)) }));
     expect(ghost).not.toContain("faceit.com");

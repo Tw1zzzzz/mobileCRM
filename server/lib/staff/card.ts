@@ -5,6 +5,7 @@ import { playerDocuments, teamPlayers, type Collection, type StaffContext } from
 import { chartLine, type TestsChart } from "@/lib/staff/card-charts";
 import { corrView, gameView, type CorrView, type GameView } from "@/lib/staff/card-game";
 import { foodData, type FoodData } from "@/lib/staff/card-food";
+import { loadProfileNotes, type ProfileNotes } from "@/lib/staff/notes";
 import { dayLabel, hoursMinutes, initials, monthDay, signed1 } from "@/lib/staff/card-format";
 import { wheelData, type WheelData } from "@/lib/staff/card-wheel";
 import {
@@ -186,6 +187,8 @@ export type CardData =
       archetype: Archetype | null;
       wheel: WheelData;
       food: FoodData;
+      /** Staff notes and images; only on the «Профиль» tab. */
+      profile: ProfileNotes | null;
       /** Only on the «Игра» tab (and only then is Faceit asked). */
       game: GameView | null;
       /** Only on the «Корреляции» tab. */
@@ -409,6 +412,7 @@ export async function loadCard(
     archetype: archetypeOf(latestMindsetScores(docs["player-survey"])),
     wheel: wheelData(docs, today, params.day, (day) => cardHref(params, { day })),
     food: foodData(docs, player.id, period.from, period.to, tz),
+    profile: params.tab === "profile" ? await loadProfileNotes(deps, ctx, player.id, tz, firstOf(raw.notice)) : null,
     game: faceit && params.tab === "game" ? gameView(faceit, period, today, tz) : null,
     corr: faceit && params.tab === "corr" ? corrView(faceit, series, period, today, tz) : null,
   };
