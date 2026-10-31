@@ -251,6 +251,9 @@ a.tabOn:hover {
 .rowTests {
   grid-template-columns: 1fr 1.4fr 0.8fr 0.8fr;
 }
+.rowFood {
+  grid-template-columns: 60px 1fr 1.6fr 1fr;
+}
 .rowSleep {
   grid-template-columns: 1.2fr 1fr 1fr 1fr;
 }
@@ -281,6 +284,112 @@ a.tabOn:hover {
 .stBad {
   background: rgba(255, 122, 61, 0.14);
   color: #ffa27a;
+}
+.thumb {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #1e2740, #141b30);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--cyan-soft);
+}
+img.thumb {
+  display: block;
+  object-fit: cover;
+  /* a photo that cannot be loaded (still uploading) must not spill its alt text out of the 44 px box */
+  overflow: hidden;
+  font-size: 0;
+}
+
+/* ---- balance wheel (the board's `.rl`, `.kv`, `.drop`, day chips) ---- */
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--text-soft) !important;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+}
+a.chip:hover {
+  color: var(--text) !important;
+  border-color: rgba(63, 208, 255, 0.4);
+}
+a.chip:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.chipOn,
+a.chipOn:hover {
+  background: var(--brand-flat);
+  border-color: transparent;
+  color: #fff !important;
+  font-weight: 600;
+}
+.wheel {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 24px;
+}
+.radar {
+  position: relative;
+  width: 320px;
+  max-width: 100%;
+  aspect-ratio: 1 / 1;
+  margin: 0 auto;
+}
+.rl {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-soft);
+  white-space: nowrap;
+}
+.wheelList {
+  flex: 1 1 260px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 6px;
+}
+.kv {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 12px;
+  border-radius: 10px;
+  background: var(--raised);
+  font-size: 14px;
+}
+.kvName {
+  color: var(--text-soft);
+}
+.drop {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 140px;
+  padding: 12px;
+  border-radius: 14px;
+  border: 1px dashed rgba(120, 150, 220, 0.3);
+  background: var(--input);
+  color: var(--faint);
+  font-size: 13px;
+  text-align: center;
 }
 .cut {
   margin: 0;

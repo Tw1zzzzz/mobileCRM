@@ -8,7 +8,8 @@ import { describe, expect, it } from "vitest";
  * imports or checks done indirectly. A page that needs something unusual must adjust this test on purpose.
  *
  * Why it matters: Next renders layouts and pages independently, so the panel layout's redirect does not
- * protect a page's data fetching, and a Server Action is a public POST endpoint.
+ * protect a page's data fetching, and a Server Action is a public POST endpoint. A route handler (`route.ts`,
+ * e.g. the meal photos) is reachable by anyone who knows the URL and never passes through the layout at all.
  */
 
 const STAFF_DIR = join(__dirname, "..", "app", "staff");
@@ -24,6 +25,34 @@ function walk(dir: string): string[] {
 }
 
 const rel = (file: string): string => relative(join(__dirname, ".."), file);
+
+const HTTP_METHODS = new Set(["GET", "HEAD", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"]);
+
+/**
+ * What is wrong with a `route.ts` source, as messages (empty when it is fine). Every exported HTTP method handler
+ * must make `requireStaffContext()` its first `await`. Re-exports and default exports are refused because the
+ * handler body cannot be inspected there; a handler without any `await` (so without the check) is refused too.
+ */
+function routeViolations(file: string, source: string): string[] {
+  const problems: string[] = [];
+  if (/^[ \t]*export\s+(\*|default\b|\{)/m.test(source)) {
+    problems.push(`${file}: re-exports and default exports cannot be checked, declare the handler here`);
+  }
+  const chunks = source.split(/^[ \t]*export (?=(?:async\s+)?function\b|const\b|let\b|var\b)/m).slice(1);
+  const handlers = chunks.flatMap((chunk) => {
+    const name = /^(?:async\s+)?function\s+(\w+)|^(?:const|let|var)\s+(\w+)/.exec(chunk);
+    const method = name?.[1] ?? name?.[2];
+    return method !== undefined && HTTP_METHODS.has(method) ? [{ method, chunk }] : [];
+  });
+  if (handlers.length === 0) problems.push(`${file}: no exported HTTP method handler found`);
+  for (const { method, chunk } of handlers) {
+    const firstAwait = /\bawait\s+([A-Za-z_$][\w$.]*)/.exec(chunk)?.[1];
+    if (firstAwait !== "requireStaffContext") {
+      problems.push(`${file}: ${method}: first await is ${firstAwait ?? "missing"}, not requireStaffContext()`);
+    }
+  }
+  return problems;
+}
 
 describe("staff panel guard", () => {
   const pages = walk(PANEL_DIR).filter((f) => f.endsWith("/page.tsx"));
@@ -75,6 +104,48 @@ describe("staff panel guard", () => {
     // A `export const fooAction = ...` would escape the function-based parser above.
     for (const file of actionFiles) {
       expect(readFileSync(file, "utf8"), rel(file)).not.toMatch(/^export (const|let|var|default)\b/m);
+    }
+  });
+
+  const routes = walk(PANEL_DIR).filter((f) => f.endsWith("/route.ts"));
+
+  it("findsTheRouteHandlers", () => {
+    expect(routes.map(rel)).toContain("app/staff/(panel)/photos/[playerId]/[mealId]/route.ts");
+  });
+
+  it("everyPanelRouteHandlerChecksTheSessionBeforeAnythingElse", () => {
+    const problems = routes.flatMap((file) => routeViolations(rel(file), readFileSync(file, "utf8")));
+    expect(problems).toEqual([]);
+  });
+
+  it("guardCoversRouteHandlers", () => {
+    const guarded = `
+      export const dynamic = "force-dynamic";
+      export async function GET(_req: Request, { params }: Ctx) {
+        const ctx = await requireStaffContext("status");
+        return photo(ctx, await params);
+      }`;
+    expect(routeViolations("ok/route.ts", guarded)).toEqual([]);
+    // several methods: each one is checked on its own
+    expect(
+      routeViolations("m/route.ts", `${guarded}\nexport async function POST() { await requireStaffContext(); }`),
+    ).toEqual([]);
+
+    const violations: Record<string, string> = {
+      "no check at all": `export async function GET() { return new Response(await readPhoto()); }`,
+      "params awaited first": `export async function GET(_r: Request, { params }: Ctx) {
+        const p = await params;
+        const ctx = await requireStaffContext();
+      }`,
+      "another call first": `export async function GET() { await rateLimit(); await requireStaffContext(); }`,
+      "arrow function without any await": `export const GET = (req: Request) => handle(() => photo(req));`,
+      "second method unguarded": `${guarded}\nexport async function DELETE() { await removeAll(); }`,
+      "re-exported handler": `export { GET } from "./other";`,
+      "default export": `export default async function handler() { await requireStaffContext(); }`,
+      "no handler": `export const dynamic = "force-dynamic";`,
+    };
+    for (const [name, source] of Object.entries(violations)) {
+      expect(routeViolations("bad/route.ts", source), name).not.toEqual([]);
     }
   });
 });

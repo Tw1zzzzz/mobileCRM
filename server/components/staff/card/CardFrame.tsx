@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { CARD_PATH, cardHref, cardQuery, type CardData, type CardTab, type TestType } from "@/lib/staff/card";
+import { FoodTab } from "./FoodTab";
 import { KpiStrip } from "./KpiStrip";
 import { SleepTab } from "./SleepTab";
 import { TestsTab } from "./TestsTab";
 import { TypeFilter } from "./TypeFilter";
+import { WheelTab } from "./WheelTab";
 import styles from "./card.module.css";
 
 const TABS: readonly { id: CardTab; name: string }[] = [
@@ -81,6 +83,10 @@ export function CardFrame({ card }: { card: CardData }) {
         <TestsTab tests={card.tests} />
       ) : params.tab === "sleep" ? (
         <SleepTab sleep={card.sleep} />
+      ) : params.tab === "wheel" ? (
+        <WheelTab wheel={card.wheel} />
+      ) : params.tab === "food" ? (
+        <FoodTab food={card.food} />
       ) : (
         <Soon />
       )}

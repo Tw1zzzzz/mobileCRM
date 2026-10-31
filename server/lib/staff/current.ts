@@ -2,6 +2,7 @@ import { cache } from "react";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { defaultDeps } from "@/lib/deps";
+import { ApiError } from "@/lib/http";
 import { teamPlayers, type StaffContext } from "@/lib/staff/access";
 import { STAFF_COOKIE, resolveSession, type SessionState } from "@/lib/staff/session";
 
@@ -18,12 +19,21 @@ export async function getStaffContext(): Promise<StaffContext | null> {
 }
 
 /**
- * Every page of the panel starts with this: layouts and pages render independently in Next.js, so the page
- * turns visitors away itself instead of relying on the layout's check.
+ * Every page, Server Action and route handler of the panel starts with this: layouts and pages render
+ * independently in Next.js, so each turns visitors away itself instead of relying on the layout's check.
+ *
+ * Pages and actions send visitors to the sign-in / no-access page (the default). A route handler that serves
+ * data to an `<img>` or `fetch` passes `"status"`: nobody signed in is an `ApiError` 401, a signed-in account
+ * that is not staff of a team a 403, and never an HTML redirect.
  */
-export async function requireStaffContext(): Promise<StaffContext> {
+export async function requireStaffContext(denied: "redirect" | "status" = "redirect"): Promise<StaffContext> {
   const state = await getSessionState();
   if (state.kind === "staff") return state.ctx;
+  if (denied === "status") {
+    throw state.kind === "notStaff"
+      ? new ApiError("forbidden", "Staff of a team only.", 403)
+      : new ApiError("unauthorized", "Not authorized", 401);
+  }
   return redirect(state.kind === "notStaff" ? "/staff/no-access" : "/staff/login");
 }
 

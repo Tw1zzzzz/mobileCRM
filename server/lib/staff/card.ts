@@ -1,7 +1,9 @@
 import type { Deps } from "@/lib/deps";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext } from "@/lib/staff/access";
 import { chartLine, type TestsChart } from "@/lib/staff/card-charts";
+import { foodData, type FoodData } from "@/lib/staff/card-food";
 import { dayLabel, hoursMinutes, initials, monthDay, signed1 } from "@/lib/staff/card-format";
+import { wheelData, type WheelData } from "@/lib/staff/card-wheel";
 import {
   MIN_SLEEP_MS,
   STAFF_TIME_ZONE,
@@ -167,6 +169,8 @@ export type CardData =
       kpis: KpiTile[];
       tests: TestsData;
       sleep: SleepData;
+      wheel: WheelData;
+      food: FoodData;
     };
 
 /** Values of the days of the period that have one, oldest first. */
@@ -358,5 +362,7 @@ export async function loadCard(
     ],
     tests: testsData(docs, params, period, series, player.nickname, tz),
     sleep: sleepData(docs, period, series.sleep, tz),
+    wheel: wheelData(docs, today, params.day, (day) => cardHref(params, { day })),
+    food: foodData(docs, player.id, period.from, period.to, tz),
   };
 }

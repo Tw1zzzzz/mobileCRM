@@ -95,11 +95,11 @@ describe("card frame", () => {
 
   it("tabsNotBuiltYetSaySoon", async () => {
     const t = await seedCardTeam(deps);
-    for (const tab of ["profile", "game", "corr", "wheel", "food"]) {
+    for (const tab of ["profile", "game", "corr"]) {
       const { markup } = await frame(t, { player: t.ids.vega, tab });
       expect(text(markup), tab).toMatch(SOON);
     }
-    for (const tab of ["tests", "sleep"]) {
+    for (const tab of ["tests", "sleep", "wheel", "food"]) {
       const { markup } = await frame(t, { player: t.ids.vega, tab });
       expect(text(markup), tab).not.toMatch(SOON);
     }

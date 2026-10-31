@@ -63,11 +63,19 @@ export interface Period {
 }
 
 /** `BalanceCategory` keys of the app, in its declaration order. */
-const WHEEL_KEYS = [
+export const WHEEL_KEYS = [
   "physical", "emotional", "intellectual", "spiritual", "professional", "social", "environment", "financial",
 ] as const;
 /** `BalanceEntry.value`: a key missing from an entry counts as this. */
 const WHEEL_DEFAULT = 5;
+
+/** The 8 values of a balance entry in `WHEEL_KEYS` order; a missing (or out-of-range) key counts 5.0, as in the app. */
+export function wheelValues(values: Record<string, unknown>): number[] {
+  return WHEEL_KEYS.map((key) => {
+    const v = values[key];
+    return inRange(v, 0, 10) ? v : WHEEL_DEFAULT;
+  });
+}
 const MINUTES_PER_HOUR = 60;
 const MINUTES_PER_DAY = 1440;
 
@@ -109,12 +117,8 @@ function indexExtras(docs: Documents, tz: string): ExtraIndex {
   for (const e of records(docs.wellbeing, "balance")) {
     const at = parseInstant(e.day);
     if (!at || !isRecord(e.values)) continue;
-    const values = e.values;
     let sum = 0;
-    for (const key of WHEEL_KEYS) {
-      const v = values[key];
-      sum += inRange(v, 0, 10) ? v : WHEEL_DEFAULT;
-    }
+    for (const v of wheelValues(e.values)) sum += v;
     extra.balance.set(phoneDayOf(at), sum / WHEEL_KEYS.length);
   }
   for (const g of records(docs.cognitive, "gameResults")) {

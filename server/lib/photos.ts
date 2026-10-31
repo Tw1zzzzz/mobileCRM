@@ -9,10 +9,16 @@ const JPEG_MAGIC = [0xff, 0xd8, 0xff];
 
 const MealId = z.guid();
 
-function requireMealId(mealId: string): string {
+/** The meal id as the photo store accepts it, or null when it is not a UUID. */
+export function parseMealId(mealId: string): string | null {
   const parsed = MealId.safeParse(mealId);
-  if (!parsed.success) throw new ApiError("validation_failed", "meal_id: must be a UUID", 422);
-  return parsed.data;
+  return parsed.success ? parsed.data : null;
+}
+
+function requireMealId(mealId: string): string {
+  const parsed = parseMealId(mealId);
+  if (parsed === null) throw new ApiError("validation_failed", "meal_id: must be a UUID", 422);
+  return parsed;
 }
 
 /**
