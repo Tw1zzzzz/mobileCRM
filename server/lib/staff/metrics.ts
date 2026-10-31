@@ -108,16 +108,16 @@ export const PILL_THRESHOLDS = {
 
 /** A sleep session shorter than this is «Неполная» in the app and is not counted as sleep. */
 const MIN_SLEEP_MS = 60 * 60 * 1000;
-const HOUR_MS = 60 * 60 * 1000;
+export const HOUR_MS = 60 * 60 * 1000;
 const WINDOW_DAYS = 7;
 
 // ---------------------------------------------------------------- numbers
 
-function roundHalfUp(x: number): number {
+export function roundHalfUp(x: number): number {
   return Math.floor(x + 0.5);
 }
 
-function round2(x: number): number {
+export function round2(x: number): number {
   return roundHalfUp(x * 100) / 100;
 }
 
@@ -125,15 +125,15 @@ function round2OrNull(x: number | null): number | null {
   return x === null ? null : round2(x);
 }
 
-function isNumber(value: unknown): value is number {
+export function isNumber(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value);
 }
 
-function inRange(value: unknown, min: number, max: number): value is number {
+export function inRange(value: unknown, min: number, max: number): value is number {
   return isNumber(value) && value >= min && value <= max;
 }
 
-function mean(values: readonly number[]): number | null {
+export function mean(values: readonly number[]): number | null {
   if (values.length === 0) return null;
   let sum = 0;
   for (const v of values) sum += v;
@@ -240,11 +240,11 @@ export function shiftDay(day: Day, delta: number): Day {
 }
 
 /** `count` days ending at `end`, oldest first. */
-function daysEndingAt(end: Day, count: number): Day[] {
+export function daysEndingAt(end: Day, count: number): Day[] {
   return Array.from({ length: count }, (_, i) => shiftDay(end, i - (count - 1)));
 }
 
-function parseInstant(value: unknown): Date | null {
+export function parseInstant(value: unknown): Date | null {
   if (typeof value !== "string" || !ISO_INSTANT.test(value)) return null;
   const ms = Date.parse(value);
   return Number.isNaN(ms) ? null : new Date(ms);
@@ -252,18 +252,18 @@ function parseInstant(value: unknown): Date | null {
 
 // ---------------------------------------------------------------- documents → per-day values
 
-function isRecord(value: unknown): value is Record<string, unknown> {
+export function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
 }
 
 /** The object entries of `doc[key]`; anything else (wrong shape, wrong type) yields nothing. */
-function records(doc: unknown, key: string): Record<string, unknown>[] {
+export function records(doc: unknown, key: string): Record<string, unknown>[] {
   if (!isRecord(doc)) return [];
   const list = doc[key];
   return Array.isArray(list) ? list.filter(isRecord) : [];
 }
 
-interface DayIndex {
+export interface DayIndex {
   sleepMs: Map<Day, number>;
   mood: Map<Day, number[]>;
   energy: Map<Day, number[]>;
@@ -282,7 +282,7 @@ function add(map: Map<Day, number>, day: Day, value: number): void {
 }
 
 /** Reads the four documents once; every value is validated, anything malformed is skipped. */
-function indexDocuments(docs: Documents, tz: string): DayIndex {
+export function indexDocuments(docs: Documents, tz: string): DayIndex {
   const index: DayIndex = { sleepMs: new Map(), mood: new Map(), energy: new Map(), cog: new Map(), kcal: new Map() };
 
   for (const s of records(docs.sleep, "sessions")) {
@@ -310,7 +310,7 @@ function indexDocuments(docs: Documents, tz: string): DayIndex {
   return index;
 }
 
-function inputsFromIndex(index: DayIndex, day: Day): DailyInputs {
+export function inputsFromIndex(index: DayIndex, day: Day): DailyInputs {
   const sleepMs = index.sleepMs.get(day);
   const mood = mean(index.mood.get(day) ?? []);
   const energy = mean(index.energy.get(day) ?? []);

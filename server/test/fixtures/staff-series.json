@@ -1,0 +1,1104 @@
+{
+ "comment": [
+  "Shared by the TypeScript test (server/test/staff-series.test.ts) and the Kotlin test",
+  "(core/src/jvmTest/.../StaffSeriesParityTest.kt). Generated from an independent Python reference, then frozen.",
+  "playerSeries(docs, from, to, tz): inclusive range, only days with data (absent key = no data, never 0).",
+  "sleep/mood/energy/cog/kcal are plan A's dailyInputs values (round2 half-up); readiness = readiness(dailyInputs) for each day with any readiness input.",
+  "screen = minutes / 60 (phone day), balance = mean of the 8 wheel values with a missing or out-of-1..10 key counted 5.0 (last entry of the phone day wins),",
+  "focus/fatigue = day mean of cognitive.gameResults (1..10), elo = elo of the latest snapshot of the day; these five are not rounded (compare at 1e-9).",
+  "Phone days (mood, energy, balance, screen) = UTC date of instant + 12h; sleep end, tests, meals and snapshots are real instants in the staff zone."
+ ],
+ "series": [
+  {
+   "name": "sleepNightEndsOnTheDay",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "a",
+       "start": "2026-10-14T20:00:00Z",
+       "end": "2026-10-15T04:30:00Z"
+      },
+      {
+       "id": "b",
+       "start": "2026-10-15T11:00:00Z",
+       "end": "2026-10-15T12:30:00Z"
+      },
+      {
+       "id": "c",
+       "start": "2026-10-16T19:00:00Z",
+       "end": "2026-10-17T02:00:00Z"
+      }
+     ]
+    }
+   },
+   "from": "2026-10-14",
+   "to": "2026-10-17",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {
+     "2026-10-15": 10.0,
+     "2026-10-17": 7.0
+    },
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {
+     "2026-10-15": 100,
+     "2026-10-17": 72
+    }
+   }
+  },
+  {
+   "name": "shortSleepIgnored",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "a",
+       "start": "2026-10-15T00:00:00Z",
+       "end": "2026-10-15T00:59:00Z"
+      },
+      {
+       "id": "b",
+       "start": "2026-10-16T00:00:00Z",
+       "end": "2026-10-16T01:00:00Z"
+      }
+     ]
+    }
+   },
+   "from": "2026-10-15",
+   "to": "2026-10-16",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {
+     "2026-10-16": 1.0
+    },
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {
+     "2026-10-16": 0
+    }
+   }
+  },
+  {
+   "name": "moodUsesPhoneDay",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "1",
+       "day": "2026-10-29T19:00:00Z",
+       "slot": "morning",
+       "mood": 7,
+       "energy": 6
+      },
+      {
+       "id": "2",
+       "day": "2026-10-29T21:00:00Z",
+       "slot": "evening",
+       "mood": 8,
+       "energy": 5
+      },
+      {
+       "id": "3",
+       "day": "2026-10-30T12:00:00Z",
+       "slot": "morning",
+       "mood": 4,
+       "energy": 3
+      },
+      {
+       "id": "4",
+       "day": "2026-10-31T11:00:00Z",
+       "slot": "evening",
+       "mood": 9,
+       "energy": 8
+      }
+     ]
+    }
+   },
+   "from": "2026-10-29",
+   "to": "2026-10-31",
+   "tz": "Asia/Yekaterinburg",
+   "expected": {
+    "sleep": {},
+    "mood": {
+     "2026-10-30": 7.5,
+     "2026-10-31": 6.5
+    },
+    "energy": {
+     "2026-10-30": 5.5,
+     "2026-10-31": 5.5
+    },
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {
+     "2026-10-30": 76,
+     "2026-10-31": 70
+    }
+   }
+  },
+  {
+   "name": "screenHoursFromMinutes",
+   "docs": {
+    "screen-time": {
+     "entries": [
+      {
+       "date": "2026-10-28T19:00:00Z",
+       "minutes": 0
+      },
+      {
+       "date": "2026-10-29T19:00:00Z",
+       "minutes": 90
+      },
+      {
+       "date": "2026-10-29T19:00:00Z",
+       "minutes": 120
+      },
+      {
+       "date": "2026-10-30T19:00:00Z",
+       "minutes": 200
+      },
+      {
+       "date": "2026-10-31T19:00:00Z",
+       "minutes": -5
+      },
+      {
+       "date": "2026-11-01T19:00:00Z",
+       "minutes": "60"
+      }
+     ],
+     "limitMinutes": 300
+    }
+   },
+   "from": "2026-10-29",
+   "to": "2026-11-02",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {
+     "2026-10-29": 0.0,
+     "2026-10-30": 2.0,
+     "2026-10-31": 3.3333333333333335
+    },
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {}
+   }
+  },
+  {
+   "name": "balanceMeanOfEightMissingKeyIsFive",
+   "docs": {
+    "wellbeing": {
+     "balance": [
+      {
+       "id": "a",
+       "day": "2026-10-29T21:00:00Z",
+       "values": {
+        "physical": 8,
+        "emotional": 6,
+        "professional": 7
+       }
+      },
+      {
+       "id": "b",
+       "day": "2026-10-29T21:00:00Z",
+       "values": {
+        "physical": 7,
+        "emotional": 7,
+        "intellectual": 7,
+        "spiritual": 7,
+        "professional": 7,
+        "social": 7,
+        "environment": 7,
+        "financial": 5
+       }
+      },
+      {
+       "id": "c",
+       "day": "2026-10-30T21:00:00Z",
+       "values": {
+        "physical": 10
+       }
+      },
+      {
+       "id": "d",
+       "day": "2026-10-31T21:00:00Z",
+       "values": {
+        "physical": 11,
+        "social": 0
+       }
+      },
+      {
+       "id": "e",
+       "day": "2026-11-01T21:00:00Z",
+       "values": {}
+      },
+      {
+       "id": "f",
+       "day": "2026-11-02T21:00:00Z"
+      }
+     ]
+    }
+   },
+   "from": "2026-10-29",
+   "to": "2026-11-04",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {
+     "2026-10-30": 6.75,
+     "2026-10-31": 5.625,
+     "2026-11-01": 5.0,
+     "2026-11-02": 5.0
+    },
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {}
+   }
+  },
+  {
+   "name": "eloLastSnapshotOfTheDay",
+   "docs": {
+    "faceit": {
+     "nickname": "n",
+     "playerId": "p",
+     "snapshots": [
+      {
+       "date": "2026-10-15T08:00:00Z",
+       "elo": 2000
+      },
+      {
+       "date": "2026-10-15T18:30:00Z",
+       "elo": 2025
+      },
+      {
+       "date": "2026-10-15T12:00:00Z",
+       "elo": 2010
+      },
+      {
+       "date": "2026-10-15T21:30:00Z",
+       "elo": 2040
+      },
+      {
+       "date": "2026-10-17T09:00:00Z",
+       "elo": 1990
+      }
+     ]
+    }
+   },
+   "from": "2026-10-14",
+   "to": "2026-10-18",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {
+     "2026-10-15": 2025,
+     "2026-10-16": 2040,
+     "2026-10-17": 1990
+    },
+    "readiness": {}
+   }
+  },
+  {
+   "name": "focusFatigueDayMean",
+   "docs": {
+    "cognitive": {
+     "gameResults": [
+      {
+       "id": "1",
+       "date": "2026-10-15T08:00:00Z",
+       "phase": "beforeTraining",
+       "focus": 6,
+       "fatigue": 3,
+       "readiness": 7
+      },
+      {
+       "id": "2",
+       "date": "2026-10-15T17:00:00Z",
+       "phase": "afterTraining",
+       "focus": 8,
+       "fatigue": 7,
+       "readiness": 6
+      },
+      {
+       "id": "3",
+       "date": "2026-10-15T21:30:00Z",
+       "phase": "beforeTraining",
+       "focus": 5,
+       "fatigue": 4,
+       "readiness": 7
+      },
+      {
+       "id": "4",
+       "date": "2026-10-16T08:00:00Z",
+       "phase": "beforeTraining",
+       "focus": 6,
+       "fatigue": 4,
+       "readiness": 7
+      },
+      {
+       "id": "5",
+       "date": "2026-10-16T17:00:00Z",
+       "phase": "afterTraining",
+       "focus": 6,
+       "fatigue": 5,
+       "readiness": 6
+      },
+      {
+       "id": "6",
+       "date": "2026-10-17T08:00:00Z",
+       "phase": "beforeTraining",
+       "focus": 11,
+       "fatigue": 6,
+       "readiness": 6
+      }
+     ]
+    }
+   },
+   "from": "2026-10-15",
+   "to": "2026-10-17",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {
+     "2026-10-15": 7.0,
+     "2026-10-16": 5.666666666666667
+    },
+    "fatigue": {
+     "2026-10-15": 5.0,
+     "2026-10-16": 4.333333333333333,
+     "2026-10-17": 6.0
+    },
+    "elo": {},
+    "readiness": {}
+   }
+  },
+  {
+   "name": "readinessSeriesMatchesDailyInputs",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "a",
+       "start": "2026-10-14T20:00:00Z",
+       "end": "2026-10-15T04:00:00Z"
+      },
+      {
+       "id": "b",
+       "start": "2026-10-15T19:00:00Z",
+       "end": "2026-10-16T02:00:00Z"
+      }
+     ]
+    },
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "1",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "morning",
+       "mood": 7,
+       "energy": 6
+      },
+      {
+       "id": "2",
+       "day": "2026-10-17T21:00:00Z",
+       "slot": "morning",
+       "mood": 5,
+       "energy": 5
+      }
+     ]
+    },
+    "cognitive": {
+     "results": [
+      {
+       "id": "r",
+       "kind": "reaction",
+       "date": "2026-10-15T10:00:00Z",
+       "score": 70,
+       "metric": 250
+      }
+     ]
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "m",
+       "date": "2026-10-16T10:00:00Z",
+       "name": "x",
+       "kcal": 700,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ]
+    }
+   },
+   "from": "2026-10-14",
+   "to": "2026-10-19",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {
+     "2026-10-15": 8.0,
+     "2026-10-16": 7.0
+    },
+    "mood": {
+     "2026-10-15": 7.0,
+     "2026-10-18": 5.0
+    },
+    "energy": {
+     "2026-10-15": 6.0,
+     "2026-10-18": 5.0
+    },
+    "cog": {
+     "2026-10-15": 70.0
+    },
+    "kcal": {
+     "2026-10-16": 700.0
+    },
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {
+     "2026-10-15": 83,
+     "2026-10-16": 72,
+     "2026-10-18": 58
+    }
+   }
+  },
+  {
+   "name": "gapsAreAbsentNotZero",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "1",
+       "day": "2026-10-11T21:00:00Z",
+       "slot": "morning",
+       "mood": 6,
+       "energy": 4
+      },
+      {
+       "id": "2",
+       "day": "2026-10-15T21:00:00Z",
+       "slot": "morning",
+       "mood": 3,
+       "energy": 2
+      }
+     ]
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "m",
+       "date": "2026-10-16T10:00:00Z",
+       "name": "x",
+       "kcal": 0,
+       "protein": 0,
+       "fat": 0,
+       "carbs": 0,
+       "source": "manual"
+      }
+     ]
+    }
+   },
+   "from": "2026-10-10",
+   "to": "2026-10-18",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {
+     "2026-10-12": 6.0,
+     "2026-10-16": 3.0
+    },
+    "energy": {
+     "2026-10-12": 4.0,
+     "2026-10-16": 2.0
+    },
+    "cog": {},
+    "kcal": {
+     "2026-10-16": 0.0
+    },
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {
+     "2026-10-12": 59,
+     "2026-10-16": 29
+    }
+   }
+  },
+  {
+   "name": "cogAndKcalDayAggregates",
+   "docs": {
+    "cognitive": {
+     "results": [
+      {
+       "id": "1",
+       "kind": "reaction",
+       "date": "2026-10-15T08:00:00Z",
+       "score": 60,
+       "metric": 1
+      },
+      {
+       "id": "2",
+       "kind": "stroop",
+       "date": "2026-10-15T09:00:00Z",
+       "score": 70,
+       "metric": 1
+      },
+      {
+       "id": "3",
+       "kind": "memory",
+       "date": "2026-10-15T10:00:00Z",
+       "score": 85,
+       "metric": 1
+      },
+      {
+       "id": "4",
+       "kind": "aim",
+       "date": "2026-10-15T11:00:00Z",
+       "score": 101,
+       "metric": 1
+      }
+     ]
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "1",
+       "date": "2026-10-15T05:00:00Z",
+       "name": "a",
+       "kcal": 600,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      },
+      {
+       "id": "2",
+       "date": "2026-10-15T10:00:00Z",
+       "name": "b",
+       "kcal": 750.5,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "photo"
+      },
+      {
+       "id": "3",
+       "date": "2026-10-15T20:59:59Z",
+       "name": "c",
+       "kcal": 400,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "quick"
+      },
+      {
+       "id": "4",
+       "date": "2026-10-15T21:00:00Z",
+       "name": "d",
+       "kcal": 300,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "quick"
+      },
+      {
+       "id": "5",
+       "date": "2026-10-15T12:00:00Z",
+       "name": "e",
+       "kcal": -5,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "quick"
+      },
+      {
+       "id": "6",
+       "date": "2026-10-15T12:00:00Z",
+       "name": "f",
+       "kcal": "abc",
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "quick"
+      }
+     ]
+    }
+   },
+   "from": "2026-10-15",
+   "to": "2026-10-16",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {
+     "2026-10-15": 71.67
+    },
+    "kcal": {
+     "2026-10-15": 1750.5,
+     "2026-10-16": 300.0
+    },
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {
+     "2026-10-15": 82
+    }
+   }
+  },
+  {
+   "name": "malformedDocumentsGiveNothing",
+   "docs": {
+    "sleep": "oops",
+    "wellbeing": {
+     "mood": "x",
+     "balance": [
+      1,
+      null,
+      "s"
+     ]
+    },
+    "cognitive": {
+     "results": {},
+     "gameResults": [
+      []
+     ]
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "date": "yesterday",
+       "kcal": 100
+      }
+     ]
+    },
+    "screen-time": {
+     "entries": [
+      {
+       "date": 5,
+       "minutes": 10
+      }
+     ]
+    },
+    "faceit": {
+     "snapshots": [
+      {
+       "date": "2026-10-15T08:00:00Z",
+       "elo": "high"
+      }
+     ]
+    }
+   },
+   "from": "2026-10-14",
+   "to": "2026-10-16",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {}
+   }
+  },
+  {
+   "name": "emptyDocumentsGiveEmptySeries",
+   "docs": {},
+   "from": "2026-10-14",
+   "to": "2026-10-16",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {}
+   }
+  },
+  {
+   "name": "rangeIsInclusiveAndClipped",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "0",
+       "day": "2026-10-13T21:00:00Z",
+       "slot": "morning",
+       "mood": 1,
+       "energy": 1
+      },
+      {
+       "id": "1",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "morning",
+       "mood": 2,
+       "energy": 2
+      },
+      {
+       "id": "2",
+       "day": "2026-10-16T21:00:00Z",
+       "slot": "morning",
+       "mood": 3,
+       "energy": 3
+      },
+      {
+       "id": "3",
+       "day": "2026-10-17T21:00:00Z",
+       "slot": "morning",
+       "mood": 4,
+       "energy": 4
+      }
+     ]
+    }
+   },
+   "from": "2026-10-15",
+   "to": "2026-10-17",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {
+     "2026-10-15": 2.0,
+     "2026-10-17": 3.0
+    },
+    "energy": {
+     "2026-10-15": 2.0,
+     "2026-10-17": 3.0
+    },
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {
+     "2026-10-15": 23,
+     "2026-10-17": 35
+    }
+   }
+  },
+  {
+   "name": "fromAfterToIsEmpty",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "1",
+       "day": "2026-10-14T21:00:00Z",
+       "slot": "morning",
+       "mood": 2,
+       "energy": 2
+      }
+     ]
+    }
+   },
+   "from": "2026-10-17",
+   "to": "2026-10-15",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {}
+   }
+  },
+  {
+   "name": "timeZoneMovesRealInstantsUtc",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "a",
+       "start": "2026-10-15T20:00:00Z",
+       "end": "2026-10-16T02:00:00Z"
+      }
+     ]
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "m",
+       "date": "2026-10-15T22:30:00Z",
+       "name": "x",
+       "kcal": 500,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ]
+    },
+    "faceit": {
+     "snapshots": [
+      {
+       "date": "2026-10-15T22:30:00Z",
+       "elo": 2100
+      }
+     ]
+    }
+   },
+   "from": "2026-10-15",
+   "to": "2026-10-17",
+   "tz": "UTC",
+   "expected": {
+    "sleep": {
+     "2026-10-16": 6.0
+    },
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {
+     "2026-10-15": 500.0
+    },
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {
+     "2026-10-15": 2100
+    },
+    "readiness": {
+     "2026-10-16": 43
+    }
+   }
+  },
+  {
+   "name": "timeZoneMovesRealInstantsMoscow",
+   "docs": {
+    "sleep": {
+     "sessions": [
+      {
+       "id": "a",
+       "start": "2026-10-15T20:00:00Z",
+       "end": "2026-10-16T02:00:00Z"
+      }
+     ]
+    },
+    "nutrition": {
+     "meals": [
+      {
+       "id": "m",
+       "date": "2026-10-15T22:30:00Z",
+       "name": "x",
+       "kcal": 500,
+       "protein": 1,
+       "fat": 1,
+       "carbs": 1,
+       "source": "manual"
+      }
+     ]
+    },
+    "faceit": {
+     "snapshots": [
+      {
+       "date": "2026-10-15T22:30:00Z",
+       "elo": 2100
+      }
+     ]
+    }
+   },
+   "from": "2026-10-15",
+   "to": "2026-10-17",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {
+     "2026-10-16": 6.0
+    },
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {
+     "2026-10-16": 500.0
+    },
+    "screen": {},
+    "balance": {},
+    "focus": {},
+    "fatigue": {},
+    "elo": {
+     "2026-10-16": 2100
+    },
+    "readiness": {
+     "2026-10-16": 43
+    }
+   }
+  }
+ ],
+ "periodDays": [
+  {
+   "name": "periodDaysEndsToday",
+   "to": "2026-10-31",
+   "days": 7,
+   "expected": {
+    "from": "2026-10-25",
+    "to": "2026-10-31",
+    "days": [
+     "2026-10-25",
+     "2026-10-26",
+     "2026-10-27",
+     "2026-10-28",
+     "2026-10-29",
+     "2026-10-30",
+     "2026-10-31"
+    ]
+   }
+  },
+  {
+   "name": "periodDays_2026-10-31_1",
+   "to": "2026-10-31",
+   "days": 1,
+   "expected": {
+    "from": "2026-10-31",
+    "to": "2026-10-31",
+    "days": [
+     "2026-10-31"
+    ]
+   }
+  },
+  {
+   "name": "periodDays_2026-03-02_7",
+   "to": "2026-03-02",
+   "days": 7,
+   "expected": {
+    "from": "2026-02-24",
+    "to": "2026-03-02",
+    "days": [
+     "2026-02-24",
+     "2026-02-25",
+     "2026-02-26",
+     "2026-02-27",
+     "2026-02-28",
+     "2026-03-01",
+     "2026-03-02"
+    ]
+   }
+  },
+  {
+   "name": "periodDays_2028-03-01_3",
+   "to": "2028-03-01",
+   "days": 3,
+   "expected": {
+    "from": "2028-02-28",
+    "to": "2028-03-01",
+    "days": [
+     "2028-02-28",
+     "2028-02-29",
+     "2028-03-01"
+    ]
+   }
+  },
+  {
+   "name": "periodDays_2026-10-31_30",
+   "to": "2026-10-31",
+   "days": 30,
+   "expected": {
+    "from": "2026-10-02",
+    "to": "2026-10-31",
+    "days": [
+     "2026-10-02",
+     "2026-10-03",
+     "2026-10-04",
+     "2026-10-05",
+     "2026-10-06",
+     "2026-10-07",
+     "2026-10-08",
+     "2026-10-09",
+     "2026-10-10",
+     "2026-10-11",
+     "2026-10-12",
+     "2026-10-13",
+     "2026-10-14",
+     "2026-10-15",
+     "2026-10-16",
+     "2026-10-17",
+     "2026-10-18",
+     "2026-10-19",
+     "2026-10-20",
+     "2026-10-21",
+     "2026-10-22",
+     "2026-10-23",
+     "2026-10-24",
+     "2026-10-25",
+     "2026-10-26",
+     "2026-10-27",
+     "2026-10-28",
+     "2026-10-29",
+     "2026-10-30",
+     "2026-10-31"
+    ]
+   }
+  }
+ ]
+}

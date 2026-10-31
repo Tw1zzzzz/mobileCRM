@@ -146,13 +146,13 @@ object StaffMetrics {
 
     // ------------------------------------------------------------ numbers
 
-    private fun roundHalfUp(x: Double): Double = floor(x + 0.5)
+    internal fun roundHalfUp(x: Double): Double = floor(x + 0.5)
 
-    private fun round2(x: Double): Double = roundHalfUp(x * 100) / 100
+    internal fun round2(x: Double): Double = roundHalfUp(x * 100) / 100
 
     private fun round2OrNull(x: Double?): Double? = x?.let(::round2)
 
-    private fun mean(values: List<Double>): Double? {
+    internal fun mean(values: List<Double>): Double? {
         if (values.isEmpty()) return null
         var sum = 0.0
         for (v in values) sum += v
@@ -230,9 +230,9 @@ object StaffMetrics {
     /** Shifts a `YYYY-MM-DD` day by whole calendar days. */
     fun shiftDay(day: String, delta: Int): String = LocalDate.parse(day).plus(delta, DateTimeUnit.DAY).toString()
 
-    private fun daysEndingAt(end: String, count: Int): List<String> = List(count) { shiftDay(end, it - (count - 1)) }
+    internal fun daysEndingAt(end: String, count: Int): List<String> = List(count) { shiftDay(end, it - (count - 1)) }
 
-    private fun parseInstant(value: JsonElement?): Instant? {
+    internal fun parseInstant(value: JsonElement?): Instant? {
         val text = string(value) ?: return null
         if (!ISO_INSTANT.matches(text)) return null
         return try {
@@ -244,22 +244,22 @@ object StaffMetrics {
 
     // ------------------------------------------------------------ documents -> per-day values
 
-    private fun number(value: JsonElement?): Double? {
+    internal fun number(value: JsonElement?): Double? {
         val primitive = value as? JsonPrimitive ?: return null
         if (primitive is JsonNull || primitive.isString) return null
         return primitive.doubleOrNull?.takeIf(Double::isFinite)
     }
 
-    private fun number(value: JsonElement?, min: Double, max: Double): Double? = number(value)?.takeIf { it in min..max }
+    internal fun number(value: JsonElement?, min: Double, max: Double): Double? = number(value)?.takeIf { it in min..max }
 
     private fun string(value: JsonElement?): String? =
         (value as? JsonPrimitive)?.takeIf { it !is JsonNull && it.isString }?.content
 
     /** The object entries of `doc[key]`; anything else (wrong shape, wrong type) yields nothing. */
-    private fun records(doc: JsonElement?, key: String): List<JsonObject> =
+    internal fun records(doc: JsonElement?, key: String): List<JsonObject> =
         ((doc as? JsonObject)?.get(key) as? JsonArray)?.filterIsInstance<JsonObject>() ?: emptyList()
 
-    private class DayIndex(
+    internal class DayIndex(
         val sleepMs: MutableMap<String, Long> = LinkedHashMap(),
         val mood: MutableMap<String, MutableList<Double>> = LinkedHashMap(),
         val energy: MutableMap<String, MutableList<Double>> = LinkedHashMap(),
@@ -272,7 +272,7 @@ object StaffMetrics {
     }
 
     /** Reads the four documents once; every value is validated, anything malformed is skipped. */
-    private fun indexDocuments(docs: Map<String, JsonElement>, tz: String): DayIndex {
+    internal fun indexDocuments(docs: Map<String, JsonElement>, tz: String): DayIndex {
         val index = DayIndex()
         val zone = TimeZone.of(tz)
         fun dayOf(at: Instant): String = at.toLocalDateTime(zone).date.toString()
@@ -300,7 +300,7 @@ object StaffMetrics {
         return index
     }
 
-    private fun inputsFromIndex(index: DayIndex, day: String): DailyInputs = DailyInputs(
+    internal fun inputsFromIndex(index: DayIndex, day: String): DailyInputs = DailyInputs(
         sleepHours = index.sleepMs[day]?.let { round2(it / HOUR_MS) },
         mood = index.mood[day]?.let { mean(it) }?.let(::round2),
         energy = index.energy[day]?.let { mean(it) }?.let(::round2),
