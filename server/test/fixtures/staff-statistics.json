@@ -8,7 +8,11 @@
 {"name": "pearsonTooFewPairsIsNull", "xs": [1, 2], "ys": [3, 4], "expected": null},
 {"name": "pearsonSizeMismatchIsNull", "xs": [1, 2, 3, 4], "ys": [1, 2, 3], "expected": null},
 {"name": "pearsonZeroVarianceIsNull", "xs": [5, 5, 5, 5], "ys": [1, 2, 3, 4], "expected": null},
-{"name": "pearsonZeroVarianceYIsNull", "xs": [1, 2, 3, 4], "ys": [7, 7, 7, 7], "expected": null}
+{"name": "pearsonZeroVarianceYIsNull", "xs": [1, 2, 3, 4], "ys": [7, 7, 7, 7], "expected": null},
+{"name": "pearsonConstantInexactValueIsNull", "xs": [7.1, 7.1, 7.1, 7.1, 7.1, 7.1, 7.1], "ys": [1, 2, 3, 4, 5, 6, 9], "expected": null},
+{"name": "pearsonConstantInexactValueYIsNull", "xs": [1, 2, 3, 4, 5, 6, 9], "ys": [7.1, 7.1, 7.1, 7.1, 7.1, 7.1, 7.1], "expected": null},
+{"name": "pearsonConstantSumOfPointOneAndPointTwoIsNull", "xs": [0.30000000000000004, 0.30000000000000004, 0.30000000000000004, 0.30000000000000004, 0.30000000000000004], "ys": [1, 2, 3, 4, 5], "expected": null},
+{"name": "pearsonTinyButRealSpreadStillCorrelates", "xs": [7.0, 7.001, 7.002, 7.0005, 7.0015], "ys": [1.0, 2.2, 2.9, 1.4, 2.7], "expected": 0.9829527642269686}
 ],
 "pairByDay": [
 {"name": "pairByDayDropsGaps", "a": {"2026-10-20": 7.0, "2026-10-21": 6.0, "2026-10-23": 8.0, "2026-10-24": 5.0}, "b": {"2026-10-21": 50.0, "2026-10-22": 99.0, "2026-10-23": 70.0, "2026-10-24": 40.0, "2026-10-25": 10.0}, "expected": {"xs": [6.0, 8.0, 5.0], "ys": [50.0, 70.0, 40.0]}},

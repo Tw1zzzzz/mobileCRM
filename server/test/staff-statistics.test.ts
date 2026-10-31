@@ -66,6 +66,17 @@ describe("pearson", () => {
     expect(pearson([5, 5, 5, 5], [1, 2, 3, 4])).toBeNull();
     expect(pearson([1, 2, 3, 4], [7, 7, 7, 7])).toBeNull();
   });
+  it("pearsonConstantSeriesIsNull even when the value is not exact in binary", () => {
+    const varying = [1, 2, 3, 4, 5, 6, 9];
+    expect(pearson(Array<number>(7).fill(7.1), varying)).toBeNull();
+    expect(pearson(varying, Array<number>(7).fill(7.1))).toBeNull();
+    expect(pearson(Array<number>(5).fill(0.1 + 0.2), [1, 2, 3, 4, 5])).toBeNull();
+  });
+  it("a tiny but real spread still correlates", () => {
+    const r = pearson([7.0, 7.001, 7.002, 7.0005, 7.0015], [1.0, 2.2, 2.9, 1.4, 2.7]);
+    expect(r).not.toBeNull();
+    expect(r as number).toBeGreaterThan(0.9);
+  });
   it("is not rounded", () => {
     const r = pearson([6.5, 7, 7.5, 8, 5.5, 9], [41, 52, 47, 66, 38, 58]) as number;
     expect(r).not.toBe(Math.round(r * 100) / 100);

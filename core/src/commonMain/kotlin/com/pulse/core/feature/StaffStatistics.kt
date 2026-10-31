@@ -8,7 +8,7 @@ import kotlin.math.abs
  * board's strength labels, the median split behind the «Что это значит» sentence, and the «key links».
  *
  * Pure functions. The TypeScript twin is `server/lib/staff/statistics.ts`; both are checked against
- * `server/test/fixtures/staff-statistics.json`. [pearson] is the app's [StatisticsMath.pearson]. Nothing here
+ * `server/test/fixtures/staff-statistics.json`. [pearson] is the app's [StatisticsMath.pearson] plus a constant-series guard. Nothing here
  * rounds: the UI shows r with two decimals.
  */
 object StaffStatistics {
@@ -33,8 +33,25 @@ object StaffStatistics {
         return PairedDays(days.map { a.getValue(it) }, days.map { b.getValue(it) })
     }
 
-    /** Null for a size mismatch, fewer than 3 pairs or zero variance. */
-    fun pearson(xs: List<Double>, ys: List<Double>): Double? = StatisticsMath.pearson(xs, ys)
+    /** A series whose spread is at most this (relative to its magnitude, min 1) counts as constant. */
+    const val CONSTANT_SPREAD = 1e-12
+
+    /**
+     * Null for a size mismatch, fewer than 3 pairs, or when either series is effectively constant
+     * (`max - min <= 1e-12 * max(1, |max|)`: a repeated 7.1 has a mean that is not exactly 7.1, so the app's
+     * `sum of squares > 0` check alone would return a noise r of about 1e-16). Otherwise [StatisticsMath.pearson];
+     * the guard is staff-only, the app's function is unchanged.
+     */
+    fun pearson(xs: List<Double>, ys: List<Double>): Double? {
+        if (xs.size != ys.size || xs.size < 3) return null
+        if (isEffectivelyConstant(xs) || isEffectivelyConstant(ys)) return null
+        return StatisticsMath.pearson(xs, ys)
+    }
+
+    private fun isEffectivelyConstant(values: List<Double>): Boolean {
+        val max = values.max()
+        return max - values.min() <= CONSTANT_SPREAD * maxOf(1.0, abs(max))
+    }
 
     /** The board's labels, not the app's 0.6 / 0.3 ones; «мало данных» when r is null. */
     fun strength(r: Double?): Strength {

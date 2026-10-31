@@ -3,7 +3,7 @@
  * the board's strength labels, the median split behind the «Что это значит» sentence, and the «key links».
  *
  * Pure functions, no I/O. The Kotlin twin is `core/.../feature/StaffStatistics.kt` (its `pearson` is the app's
- * `StatisticsMath.pearson`); both are checked against `test/fixtures/staff-statistics.json`. Nothing here rounds:
+ * `StatisticsMath.pearson` plus a constant-series guard); both are checked against `test/fixtures/staff-statistics.json`. Nothing here rounds:
  * the UI shows r with two decimals (`round2`), the math keeps the raw value.
  */
 import type { DaySeries } from "@/lib/staff/series";
@@ -21,12 +21,29 @@ export function pairByDay(a: DaySeries, b: DaySeries): PairedDays {
   return { xs: days.map((day) => a[day]), ys: days.map((day) => b[day]) };
 }
 
+/** A series whose spread is at most this (relative to its magnitude, min 1) counts as constant. */
+export const CONSTANT_SPREAD = 1e-12;
+
+/** True when `max - min <= 1e-12 * max(1, |max|)`: float noise of a repeated value, not a real spread. */
+function isEffectivelyConstant(values: readonly number[]): boolean {
+  let min = values[0];
+  let max = values[0];
+  for (const v of values) {
+    if (v < min) min = v;
+    if (v > max) max = v;
+  }
+  return max - min <= CONSTANT_SPREAD * Math.max(1, Math.abs(max));
+}
+
 /**
- * Pearson correlation of paired samples; null for a size mismatch, fewer than 3 pairs or zero variance.
- * The same algorithm as the app's `StatisticsMath.pearson` (mean first, plain double sums).
+ * Pearson correlation of paired samples; null for a size mismatch, fewer than 3 pairs, or when either series is
+ * effectively constant (a repeated 7.1 has a mean that is not exactly 7.1, so `sum of squares > 0` alone would
+ * give a noise r of about 1e-16). Otherwise the algorithm of the app's `StatisticsMath.pearson` (mean first,
+ * plain double sums). Staff-only guard: the app's own function is unchanged.
  */
 export function pearson(xs: number[], ys: number[]): number | null {
   if (xs.length !== ys.length || xs.length < 3) return null;
+  if (isEffectivelyConstant(xs) || isEffectivelyConstant(ys)) return null;
   const meanX = sum(xs) / xs.length;
   const meanY = sum(ys) / ys.length;
   let numerator = 0;

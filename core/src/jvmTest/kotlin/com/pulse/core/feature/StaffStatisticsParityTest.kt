@@ -57,6 +57,21 @@ class StaffStatisticsParityTest {
     }
 
     @Test
+    fun pearsonConstantSeriesIsNullEvenWhenTheValueIsNotExactInBinary() {
+        val varying = listOf(1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 9.0)
+        assertNull(StaffStatistics.pearson(List(7) { 7.1 }, varying))
+        assertNull(StaffStatistics.pearson(varying, List(7) { 7.1 }))
+        assertNull(StaffStatistics.pearson(List(5) { 0.1 + 0.2 }, listOf(1.0, 2.0, 3.0, 4.0, 5.0)))
+    }
+
+    @Test
+    fun aTinyButRealSpreadStillCorrelates() {
+        val r = StaffStatistics.pearson(listOf(7.0, 7.001, 7.002, 7.0005, 7.0015), listOf(1.0, 2.2, 2.9, 1.4, 2.7))
+        assertNotNull(r)
+        assertTrue(r > 0.9)
+    }
+
+    @Test
     fun pairByDayFixtureCases() {
         for (c in cases("pairByDay")) {
             val paired = StaffStatistics.pairByDay(series(c, "a"), series(c, "b"))
