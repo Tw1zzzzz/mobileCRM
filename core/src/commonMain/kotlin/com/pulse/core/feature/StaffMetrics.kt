@@ -14,6 +14,7 @@ import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.doubleOrNull
 import kotlin.math.floor
+import kotlin.time.Duration.Companion.hours
 import kotlin.time.Instant
 
 /**
@@ -219,6 +220,13 @@ object StaffMetrics {
     /** The calendar day (`YYYY-MM-DD`) of an instant in the given IANA zone. */
     fun dayOf(instant: Instant, tz: String): String = instant.toLocalDateTime(TimeZone.of(tz)).date.toString()
 
+    /**
+     * The calendar day of a mood entry's `day` instant. The app stores it as midnight in the PHONE's zone, which the
+     * server does not know; the UTC date of (instant + 12 hours) recovers that day for every phone zone from UTC-11
+     * to UTC+12, whatever zone the staff read it in.
+     */
+    fun phoneDayOf(instant: Instant): String = (instant + 12.hours).toLocalDateTime(TimeZone.UTC).date.toString()
+
     /** Shifts a `YYYY-MM-DD` day by whole calendar days. */
     fun shiftDay(day: String, delta: Int): String = LocalDate.parse(day).plus(delta, DateTimeUnit.DAY).toString()
 
@@ -276,7 +284,7 @@ object StaffMetrics {
             if (ms >= MIN_SLEEP_MS) index.sleepMs.merge(dayOf(end), ms, Long::plus)
         }
         for (e in records(docs["wellbeing"], "mood")) {
-            val day = dayOf(parseInstant(e["day"]) ?: continue)
+            val day = phoneDayOf(parseInstant(e["day"]) ?: continue)
             number(e["mood"], 1.0, 10.0)?.let { index.mood.push(day, it) }
             number(e["energy"], 1.0, 10.0)?.let { index.energy.push(day, it) }
         }

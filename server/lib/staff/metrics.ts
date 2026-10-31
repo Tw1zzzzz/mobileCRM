@@ -221,6 +221,17 @@ export function dayOf(instant: Date, tz: string): Day {
   return `${pick("year")}-${pick("month")}-${pick("day")}`;
 }
 
+const HALF_DAY_MS = 12 * HOUR_MS;
+
+/**
+ * The calendar day of a mood entry's `day` instant. The app stores it as midnight in the PHONE's zone, which the
+ * server does not know; the UTC date of (instant + 12 hours) recovers that day for every phone zone from UTC-11 to
+ * UTC+12, whatever zone the staff read it in.
+ */
+export function phoneDayOf(instant: Date): Day {
+  return new Date(instant.getTime() + HALF_DAY_MS).toISOString().slice(0, 10);
+}
+
 /** Shifts a `YYYY-MM-DD` day by whole calendar days. */
 export function shiftDay(day: Day, delta: number): Day {
   if (!DAY_PATTERN.test(day)) throw new Error(`Not a YYYY-MM-DD day: ${day}`);
@@ -284,7 +295,7 @@ function indexDocuments(docs: Documents, tz: string): DayIndex {
   for (const e of records(docs.wellbeing, "mood")) {
     const at = parseInstant(e.day);
     if (!at) continue;
-    const day = dayOf(at, tz);
+    const day = phoneDayOf(at);
     if (inRange(e.mood, 1, 10)) push(index.mood, day, e.mood);
     if (inRange(e.energy, 1, 10)) push(index.energy, day, e.energy);
   }

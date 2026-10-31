@@ -7,7 +7,8 @@
   "A day is a calendar day (YYYY-MM-DD) in the given IANA zone. Sleep belongs to the day its session ENDS; sessions under 60 minutes are not sleep.",
   "mood and energy must be in 1..10, cognitive score in 0..100 (CognitiveScoring clamps it to 0..100, so cog needs no normalising), kcal >= 0; others are skipped.",
   "Absent keys and null are the same thing for dailyInputs/teamOverview objects; null inside arrays means 'no data that day'.",
-  "teamOverview: the 7-day window is today and the 6 days before it; the previous week is the 7 days before that."
+  "teamOverview: the 7-day window is today and the 6 days before it; the previous week is the 7 days before that.",
+  "mood/energy: the entry's `day` is MIDNIGHT in the PHONE's zone, so its calendar day is the UTC date of (instant + 12h) - right for phone zones UTC-11..UTC+12 and independent of the staff zone. Sleep (session end), cognitive (test time) and meals (logged-at time) are real instants and use the staff zone."
  ],
  "thresholds": {
   "mood": {
@@ -485,7 +486,7 @@
       },
       {
        "id": "00000000-0000-4000-8000-000000000003",
-       "day": "2026-10-15T16:00:00Z",
+       "day": "2026-10-14T21:00:00Z",
        "slot": "evening",
        "mood": 8,
        "energy": 7
@@ -591,7 +592,7 @@
       },
       {
        "id": "00000000-0000-4000-8000-000000000003",
-       "day": "2026-10-15T16:00:00Z",
+       "day": "2026-10-14T21:00:00Z",
        "slot": "evening",
        "mood": 8,
        "energy": 7
@@ -684,7 +685,7 @@
      "mood": [
       {
        "id": "00000000-0000-4000-8000-000000000010",
-       "day": "2026-10-14T21:30:00Z",
+       "day": "2026-10-14T21:00:00Z",
        "slot": "morning",
        "mood": 9,
        "energy": 8
@@ -766,7 +767,7 @@
      "mood": [
       {
        "id": "00000000-0000-4000-8000-000000000010",
-       "day": "2026-10-14T21:30:00Z",
+       "day": "2026-10-14T21:00:00Z",
        "slot": "morning",
        "mood": 9,
        "energy": 8
@@ -844,7 +845,7 @@
      "mood": [
       {
        "id": "00000000-0000-4000-8000-000000000010",
-       "day": "2026-10-14T21:30:00Z",
+       "day": "2026-10-14T21:00:00Z",
        "slot": "morning",
        "mood": 9,
        "energy": 8
@@ -897,14 +898,12 @@
    "tz": "America/New_York",
    "expected": {
     "sleepHours": 7.5,
-    "mood": 9,
-    "energy": 8,
     "cog": 71,
     "kcal": 700
    }
   },
   {
-   "name": "newYorkNextDayIsEmpty",
+   "name": "newYorkNextDayHasOnlyTheMoodOfThePhoneDay",
    "docs": {
     "sleep": {
      "sessions": [
@@ -926,7 +925,7 @@
      "mood": [
       {
        "id": "00000000-0000-4000-8000-000000000010",
-       "day": "2026-10-14T21:30:00Z",
+       "day": "2026-10-14T21:00:00Z",
        "slot": "morning",
        "mood": 9,
        "energy": 8
@@ -977,7 +976,10 @@
    },
    "day": "2026-10-15",
    "tz": "America/New_York",
-   "expected": {}
+   "expected": {
+    "mood": 9,
+    "energy": 8
+   }
   },
   {
    "name": "onlySleep",
@@ -1373,7 +1375,7 @@
     "wellbeing": {
      "mood": [
       {
-       "day": "2026-10-15T09:00:00Z",
+       "day": "2026-10-14T21:00:00Z",
        "mood": "7",
        "energy": null
       },
@@ -1430,6 +1432,141 @@
    "tz": "Europe/Moscow",
    "expected": {
     "sleepHours": 7
+   }
+  },
+  {
+   "name": "yekaterinburgMidnightIsThatDay",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-0000000000a1",
+       "day": "2026-10-29T19:00:00Z",
+       "slot": "morning",
+       "mood": 4,
+       "energy": 3
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-30",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "mood": 4,
+    "energy": 3
+   }
+  },
+  {
+   "name": "yekaterinburgMidnightIsNotThePreviousDay",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-0000000000a1",
+       "day": "2026-10-29T19:00:00Z",
+       "slot": "morning",
+       "mood": 4,
+       "energy": 3
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-29",
+   "tz": "Europe/Moscow",
+   "expected": {}
+  },
+  {
+   "name": "moscowMidnightIsThatDay",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-0000000000a1",
+       "day": "2026-10-29T21:00:00Z",
+       "slot": "morning",
+       "mood": 6,
+       "energy": 5
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-30",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "mood": 6,
+    "energy": 5
+   }
+  },
+  {
+   "name": "utcMinus5MidnightIsThatDay",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-0000000000a1",
+       "day": "2026-10-30T05:00:00Z",
+       "slot": "morning",
+       "mood": 8,
+       "energy": 7
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-30",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "mood": 8,
+    "energy": 7
+   }
+  },
+  {
+   "name": "utcMinus11MidnightIsThatDay",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-0000000000a1",
+       "day": "2026-10-30T11:00:00Z",
+       "slot": "morning",
+       "mood": 7,
+       "energy": 6
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-30",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "mood": 7,
+    "energy": 6
+   }
+  },
+  {
+   "name": "utcPlus12MidnightIsThatDay",
+   "docs": {
+    "wellbeing": {
+     "mood": [
+      {
+       "id": "00000000-0000-4000-8000-0000000000a1",
+       "day": "2026-10-29T12:00:00Z",
+       "slot": "morning",
+       "mood": 5,
+       "energy": 4
+      }
+     ],
+     "balance": []
+    }
+   },
+   "day": "2026-10-30",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "mood": 5,
+    "energy": 4
    }
   }
  ],
@@ -1533,98 +1670,98 @@
       "mood": [
        {
         "id": "00000000-0000-4000-8000-000000000050",
-        "day": "2026-10-03T05:00:00Z",
+        "day": "2026-10-02T21:00:00Z",
         "slot": "morning",
         "mood": 6,
         "energy": 5
        },
        {
         "id": "00000000-0000-4000-8000-000000000051",
-        "day": "2026-10-05T05:00:00Z",
+        "day": "2026-10-04T21:00:00Z",
         "slot": "morning",
         "mood": 5,
         "energy": 6
        },
        {
         "id": "00000000-0000-4000-8000-000000000052",
-        "day": "2026-10-07T10:00:00Z",
+        "day": "2026-10-06T21:00:00Z",
         "slot": "day",
         "mood": 7,
         "energy": 7
        },
        {
         "id": "00000000-0000-4000-8000-000000000053",
-        "day": "2026-10-09T05:00:00Z",
+        "day": "2026-10-08T21:00:00Z",
         "slot": "morning",
         "mood": 7,
         "energy": 6
        },
        {
         "id": "00000000-0000-4000-8000-000000000054",
-        "day": "2026-10-09T17:00:00Z",
+        "day": "2026-10-08T21:00:00Z",
         "slot": "evening",
         "mood": 8,
         "energy": 7
        },
        {
         "id": "00000000-0000-4000-8000-000000000055",
-        "day": "2026-10-10T05:00:00Z",
+        "day": "2026-10-09T21:00:00Z",
         "slot": "morning",
         "mood": 4,
         "energy": 4
        },
        {
         "id": "00000000-0000-4000-8000-000000000056",
-        "day": "2026-10-11T05:00:00Z",
+        "day": "2026-10-10T21:00:00Z",
         "slot": "morning",
         "mood": 9,
         "energy": 8
        },
        {
         "id": "00000000-0000-4000-8000-000000000057",
-        "day": "2026-10-11T11:00:00Z",
+        "day": "2026-10-10T21:00:00Z",
         "slot": "day",
         "mood": 6,
         "energy": 6
        },
        {
         "id": "00000000-0000-4000-8000-000000000058",
-        "day": "2026-10-12T05:00:00Z",
+        "day": "2026-10-11T21:00:00Z",
         "slot": "morning",
         "mood": 5,
         "energy": 5
        },
        {
         "id": "00000000-0000-4000-8000-000000000059",
-        "day": "2026-10-13T05:00:00Z",
+        "day": "2026-10-12T21:00:00Z",
         "slot": "morning",
         "mood": 3,
         "energy": 3
        },
        {
         "id": "00000000-0000-4000-8000-000000000060",
-        "day": "2026-10-13T17:00:00Z",
+        "day": "2026-10-12T21:00:00Z",
         "slot": "evening",
         "mood": 4,
         "energy": 5
        },
        {
         "id": "00000000-0000-4000-8000-000000000061",
-        "day": "2026-10-14T05:00:00Z",
+        "day": "2026-10-13T21:00:00Z",
         "slot": "morning",
         "mood": 7,
         "energy": 7
        },
        {
         "id": "00000000-0000-4000-8000-000000000062",
-        "day": "2026-10-15T05:00:00Z",
+        "day": "2026-10-14T21:00:00Z",
         "slot": "morning",
         "mood": 8,
         "energy": 7
        },
        {
         "id": "00000000-0000-4000-8000-000000000063",
-        "day": "2026-10-15T20:00:00Z",
+        "day": "2026-10-14T21:00:00Z",
         "slot": "evening",
         "mood": 6,
         "energy": 5
@@ -1851,14 +1988,14 @@
       "mood": [
        {
         "id": "00000000-0000-4000-8000-000000000087",
-        "day": "2026-10-14T06:00:00Z",
+        "day": "2026-10-13T21:00:00Z",
         "slot": "morning",
         "mood": 2,
         "energy": 2
        },
        {
         "id": "00000000-0000-4000-8000-000000000088",
-        "day": "2026-10-15T06:00:00Z",
+        "day": "2026-10-14T21:00:00Z",
         "slot": "morning",
         "mood": 3,
         "energy": 4
@@ -1910,7 +2047,7 @@
      "wellbeing": {
       "mood": [
        {
-        "day": "2026-10-15T09:00:00Z",
+        "day": "2026-10-14T21:00:00Z",
         "mood": "7",
         "energy": null
        },
