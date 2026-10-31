@@ -5,10 +5,12 @@
 import type { Deps } from "@/lib/deps";
 import { ApiError } from "@/lib/http";
 import { rateLimit } from "@/lib/rateLimit";
-import { fetchMatchItems, isPlayerId, MATCH_LIMIT, resolvePlayerId, type FaceitFailure } from "@/lib/faceit/client";
+import { fetchMatchItems, isPlayerId, MATCH_LIMIT, resolvePlayerId, type FaceitCall, type FaceitFailure } from "@/lib/faceit/client";
 import { mapMatch, type FaceitMatch } from "@/lib/faceit/mapper";
 
 export const FACEIT_CACHE_TTL_MS = 15 * 60 * 1000;
+/** After a failed Faceit fetch nothing asks Faceit again for this long (the stale list, if any, is served meanwhile). */
+export const FAILURE_MEMORY_MS = 120_000;
 
 /** One budget for the whole server, so many staff members cannot exhaust the API key. */
 const FETCH_LIMIT = 60;
@@ -19,35 +21,69 @@ export type FaceitResult =
   | { status: "ok"; matches: FaceitMatch[]; fetchedAt: Date; stale: boolean }
   | { status: "no-key" | "no-player" | "not-found" | "rate-limited" | "unavailable" };
 
+const REMEMBERED_FAILURES: readonly FaceitFailure[] = ["unavailable", "not-found", "rate-limited"];
+
 interface CacheRow {
   matches: unknown;
-  fetched_at: Date;
+  fetched_at: Date | null;
+  faceit_ref: string | null;
+  failed_at: Date | null;
+  failure: string | null;
 }
 
-interface CachedMatches {
-  matches: FaceitMatch[];
-  fetchedAt: Date;
+/** What the cache row holds for the player's CURRENT Faceit identity: matches and/or a remembered failure. */
+interface Cached {
+  matches: FaceitMatch[] | null;
+  fetchedAt: Date | null;
+  failedAt: Date | null;
+  failure: FaceitFailure;
 }
 
-async function readCache(deps: Deps, userId: string): Promise<CachedMatches | null> {
-  const [row] = await deps.sql<CacheRow[]>`select matches, fetched_at from faceit_cache where user_id = ${userId}`;
-  if (!row || !Array.isArray(row.matches)) return null;
-  return { matches: row.matches as FaceitMatch[], fetchedAt: row.fetched_at };
+/** The identity a row is fetched for: the Faceit player id, or `nick:<nickname>` when it is resolved by nickname. */
+function refOf(playerId: string | null, nickname: string | null): string {
+  return playerId ?? `nick:${nickname}`;
 }
 
-async function writeCache(deps: Deps, userId: string, matches: FaceitMatch[], fetchedAt: Date): Promise<void> {
+/** The row for this player, or null when there is none or it was fetched for another Faceit account. */
+async function readCache(deps: Deps, userId: string, ref: string): Promise<Cached | null> {
+  const [row] = await deps.sql<CacheRow[]>`
+    select matches, fetched_at, faceit_ref, failed_at, failure from faceit_cache where user_id = ${userId}`;
+  if (!row || row.faceit_ref !== ref) return null;
+  const hasMatches = Array.isArray(row.matches) && row.fetched_at !== null;
+  const failure = REMEMBERED_FAILURES.find((f) => f === row.failure) ?? "unavailable";
+  return {
+    matches: hasMatches ? (row.matches as FaceitMatch[]) : null,
+    fetchedAt: hasMatches ? row.fetched_at : null,
+    failedAt: row.failed_at,
+    failure,
+  };
+}
+
+async function writeCache(deps: Deps, userId: string, ref: string, matches: FaceitMatch[], fetchedAt: Date): Promise<void> {
   await deps.sql`
-    insert into faceit_cache (user_id, matches, fetched_at)
-    values (${userId}, ${deps.sql.json(matches as never)}, ${fetchedAt})
-    on conflict (user_id) do update set matches = excluded.matches, fetched_at = excluded.fetched_at`;
+    insert into faceit_cache (user_id, matches, fetched_at, faceit_ref, failed_at, failure)
+    values (${userId}, ${deps.sql.json(matches as never)}, ${fetchedAt}, ${ref}, null, null)
+    on conflict (user_id) do update set matches = excluded.matches, fetched_at = excluded.fetched_at,
+      faceit_ref = excluded.faceit_ref, failed_at = null, failure = null`;
 }
 
-function stale(cached: CachedMatches): FaceitResult {
-  return { status: "ok", matches: cached.matches, fetchedAt: cached.fetchedAt, stale: true };
+/** Remembers a failed fetch. Matches of the same account stay for stale serving; another account's are dropped. */
+async function writeFailure(deps: Deps, userId: string, ref: string, failure: FaceitFailure, failedAt: Date): Promise<void> {
+  await deps.sql`
+    insert into faceit_cache (user_id, matches, fetched_at, faceit_ref, failed_at, failure)
+    values (${userId}, null, null, ${ref}, ${failedAt}, ${failure})
+    on conflict (user_id) do update set
+      matches = case when faceit_cache.faceit_ref = excluded.faceit_ref then faceit_cache.matches else null end,
+      fetched_at = case when faceit_cache.faceit_ref = excluded.faceit_ref then faceit_cache.fetched_at else null end,
+      faceit_ref = excluded.faceit_ref, failed_at = excluded.failed_at, failure = excluded.failure`;
 }
 
-function failed(cached: CachedMatches | null, failure: FaceitFailure): FaceitResult {
-  return cached ? stale(cached) : { status: failure };
+function stale(matches: FaceitMatch[], fetchedAt: Date): FaceitResult {
+  return { status: "ok", matches, fetchedAt, stale: true };
+}
+
+function failed(cached: Cached | null, failure: FaceitFailure): FaceitResult {
+  return cached?.matches && cached.fetchedAt ? stale(cached.matches, cached.fetchedAt) : { status: failure };
 }
 
 async function overLimit(deps: Deps): Promise<boolean> {
@@ -85,26 +121,43 @@ export async function loadMatches(
   const nickname = cleanNickname(faceit.nickname);
   if (playerId === null && nickname === null) return { status: "no-player" };
 
-  const cached = await readCache(deps, userId);
-  if (cached && deps.now().getTime() - cached.fetchedAt.getTime() < FACEIT_CACHE_TTL_MS) {
+  const ref = refOf(playerId, nickname);
+  const cached = await readCache(deps, userId, ref);
+  const now = deps.now().getTime();
+  if (cached?.matches && cached.fetchedAt && now - cached.fetchedAt.getTime() < FACEIT_CACHE_TTL_MS) {
     return { status: "ok", matches: cached.matches, fetchedAt: cached.fetchedAt, stale: false };
   }
-  if (await overLimit(deps)) return cached ? stale(cached) : { status: "rate-limited" };
+  // Faceit failed a moment ago: do not ask again yet (stale matches, if there are any, still win).
+  if (cached?.failedAt && now - cached.failedAt.getTime() < FAILURE_MEMORY_MS) return failed(cached, cached.failure);
+  if (await overLimit(deps)) return failed(cached, "rate-limited");
 
-  let id = playerId;
-  if (id === null) {
-    const resolved = await resolvePlayerId(http, key, nickname as string);
-    if (!resolved.ok) return failed(cached, resolved.failure);
-    id = resolved.value;
+  const outcome = await fetchFresh(http, key, playerId, nickname);
+  if (!outcome.ok) {
+    await writeFailure(deps, userId, ref, outcome.failure, deps.now());
+    return failed(cached, outcome.failure);
   }
-  const items = await fetchMatchItems(http, key, id);
-  if (!items.ok) return failed(cached, items.failure);
 
   const fetchedAt = deps.now();
-  const matches = items.value
+  const matches = outcome.value
     .map((item) => mapMatch(item, fetchedAt))
     .filter((match): match is FaceitMatch => match !== null)
     .slice(0, MATCH_LIMIT);
-  await writeCache(deps, userId, matches, fetchedAt);
+  await writeCache(deps, userId, ref, matches, fetchedAt);
   return { status: "ok", matches, fetchedAt, stale: false };
+}
+
+/** Resolves the nickname when there is no player id, then fetches the raw match items. */
+async function fetchFresh(
+  http: typeof fetch,
+  key: string,
+  playerId: string | null,
+  nickname: string | null,
+): Promise<FaceitCall<unknown[]>> {
+  let id = playerId;
+  if (id === null) {
+    const resolved = await resolvePlayerId(http, key, nickname as string);
+    if (!resolved.ok) return resolved;
+    id = resolved.value;
+  }
+  return fetchMatchItems(http, key, id);
 }

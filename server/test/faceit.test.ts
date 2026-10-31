@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
-import { afterAll, afterEach, beforeEach, describe, expect, it } from "vitest";
-import { FACEIT_CACHE_TTL_MS, loadMatches } from "../lib/faceit/cache";
+import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { FACEIT_CACHE_TTL_MS, FAILURE_MEMORY_MS, loadMatches } from "../lib/faceit/cache";
+import { REQUEST_TIMEOUT_MS } from "../lib/faceit/client";
+import { FACEIT_PAGE_DEADLINE_MS, raceDeadline } from "../lib/faceit/deadline";
 import { mapMatch, type FaceitMatch } from "../lib/faceit/mapper";
 import { rateLimit } from "../lib/rateLimit";
 import { gameSummary, matchDaily, UNAVAILABLE_TILES } from "../lib/staff/game";
@@ -375,6 +377,7 @@ describe("loadMatches", () => {
       () => new Response("not json", { status: 200 }),
     ]) {
       fail = broken;
+      deps.advance(FAILURE_MEMORY_MS); // each broken answer must really be asked for, not remembered
       const r = await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
       expect(r.status).toBe("ok");
       if (r.status !== "ok") throw new Error("expected ok");
@@ -382,7 +385,7 @@ describe("loadMatches", () => {
       expect(r.fetchedAt).toEqual(first.fetchedAt);
       expect(r.matches).toEqual(first.matches);
     }
-    expect(calls.length).toBeGreaterThan(1);
+    expect(calls).toHaveLength(7); // the first fetch + one per broken answer
   });
 
   it("firstFailureMapsToStatus", async () => {
@@ -399,12 +402,26 @@ describe("loadMatches", () => {
       [() => json([]), "unavailable"],
     ];
     for (const [route, status] of cases) {
+      deps.advance(FAILURE_MEMORY_MS); // the previous case's failure is no longer remembered
       const { http } = fakeHttp({ [STATS_URL]: route });
       expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status });
     }
-    // nothing was cached by the failures
-    const rows = await deps.sql`select 1 from faceit_cache where user_id = ${userId}`;
-    expect(rows).toHaveLength(0);
+    // no matches were cached by the failures: the row only remembers that Faceit failed
+    const rows = await deps.sql<{ matches: unknown; fetched_at: Date | null }[]>`
+      select matches, fetched_at from faceit_cache where user_id = ${userId}`;
+    expect(rows).toEqual([{ matches: null, fetched_at: null }]);
+  });
+
+  it("requestTimeoutIsThreeSeconds", async () => {
+    expect(REQUEST_TIMEOUT_MS).toBe(3_000);
+    const timeout = vi.spyOn(AbortSignal, "timeout");
+    try {
+      const { http } = fakeHttp({ [STATS_URL]: () => json(statsBody()) });
+      await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+      expect(timeout).toHaveBeenCalledWith(3_000);
+    } finally {
+      timeout.mockRestore();
+    }
   });
 
   it("status429IsRateLimited", async () => {
@@ -463,6 +480,7 @@ describe("loadMatches", () => {
     const lookup = "https://open.faceit.com/data/v4/players?nickname=ghost&game=cs2";
     const { http } = fakeHttp({ [lookup]: () => json({ errors: [] }, 404) });
     expect(await loadMatches(deps, userId, { nickname: "ghost" }, http, KEY)).toEqual({ status: "not-found" });
+    deps.advance(FAILURE_MEMORY_MS); // the not-found above is remembered for two minutes
     const { http: noId } = fakeHttp({ [lookup]: () => json({ nickname: "ghost" }) });
     expect(await loadMatches(deps, userId, { nickname: "ghost" }, noId, KEY)).toEqual({ status: "unavailable" });
   });
@@ -524,6 +542,181 @@ describe("loadMatches", () => {
     if (r.status !== "ok") throw new Error("expected ok");
     expect(r.matches).toHaveLength(100);
     expect(r.matches[0].kills).toBe(1);
+  });
+});
+
+describe("failure memory", () => {
+  it("aFailedFetchIsRememberedForTwoMinutes", async () => {
+    expect(FAILURE_MEMORY_MS).toBe(120_000);
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json({}, 500) });
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status: "unavailable" });
+    expect(calls).toHaveLength(1);
+    deps.advance(FAILURE_MEMORY_MS - 1);
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status: "unavailable" });
+    expect(calls).toHaveLength(1); // remembered: Faceit was not asked again
+    deps.advance(1);
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status: "unavailable" });
+    expect(calls).toHaveLength(2); // two minutes passed: it retries
+  });
+
+  it("theRememberedFailureKeepsItsMappedStatus", async () => {
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json({}, 404) });
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status: "not-found" });
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status: "not-found" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("aFailedNicknameLookupIsRememberedToo", async () => {
+    const lookup = "https://open.faceit.com/data/v4/players?nickname=ghost&game=cs2";
+    const { http, calls } = fakeHttp({ [lookup]: () => { throw new TypeError("fetch failed"); } });
+    expect(await loadMatches(deps, userId, { nickname: "ghost" }, http, KEY)).toEqual({ status: "unavailable" });
+    expect(await loadMatches(deps, userId, { nickname: "ghost" }, http, KEY)).toEqual({ status: "unavailable" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("aSuccessAfterTheMemoryClearsTheFailure", async () => {
+    let answer: () => Response = () => json({}, 500);
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => answer() });
+    await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    deps.advance(FAILURE_MEMORY_MS);
+    answer = () => json(statsBody());
+    expect((await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).status).toBe("ok");
+    const [row] = await deps.sql<{ failed_at: Date | null; failure: string | null }[]>`select failed_at, failure from faceit_cache where user_id = ${userId}`;
+    expect(row).toEqual({ failed_at: null, failure: null });
+    expect(calls).toHaveLength(2);
+  });
+
+  it("staleMatchesStillWinOverARecentFailure", async () => {
+    let answer: () => Response = () => json(statsBody());
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => answer() });
+    const first = await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    if (first.status !== "ok") throw new Error("expected ok");
+    deps.advance(FACEIT_CACHE_TTL_MS + 1);
+    answer = () => json({}, 500);
+    const failed = await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    expect(failed).toEqual({ status: "ok", matches: first.matches, fetchedAt: first.fetchedAt, stale: true });
+    expect(calls).toHaveLength(2);
+    deps.advance(60_000);
+    const again = await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    expect(again).toEqual(failed); // still the stale list, with no new request
+    expect(calls).toHaveLength(2);
+    deps.advance(60_000);
+    await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    expect(calls).toHaveLength(3); // the memory is over: Faceit is asked again
+  });
+
+  it("theOwnRateLimiterIsNotRememberedAsAFailure", async () => {
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json(statsBody()) });
+    for (let i = 0; i < 60; i += 1) await rateLimit(deps, "faceit:fetch", 60, 60_000);
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status: "rate-limited" });
+    deps.advance(60_000); // a new limiter window, well inside the failure memory
+    expect((await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).status).toBe("ok");
+    expect(calls).toHaveLength(1);
+  });
+});
+
+describe("cache identity", () => {
+  const OTHER_ID = "99999999-8888-4777-8666-555555555555";
+  const OTHER_URL = `https://open.faceit.com/data/v4/players/${OTHER_ID}/games/cs2/stats?limit=100`;
+
+  it("theRowRemembersWhoItWasFetchedFor", async () => {
+    const lookup = "https://open.faceit.com/data/v4/players?nickname=Nova&game=cs2";
+    const { http } = fakeHttp({ [STATS_URL]: () => json(statsBody()), [lookup]: () => json({ player_id: PLAYER_ID }) });
+    await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    const ref = () => deps.sql<{ faceit_ref: string }[]>`select faceit_ref from faceit_cache where user_id = ${userId}`;
+    expect(await ref()).toEqual([{ faceit_ref: PLAYER_ID }]);
+    deps.advance(FACEIT_CACHE_TTL_MS);
+    await loadMatches(deps, userId, { nickname: "Nova" }, http, KEY);
+    expect(await ref()).toEqual([{ faceit_ref: "nick:Nova" }]);
+  });
+
+  it("aNewPlayerIdNeverServesTheOldAccountsMatches", async () => {
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json(statsBody()), [OTHER_URL]: () => json({}, 500) });
+    expect((await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).status).toBe("ok");
+    // within the TTL, but for another account: a miss, not a hit
+    expect(await loadMatches(deps, userId, { playerId: OTHER_ID }, http, KEY)).toEqual({ status: "unavailable" });
+    expect(calls.map((c) => c.url)).toEqual([STATS_URL, OTHER_URL]);
+    // and not stale either, after the TTL, while the new fetch keeps failing
+    deps.advance(FACEIT_CACHE_TTL_MS + FAILURE_MEMORY_MS);
+    expect(await loadMatches(deps, userId, { playerId: OTHER_ID }, http, KEY)).toEqual({ status: "unavailable" });
+    const [row] = await deps.sql<{ matches: unknown; faceit_ref: string }[]>`select matches, faceit_ref from faceit_cache where user_id = ${userId}`;
+    expect(row).toEqual({ matches: null, faceit_ref: OTHER_ID }); // the old account's list is gone
+  });
+
+  it("aNewPlayerIdIsFetchedFreshWhenFaceitWorks", async () => {
+    const { http } = fakeHttp({
+      [STATS_URL]: () => json(statsBody()),
+      [OTHER_URL]: () => json({ items: [{ stats: { Kills: "30", Deaths: "5", Result: "1", Score: "13 / 1", "Match Finished At": 1760100000 } }] }),
+    });
+    await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    const r = await loadMatches(deps, userId, { playerId: OTHER_ID }, http, KEY);
+    if (r.status !== "ok") throw new Error("expected ok");
+    expect(r.matches.map((m) => m.kills)).toEqual([30]);
+  });
+
+  it("aRowWithoutARefIsAMiss", async () => {
+    const mapped = [mapMatch(CORE_SAMPLE, FIXTURE_NOW)];
+    await deps.sql`insert into faceit_cache (user_id, matches, fetched_at) values (${userId}, ${deps.sql.json(mapped as never)}, ${deps.now()})`;
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json({}, 500) });
+    expect(await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY)).toEqual({ status: "unavailable" });
+    expect(calls).toHaveLength(1);
+  });
+
+  it("aRememberedFailureForAnotherAccountDoesNotBlockTheNewOne", async () => {
+    const { http, calls } = fakeHttp({ [STATS_URL]: () => json({}, 500), [OTHER_URL]: () => json(statsBody()) });
+    await loadMatches(deps, userId, { playerId: PLAYER_ID }, http, KEY);
+    expect((await loadMatches(deps, userId, { playerId: OTHER_ID }, http, KEY)).status).toBe("ok");
+    expect(calls).toHaveLength(2);
+  });
+});
+
+describe("raceDeadline", () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+
+  it("deadlineIsFiveSeconds", () => {
+    expect(FACEIT_PAGE_DEADLINE_MS).toBe(5_000);
+  });
+
+  it("answersWithTheFallbackWhenWorkIsSlow", async () => {
+    vi.useFakeTimers();
+    const slow = new Promise<string>((resolve) => setTimeout(() => resolve("late"), 10_000));
+    const raced = raceDeadline(slow, 5_000, "fallback");
+    await vi.advanceTimersByTimeAsync(5_000);
+    expect(await raced).toBe("fallback");
+    await vi.advanceTimersByTimeAsync(10_000); // the late result is ignored, nothing throws
+  });
+
+  it("answersWithTheResultWhenWorkIsFast", async () => {
+    vi.useFakeTimers();
+    const raced = raceDeadline(new Promise<string>((resolve) => setTimeout(() => resolve("done"), 100)), 5_000, "fallback");
+    await vi.advanceTimersByTimeAsync(100);
+    expect(await raced).toBe("done");
+    expect(vi.getTimerCount()).toBe(0); // the deadline timer is cleared
+  });
+
+  it("aRejectionBeforeTheDeadlineIsPassedOn", async () => {
+    await expect(raceDeadline(Promise.reject(new Error("db down")), 5_000, "fallback")).rejects.toThrow("db down");
+  });
+
+  it("aRejectionAfterTheDeadlineIsSwallowedNotUnhandled", async () => {
+    vi.useFakeTimers();
+    const unhandled: unknown[] = [];
+    const listener = (reason: unknown): void => void unhandled.push(reason);
+    process.on("unhandledRejection", listener);
+    try {
+      const late = new Promise<string>((_, reject) => setTimeout(() => reject(new Error("late failure")), 10_000));
+      const raced = raceDeadline(late, 5_000, "fallback");
+      await vi.advanceTimersByTimeAsync(5_000);
+      expect(await raced).toBe("fallback");
+      await vi.advanceTimersByTimeAsync(10_000);
+      vi.useRealTimers();
+      await new Promise((resolve) => setImmediate(resolve));
+      expect(unhandled).toEqual([]);
+    } finally {
+      process.off("unhandledRejection", listener);
+    }
   });
 });
 

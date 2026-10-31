@@ -8,7 +8,8 @@ export const FACEIT_BASE_URL = "https://open.faceit.com/data/v4";
 export const FACEIT_GAME = "cs2";
 /** The same cap as the app (`GameStore.MATCH_LIMIT`). */
 export const MATCH_LIMIT = 100;
-export const REQUEST_TIMEOUT_MS = 5_000;
+/** One Faceit request; the page as a whole is bounded by `FACEIT_PAGE_DEADLINE_MS`. */
+export const REQUEST_TIMEOUT_MS = 3_000;
 
 export type FaceitFailure = "unavailable" | "not-found" | "rate-limited";
 

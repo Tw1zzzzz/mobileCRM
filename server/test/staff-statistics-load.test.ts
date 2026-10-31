@@ -241,6 +241,96 @@ describe("loadStatistics", () => {
     expect(page.view.game?.tiles[0]).toEqual({ label: "Сыграно карт", value: "10" });
   });
 
+  describe("the Faceit deadline", () => {
+    const WAIT = 40;
+    const sleepMs = (ms: number): Promise<void> => new Promise((resolve) => setTimeout(resolve, ms));
+    /** A Faceit that never answers the players in `hung` and answers everyone else at once. */
+    function partlyHung(answers: Record<string, unknown[]>, hung: string[]): FakeFaceit {
+      const inner = fakeFaceit(answers);
+      const http = (async (input: unknown, init?: RequestInit) => {
+        const id = String(input).match(/\/players\/([^/]+)\//)?.[1] ?? "";
+        if (hung.includes(id)) {
+          inner.calls.push(String(input));
+          return new Promise<Response>(() => {});
+        }
+        return inner.http(input as never, init);
+      }) as typeof fetch;
+      return { ...inner, http };
+    }
+
+    it("slowFaceitCountsAsUnavailableWithinTheDeadline", async () => {
+      const t = await seedCardTeam(deps);
+      await seedState(deps, t.ids.vega, rowsOf(SLEEP, MOOD), { playerId: FACEIT_IDS.vega });
+      await seedState(deps, t.ids.nova, rowsOf(SLEEP, MOOD), { playerId: FACEIT_IDS.nova });
+      const faceit = partlyHung({ [FACEIT_IDS.vega]: positiveMatches(SLEEP) }, [FACEIT_IDS.nova]);
+      const started = Date.now();
+      const page = await loadStatistics(deps, t.ctx, { m: "sleep,kd" }, TZ, { http: faceit.http, apiKey: KEY, deadlineMs: WAIT });
+      if (page.kind !== "data") throw new Error("expected data");
+      expect(Date.now() - started).toBeLessThan(2_000); // the hung request would have waited for ever
+      // vega's matches are used; nova (not finished) and ghost (not connected) have none
+      expect(cell(page, "Сон", "K/D")).toBe("+1.00");
+      expect(page.view.notices.map((n) => n.message)).toEqual(["Данных Faceit нет у 2 из 3 игроков"]);
+    });
+
+    it("oneSlowPlayerIsTheUsualUnavailableNotice", async () => {
+      const t = await seedCardTeam(deps);
+      await seedState(deps, t.ids.vega, rowsOf(SLEEP, MOOD), { playerId: FACEIT_IDS.vega });
+      const faceit = partlyHung({}, [FACEIT_IDS.vega]);
+      const page = await loadStatistics(deps, t.ctx, { who: t.ids.vega, m: "sleep,mood,kd" }, TZ, { http: faceit.http, apiKey: KEY, deadlineMs: WAIT });
+      if (page.kind !== "data") throw new Error("expected data");
+      expect(page.view.notices.map((n) => n.message)).toEqual(["Faceit временно недоступен — попробуйте позже"]);
+      expect(cell(page, "Сон", "Настроение")).toBe(signed(pearsonRef(SLEEP, MOOD))); // the state metrics are untouched
+    });
+
+    it("playersStillWaitingForASlotAreNotStartedAfterTheDeadline", async () => {
+      const t = await seedCardTeam(deps);
+      const hung: string[] = [];
+      const roster = await deps.sql<{ id: string }[]>`select id from users where team_id = ${t.ids.team} and role = 'teamPlayer'`;
+      for (let i = 0; roster.length < 8; i++) {
+        const [row] = await deps.sql<{ id: string }[]>`
+          insert into users (email, nickname, password_hash, role, team_id, email_verified_at,
+            accepted_terms_at, accepted_privacy_at, beta_terms_version, beta_terms_accepted_at, created_at, updated_at)
+          values (${`slow${i}@stats.gg`}, ${`slow${i}`}, 'x', 'teamPlayer', ${t.ids.team}, ${deps.now()},
+            ${deps.now()}, ${deps.now()}, '2026-10-26', ${deps.now()}, ${deps.now()}, ${deps.now()})
+          returning id`;
+        roster.push(row);
+        deps.advance(1_000);
+      }
+      for (const [i, row] of roster.entries()) {
+        const playerId = `cccccccc-0000-4000-8000-${String(i).padStart(12, "0")}`;
+        await seedState(deps, row.id, rowsOf(SLEEP, MOOD), { playerId });
+        hung.push(playerId);
+      }
+      const faceit = partlyHung({}, hung);
+      await loadStatistics(deps, t.ctx, { m: "sleep,kd" }, TZ, { http: faceit.http, apiKey: KEY, deadlineMs: WAIT });
+      await sleepMs(WAIT * 3);
+      expect(faceit.calls).toHaveLength(4); // the parallel limit; the other four were never asked
+    });
+
+    it("aLateAnswerIsCachedForTheNextLoadAndNothingIsUnhandled", async () => {
+      const t = await seedCardTeam(deps);
+      await seedState(deps, t.ids.vega, rowsOf(SLEEP, MOOD), { playerId: FACEIT_IDS.vega });
+      const unhandled: unknown[] = [];
+      const listener = (reason: unknown): void => void unhandled.push(reason);
+      process.on("unhandledRejection", listener);
+      try {
+        const slow = fakeFaceit({ [FACEIT_IDS.vega]: positiveMatches(SLEEP) }, WAIT * 3);
+        const query = { who: t.ids.vega, m: "sleep,kd" };
+        const first = await loadStatistics(deps, t.ctx, query, TZ, { http: slow.http, apiKey: KEY, deadlineMs: WAIT });
+        if (first.kind !== "data") throw new Error("expected data");
+        expect(first.view.notices.map((n) => n.message)).toEqual(["Faceit временно недоступен — попробуйте позже"]);
+        await sleepMs(WAIT * 6); // the slow request finishes and fills the cache after the page was served
+        const second = await open(t, query, fakeFaceit({}));
+        expect(second.view.notices).toEqual([]);
+        expect(cell(second, "Сон", "K/D")).toBe("+1.00");
+        await sleepMs(0);
+        expect(unhandled).toEqual([]);
+      } finally {
+        process.off("unhandledRejection", listener);
+      }
+    });
+  });
+
   it("onlyAsksFaceitForGameMetrics", async () => {
     const t = await seedCardTeam(deps);
     await seedState(deps, t.ids.vega, rowsOf(SLEEP, MOOD), { playerId: FACEIT_IDS.vega });

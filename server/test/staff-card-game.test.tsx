@@ -425,8 +425,8 @@ describe("Faceit problems", () => {
     const mapped = GAME_ITEMS.map((raw) => mapMatch(raw)).filter((m) => m !== null);
     // fetched 2.5 hours before the test clock (26 Oct 12:00 UTC): older than the 15-minute cache, Faceit is down
     await deps.sql`
-      insert into faceit_cache (user_id, matches, fetched_at)
-      values (${t.ids.vega}, ${deps.sql.json(mapped as never)}, ${new Date("2026-10-26T09:30:00Z")})`;
+      insert into faceit_cache (user_id, matches, fetched_at, faceit_ref)
+      values (${t.ids.vega}, ${deps.sql.json(mapped as never)}, ${new Date("2026-10-26T09:30:00Z")}, ${FACEIT_IDS.vega})`;
     const { markup } = await open(t, { player: t.ids.vega, tab: "game" }, fakeFaceit({ [FACEIT_IDS.vega]: 500 }));
     const words = text(markup);
     expect(words).toContain(`${MESSAGES.unavailable}. Данные от 26 окт, 12:30`);
@@ -487,12 +487,24 @@ describe("who and when Faceit is asked", () => {
     const [{ n }] = await deps.sql<{ n: number }[]>`select count(*)::int as n from faceit_cache`;
     expect(n).toBe(0);
 
-    // the two Faceit tabs do ask (and a failing network is only a message)
+    // the two Faceit tabs do ask (and a failing network is only a message); the failure is remembered for two
+    // minutes, so the second tab does not ask Faceit again
     for (const tab of ["game", "corr"]) {
       const { markup } = await open(t, { player: t.ids.vega, tab });
       expect(text(markup), tab).toContain(MESSAGES.unavailable);
     }
-    expect(spy).toHaveBeenCalledTimes(2);
+    expect(spy).toHaveBeenCalledTimes(1);
+  });
+
+  it("slowFaceitIsUnavailableWithinTheDeadline", async () => {
+    const t = await seedCardTeam(deps);
+    await connect(t.ids.vega, FACEIT_IDS.vega);
+    const hung = vi.fn(() => new Promise<Response>(() => {})) as unknown as typeof fetch;
+    const started = Date.now();
+    const data = card(await loadCard(deps, t.ctx, { player: t.ids.vega, tab: "game" }, TZ, { http: hung, apiKey: KEY, deadlineMs: 40 }));
+    expect(Date.now() - started).toBeLessThan(2_000);
+    expect(text(renderToStaticMarkup(<CardFrame card={data} />))).toContain(MESSAGES.unavailable);
+    expect(hung).toHaveBeenCalledTimes(1);
   });
 
   it("onlyTheRosterCheckedPlayerIsAsked", async () => {

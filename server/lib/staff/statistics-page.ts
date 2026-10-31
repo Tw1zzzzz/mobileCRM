@@ -1,5 +1,6 @@
 import type { Deps } from "@/lib/deps";
 import { loadMatches, type FaceitResult } from "@/lib/faceit/cache";
+import { FACEIT_PAGE_DEADLINE_MS, raceDeadline } from "@/lib/faceit/deadline";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext, type TeamPlayer } from "@/lib/staff/access";
 import { faceitIdentity } from "@/lib/staff/card";
 import { matchDaily } from "@/lib/staff/game";
@@ -137,20 +138,43 @@ export type StatsPage =
 export interface StatsOptions {
   http?: typeof fetch;
   apiKey?: string;
+  /** Test seam: how long the page waits for all players' Faceit loads (default `FACEIT_PAGE_DEADLINE_MS`). */
+  deadlineMs?: number;
 }
 
-/** Runs `work` over `items` with at most `limit` calls in flight; results keep the order of `items`. */
-async function mapLimited<T, R>(items: readonly T[], limit: number, work: (item: T) => Promise<R>): Promise<R[]> {
-  const results: R[] = new Array(items.length);
+/** Runs `work` over `items` with at most `limit` calls in flight, in the order of `items`. */
+async function forEachLimited<T>(items: readonly T[], limit: number, work: (item: T, index: number) => Promise<void>): Promise<void> {
   let next = 0;
   const worker = async (): Promise<void> => {
     while (next < items.length) {
       const index = next++;
-      results[index] = await work(items[index]);
+      await work(items[index], index);
     }
   };
   await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker));
-  return results;
+}
+
+/**
+ * Every scope player's Faceit matches, all of them bounded by ONE deadline: a player whose load has not finished
+ * by then counts as «unavailable», and players still waiting for a slot are never started. Late results are dropped
+ * (they still fill the cache for the next load).
+ */
+async function faceitForScope(
+  deps: Deps,
+  scope: readonly TeamPlayer[],
+  docs: readonly Partial<Record<Collection, unknown>>[],
+  options: StatsOptions,
+): Promise<FaceitResult[]> {
+  const results: FaceitResult[] = scope.map(() => ({ status: "unavailable" }));
+  let expired = false;
+  const loads = forEachLimited(scope, FACEIT_PARALLEL, async (player, i) => {
+    if (expired) return;
+    const result = await faceitOf(deps, player, docs[i], options);
+    if (!expired) results[i] = result;
+  });
+  await raceDeadline<void>(loads, options.deadlineMs ?? FACEIT_PAGE_DEADLINE_MS, undefined);
+  expired = true;
+  return [...results];
 }
 
 async function faceitOf(
@@ -191,7 +215,7 @@ export async function loadStatistics(
   const docs = await Promise.all(scope.map((p) => playerDocuments(deps, ctx, p.id, STATS_COLLECTIONS)));
   const wantsFaceit = params.metrics.some((id) => NEEDS_FACEIT.has(id));
   const faceit = wantsFaceit
-    ? await mapLimited(scope, FACEIT_PARALLEL, (p) => faceitOf(deps, p, docs[scope.indexOf(p)], options))
+    ? await faceitForScope(deps, scope, docs, options)
     : scope.map(() => null);
 
   const players: PlayerData[] = scope.map((p, i) => {

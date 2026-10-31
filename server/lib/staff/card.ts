@@ -1,6 +1,7 @@
 import type { Deps } from "@/lib/deps";
 import { archetypeOf, latestMindsetScores, type Archetype } from "@/lib/staff/archetype";
 import { loadMatches, type FaceitResult } from "@/lib/faceit/cache";
+import { FACEIT_PAGE_DEADLINE_MS, raceDeadline } from "@/lib/faceit/deadline";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext } from "@/lib/staff/access";
 import { chartLine, type TestsChart } from "@/lib/staff/card-charts";
 import { corrView, gameView, type CorrView, type GameView } from "@/lib/staff/card-game";
@@ -347,6 +348,8 @@ function sleepData(docs: Documents, period: Period, sleep: DaySeries, tz: string
 export interface CardOptions {
   http?: typeof fetch;
   apiKey?: string;
+  /** Test seam: how long the card waits for Faceit (default `FACEIT_PAGE_DEADLINE_MS`). */
+  deadlineMs?: number;
 }
 
 /** What the player's synced `faceit` document says about who they are on Faceit. */
@@ -387,7 +390,11 @@ export async function loadCard(
   const days = period.days;
   // `player.id` is the roster-checked id; `loadMatches` trusts its caller.
   const faceit: FaceitResult | null = wantsFaceit(params)
-    ? await loadMatches(deps, player.id, faceitIdentity(docs.faceit), options.http ?? fetch, options.apiKey)
+    ? await raceDeadline<FaceitResult>(
+        loadMatches(deps, player.id, faceitIdentity(docs.faceit), options.http ?? fetch, options.apiKey),
+        options.deadlineMs ?? FACEIT_PAGE_DEADLINE_MS,
+        { status: "unavailable" },
+      )
     : null;
 
   return {
