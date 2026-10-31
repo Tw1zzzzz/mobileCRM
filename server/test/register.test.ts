@@ -482,3 +482,63 @@ describe("when the mail provider fails", () => {
     expect(deps.mailer.lastCode(EMAIL)).toMatch(/^\d{6}$/);
   });
 });
+
+describe("wrong staff codes are limited for everyone together", () => {
+  const WRONG = "ZZZZZZ";
+  let n = 0;
+  const staffJoin = (code: string, ip: string) =>
+    register({ role: "staff", staff_code: code, email: `helper${n++}@team.gg` }, ip);
+
+  async function teamWithStaffCode(): Promise<string> {
+    const owner = await register({ role: "staff", team_name: "Alpha", email: "owner@team.gg" }, "1.1.1.1");
+    expect(owner.status).toBe(201);
+    const [row] = await deps.sql`select staff_code from teams`;
+    return row.staff_code as string;
+  }
+
+  it("aCorrectCodeStillWorksBeforeTheLimitAndCorrectCodesAreNotMisses", async () => {
+    const code = await teamWithStaffCode();
+    for (let i = 0; i < 29; i++) expect((await staffJoin(WRONG, `10.0.0.${i}`)).status).toBe(404);
+    const good = await staffJoin(code, "10.1.0.1");
+    expect(good.status).toBe(201);
+    // the correct join was not counted: one more miss is still a plain team_not_found
+    const miss = await staffJoin(WRONG, "10.1.0.2");
+    expect(miss.status).toBe(404);
+    expect(miss.body.error.code).toBe("team_not_found");
+  });
+
+  it("afterThirtyMissesEvenACorrectCodeIsRefusedUntilTheWindowPasses", async () => {
+    const code = await teamWithStaffCode();
+    // 30 misses from 30 different addresses: no single IP limit is involved
+    for (let i = 0; i < 30; i++) {
+      const res = await staffJoin(WRONG, `10.0.0.${i}`);
+      expect(res.status).toBe(404);
+      expect(res.body.error.code).toBe("team_not_found");
+    }
+    const refused = await staffJoin(code, "10.2.0.1");
+    expect(refused.status).toBe(429);
+    expect(refused.body.error.code).toBe("rate_limited");
+    // a wrong code is refused the same way, so the reply no longer tells right from wrong
+    const refusedWrong = await staffJoin(WRONG, "10.2.0.2");
+    expect(refusedWrong.status).toBe(429);
+    expect(refusedWrong.body.error.code).toBe("rate_limited");
+
+    // other registrations are unaffected
+    expect((await register({ email: "solo@team.gg" }, "10.2.0.3")).status).toBe(201);
+    expect((await register({ role: "staff", team_name: "Beta", email: "beta@team.gg" }, "10.2.0.4")).status).toBe(201);
+
+    deps.advance(60 * 60 * 1000);
+    expect((await staffJoin(code, "10.2.0.5")).status).toBe(201);
+  });
+
+  it("missesOnTheSameIpAreAlsoCountedGlobally", async () => {
+    const code = await teamWithStaffCode();
+    // ten IPs, three misses each (the per-IP limit is ten a minute)
+    for (let ip = 0; ip < 10; ip++) {
+      for (let k = 0; k < 3; k++) await staffJoin(WRONG, `10.3.0.${ip}`);
+    }
+    const refused = await staffJoin(code, "10.3.1.1");
+    expect(refused.status).toBe(429);
+    expect(refused.body.error.code).toBe("rate_limited");
+  });
+});

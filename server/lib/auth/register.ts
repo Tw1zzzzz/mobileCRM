@@ -11,7 +11,7 @@ import {
 } from "@/lib/auth/validation";
 import type { Deps } from "@/lib/deps";
 import { ApiError, ok, parseBody } from "@/lib/http";
-import { clientIp, rateLimit } from "@/lib/rateLimit";
+import { assertUnderLimit, clientIp, rateLimit } from "@/lib/rateLimit";
 import { dismantleTeam } from "@/lib/team/members";
 import { createTeam, findTeamByCode, findTeamByStaffCode } from "@/lib/teams";
 import { findUserByEmail, isDemoEmail, type Role } from "@/lib/users";
@@ -128,6 +128,11 @@ function emailTaken(): ApiError {
   return new ApiError("email_taken", "This email is already registered.", 409);
 }
 
+/** Wrong staff codes seen from anywhere before staff-code registrations are refused for the rest of the window. */
+const STAFF_CODE_MISS_LIMIT = 30;
+const STAFF_CODE_MISS_WINDOW_MS = 60 * 60 * 1000;
+const STAFF_CODE_MISS_KEY = "staffcode:miss";
+
 export async function registerHandler(req: Request, deps: Deps): Promise<Response> {
   await rateLimit(deps, "auth:" + clientIp(req), 10, 60_000);
   const body = await parseBody(req, RegisterBody);
@@ -158,8 +163,15 @@ export async function registerHandler(req: Request, deps: Deps): Promise<Respons
   }
 
   if (staffCode) {
+    // Wrong staff codes are counted for everybody together (a per-IP limit alone is beaten by many addresses).
+    // Once the bucket is used up even a correct code is refused, so the answer reveals nothing; the cost is that
+    // an attacker can keep new helpers from joining for as long as they keep missing (see docs/STAFF_PANEL.md).
+    await assertUnderLimit(deps, STAFF_CODE_MISS_KEY, STAFF_CODE_MISS_LIMIT, STAFF_CODE_MISS_WINDOW_MS);
     const team = await findTeamByStaffCode(deps, staffCode);
-    if (!team) throw new ApiError("team_not_found", "No team with this code.", 404);
+    if (!team) {
+      await rateLimit(deps, STAFF_CODE_MISS_KEY, STAFF_CODE_MISS_LIMIT, STAFF_CODE_MISS_WINDOW_MS);
+      throw new ApiError("team_not_found", "No team with this code.", 404);
+    }
     joinTeamId = team.id;
   }
 
