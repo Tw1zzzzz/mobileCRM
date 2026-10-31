@@ -1,10 +1,12 @@
 import Link from "next/link";
-import { CARD_PATH, cardHref, cardQuery, type CardData, type CardTab, type TestType } from "@/lib/staff/card";
+import { CARD_PATH, cardHref, cardQuery, type CardData, type CardTab, type GameSource, type TestType } from "@/lib/staff/card";
+import { CorrTab } from "./CorrTab";
+import { FilterSelect } from "./FilterSelect";
 import { FoodTab } from "./FoodTab";
+import { GameTab } from "./GameTab";
 import { KpiStrip } from "./KpiStrip";
 import { SleepTab } from "./SleepTab";
 import { TestsTab } from "./TestsTab";
-import { TypeFilter } from "./TypeFilter";
 import { WheelTab } from "./WheelTab";
 import styles from "./card.module.css";
 
@@ -22,6 +24,14 @@ const TYPE_OPTIONS: readonly { value: TestType; label: string }[] = [
   { value: "all", label: "Все тесты" },
   { value: "cog", label: "Когнитивные" },
   { value: "game", label: "Игровые до/после" },
+];
+
+/** The board's «Источник игр»; practices and tournaments arrive with plan C, so they are listed but disabled. */
+const SOURCE_OPTIONS: readonly { value: GameSource | "prak" | "tour"; label: string; disabled?: boolean }[] = [
+  { value: "all", label: "Все" },
+  { value: "faceit", label: "Faceit" },
+  { value: "prak", label: "Пракки (скоро)", disabled: true },
+  { value: "tour", label: "Турниры (скоро)", disabled: true },
 ];
 
 /** A tab whose body is built in a later step. */
@@ -51,11 +61,23 @@ export function CardFrame({ card }: { card: CardData }) {
       </div>
 
       <div className={styles.filters}>
-        <TypeFilter
+        <FilterSelect
+          id="f-type"
+          name="type"
+          label="Тип теста"
           action={CARD_PATH}
           hidden={cardQuery(params).filter(([name]) => name !== "type")}
           value={params.type}
           options={TYPE_OPTIONS}
+        />
+        <FilterSelect
+          id="f-src"
+          name="src"
+          label="Источник игр"
+          action={CARD_PATH}
+          hidden={cardQuery(params).filter(([name]) => name !== "src")}
+          value={params.src}
+          options={SOURCE_OPTIONS}
         />
         <span className={styles.range}>{card.rangeLabel}</span>
       </div>
@@ -81,6 +103,10 @@ export function CardFrame({ card }: { card: CardData }) {
 
       {params.tab === "tests" ? (
         <TestsTab tests={card.tests} />
+      ) : params.tab === "game" && card.game !== null ? (
+        <GameTab game={card.game} />
+      ) : params.tab === "corr" && card.corr !== null ? (
+        <CorrTab corr={card.corr} />
       ) : params.tab === "sleep" ? (
         <SleepTab sleep={card.sleep} />
       ) : params.tab === "wheel" ? (

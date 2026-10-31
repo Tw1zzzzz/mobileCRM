@@ -69,12 +69,14 @@ describe("card frame", () => {
     const t = await seedCardTeam(deps);
     const { markup } = await frame(t, { player: t.ids.vega, tab: "tests", type: "cog", period: "7" });
     expect(markup).toContain('<label for="f-type"');
-    const options = [...markup.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map((m) => [m[1], m[2]]);
+    const typeSelect = markup.slice(markup.indexOf('id="f-type"'), markup.indexOf("</select>", markup.indexOf('id="f-type"')));
+    const options = [...typeSelect.matchAll(/<option value="([^"]*)"[^>]*>([^<]*)<\/option>/g)].map((m) => [m[1], m[2]]);
     expect(options).toEqual([["all", "Все тесты"], ["cog", "Когнитивные"], ["game", "Игровые до/после"]]);
     expect(markup).toMatch(/<option value="cog" selected/);
     expect(markup).not.toContain("Еженедельные");
     // the form carries the selection except the type itself
-    const hidden = [...markup.matchAll(/<input type="hidden" name="([^"]*)" value="([^"]*)"/g)].map((m) => [m[1], m[2]]);
+    const typeForm = markup.slice(markup.indexOf("<form"), markup.indexOf("</form>"));
+    const hidden = [...typeForm.matchAll(/<input type="hidden" name="([^"]*)" value="([^"]*)"/g)].map((m) => [m[1], m[2]]);
     expect(hidden).toEqual([["player", t.ids.vega], ["period", "7"], ["tab", "tests"]]);
     expect(markup).toContain('action="/staff/players"');
   });
@@ -95,11 +97,11 @@ describe("card frame", () => {
 
   it("tabsNotBuiltYetSaySoon", async () => {
     const t = await seedCardTeam(deps);
-    for (const tab of ["profile", "game", "corr"]) {
+    for (const tab of ["profile"]) {
       const { markup } = await frame(t, { player: t.ids.vega, tab });
       expect(text(markup), tab).toMatch(SOON);
     }
-    for (const tab of ["tests", "sleep", "wheel", "food"]) {
+    for (const tab of ["tests", "game", "corr", "sleep", "wheel", "food"]) {
       const { markup } = await frame(t, { player: t.ids.vega, tab });
       expect(text(markup), tab).not.toMatch(SOON);
     }

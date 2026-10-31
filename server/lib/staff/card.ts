@@ -1,6 +1,8 @@
 import type { Deps } from "@/lib/deps";
+import { loadMatches, type FaceitResult } from "@/lib/faceit/cache";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext } from "@/lib/staff/access";
 import { chartLine, type TestsChart } from "@/lib/staff/card-charts";
+import { corrView, gameView, type CorrView, type GameView } from "@/lib/staff/card-game";
 import { foodData, type FoodData } from "@/lib/staff/card-food";
 import { dayLabel, hoursMinutes, initials, monthDay, signed1 } from "@/lib/staff/card-format";
 import { wheelData, type WheelData } from "@/lib/staff/card-wheel";
@@ -11,6 +13,7 @@ import {
   mean,
   parseInstant,
   inRange,
+  isRecord,
   records,
   shiftDay,
   type Day,
@@ -171,6 +174,10 @@ export type CardData =
       sleep: SleepData;
       wheel: WheelData;
       food: FoodData;
+      /** Only on the «Игра» tab (and only then is Faceit asked). */
+      game: GameView | null;
+      /** Only on the «Корреляции» tab. */
+      corr: CorrView | null;
     };
 
 /** Values of the days of the period that have one, oldest first. */
@@ -321,6 +328,26 @@ function sleepData(docs: Documents, period: Period, sleep: DaySeries, tz: string
   };
 }
 
+/** Test seam: the HTTP function and key `loadMatches` uses; by default global `fetch` and `FACEIT_API_KEY`. */
+export interface CardOptions {
+  http?: typeof fetch;
+  apiKey?: string;
+}
+
+/** What the player's synced `faceit` document says about who they are on Faceit. */
+function faceitIdentity(doc: unknown): { playerId: string | null; nickname: string | null } {
+  const held = isRecord(doc) ? doc : {};
+  return {
+    playerId: typeof held.playerId === "string" ? held.playerId : null,
+    nickname: typeof held.nickname === "string" ? held.nickname : null,
+  };
+}
+
+/** Faceit is asked only for the two tabs that show its matches, and only for sources that include it. */
+function wantsFaceit(params: CardParams): boolean {
+  return (params.tab === "game" || params.tab === "corr") && (params.src === "all" || params.src === "faceit");
+}
+
 /**
  * The card for the URL's selection: the roster is the only gate (anyone not on it is replaced by the first
  * roster player), then the player's documents are read once. `today` is the current day in the staff zone.
@@ -330,6 +357,7 @@ export async function loadCard(
   ctx: StaffContext,
   raw: SearchParams,
   tz: string = STAFF_TIME_ZONE,
+  options: CardOptions = {},
 ): Promise<CardData> {
   const roster = await teamPlayers(deps, ctx);
   const params = parseCardParams(raw, roster.map((p) => p.id));
@@ -342,6 +370,10 @@ export async function loadCard(
   const period = periodDays(today, params.period);
   const series = playerSeries({ id: player.id, docs }, period.from, period.to, tz);
   const days = period.days;
+  // `player.id` is the roster-checked id; `loadMatches` trusts its caller.
+  const faceit: FaceitResult | null = wantsFaceit(params)
+    ? await loadMatches(deps, player.id, faceitIdentity(docs.faceit), options.http ?? fetch, options.apiKey)
+    : null;
 
   return {
     kind: "card",
@@ -364,5 +396,7 @@ export async function loadCard(
     sleep: sleepData(docs, period, series.sleep, tz),
     wheel: wheelData(docs, today, params.day, (day) => cardHref(params, { day })),
     food: foodData(docs, player.id, period.from, period.to, tz),
+    game: faceit && params.tab === "game" ? gameView(faceit, period, today, tz) : null,
+    corr: faceit && params.tab === "corr" ? corrView(faceit, series, period, today, tz) : null,
   };
 }

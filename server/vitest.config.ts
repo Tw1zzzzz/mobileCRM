@@ -17,6 +17,8 @@ export default defineConfig({
       DATABASE_URL: testDatabaseUrl,
       TEST_DATABASE_URL: testDatabaseUrl,
       AUTH_SECRET: "test-secret-test-secret-test-secret-0123456789",
+      // A key from the developer's shell must never make a test call Faceit.
+      FACEIT_API_KEY: "",
     },
   },
 });
