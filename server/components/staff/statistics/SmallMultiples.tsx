@@ -15,7 +15,7 @@ function Multiple({ m }: { m: MultipleView }) {
         </span>
         {m.hasData && (
           <span className={styles.avg}>
-            ср. <b>{m.avg}</b>
+            ср. по дням <b>{m.avg}</b>
           </span>
         )}
       </div>

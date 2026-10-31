@@ -407,9 +407,10 @@ a.mchipOnGame:hover {
 }
 .multipleHead {
   display: flex;
+  flex-wrap: wrap; /* a long name pushes «ср. по дням …» to its own line instead of breaking it */
   align-items: center;
   justify-content: space-between;
-  gap: 10px;
+  gap: 4px 10px;
 }
 .multipleName {
   display: flex;
@@ -421,6 +422,7 @@ a.mchipOnGame:hover {
 .avg {
   font-size: 13px;
   color: var(--muted);
+  white-space: nowrap;
 }
 .avg b {
   font-weight: 700;

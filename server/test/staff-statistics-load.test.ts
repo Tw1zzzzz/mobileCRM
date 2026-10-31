@@ -11,7 +11,7 @@ import {
 import { resetDb, testDeps } from "./helpers";
 import { putDoc, seedCardTeam, type CardTeam } from "./staff-card-fixture";
 import {
-  FACEIT_IDS, KEY, TZ, daysBefore, fakeFaceit, matchesFor, pearsonRef, seedState, signed, type DayRow, type FakeFaceit,
+  FACEIT_IDS, KEY, TZ, daysBefore, fakeFaceit, item, matchesFor, pearsonRef, seedState, signed, type DayRow, type FakeFaceit,
 } from "./staff-statistics-fixture";
 
 const deps = testDeps();
@@ -407,6 +407,34 @@ describe("loadStatistics", () => {
       { label: "Win Rate", value: "67%" },
       { label: "ELO на конец периода", value: "2100" },
     ]);
+  });
+
+  it("aMatchSharedByTeammatesIsCountedOnce", async () => {
+    const t = await seedCardTeam(deps);
+    await seedState(deps, t.ids.vega, rowsOf(SLEEP, MOOD), { playerId: FACEIT_IDS.vega });
+    await seedState(deps, t.ids.nova, rowsOf(SLEEP, MOOD), { playerId: FACEIT_IDS.nova });
+    const ids = ["1-aaaaaaaa-0000-4000-8000-000000000001", "1-aaaaaaaa-0000-4000-8000-000000000002", "1-aaaaaaaa-0000-4000-8000-000000000003"];
+    const lines = (kills: number): unknown[] =>
+      [["2026-10-24", true], ["2026-10-25", true], ["2026-10-26", false]].map(([day, won], i) =>
+        item(`${day}T10:00:00Z`, { "Match Id": ids[i], Kills: String(kills), Deaths: "10", ADR: "80", Result: won ? "1" : "0" }));
+    // both play the same three matches: 3 maps, 2 wins of 3 - not 6 maps
+    const both = await open(t, { m: "sleep,kd" }, fakeFaceit({ [FACEIT_IDS.vega]: lines(20), [FACEIT_IDS.nova]: lines(20) }));
+    expect(both.view.game?.tiles.slice(0, 4)).toEqual([
+      { label: "Сыграно карт", value: "3" },
+      { label: "Средний K/D", value: "2.00" },
+      { label: "Средний ADR", value: "80.0" },
+      { label: "Win Rate", value: "67%" },
+    ]);
+    // each player's own K/D still counts: different lines in the same matches average over both players
+    await deps.sql`delete from faceit_cache`;
+    const mixed = await open(t, { m: "sleep,kd" }, fakeFaceit({ [FACEIT_IDS.vega]: lines(10), [FACEIT_IDS.nova]: lines(30) }));
+    expect(mixed.view.game?.tiles[0]).toEqual({ label: "Сыграно карт", value: "3" });
+    expect(mixed.view.game?.tiles[1]).toEqual({ label: "Средний K/D", value: "2.00" });
+    // different matches add up
+    await deps.sql`delete from faceit_cache`;
+    const other = lines(20).map((x, i) => item(`2026-10-2${3 - i}T11:00:00Z`, { "Match Id": `1-bbbbbbbb-0000-4000-8000-00000000000${i}`, Kills: "20", Deaths: "10" }));
+    const apart = await open(t, { m: "sleep,kd" }, fakeFaceit({ [FACEIT_IDS.vega]: lines(20), [FACEIT_IDS.nova]: other }));
+    expect(apart.view.game?.tiles[0]).toEqual({ label: "Сыграно карт", value: "6" });
   });
 
   it("noDataAtAllIsReported", async () => {

@@ -8,6 +8,7 @@
  */
 import { MATCH_LIMIT } from "@/lib/faceit/client";
 import type { FaceitResult } from "@/lib/faceit/cache";
+import type { FaceitMatch } from "@/lib/faceit/mapper";
 import { FACEIT_MESSAGES, cellColour, faceitInfo, fixed, signedR, type FaceitNoticeData } from "@/lib/staff/card-game";
 import { gameSummary } from "@/lib/staff/game";
 import { mean, type Day } from "@/lib/staff/metrics";
@@ -240,25 +241,34 @@ function lastValue(series: DaySeries): number | null {
   return days.length === 0 ? null : series[days[days.length - 1]];
 }
 
+/** The first occurrence of each Faceit match id: teammates who played the same match share one id. */
+function distinctMatches(matches: readonly FaceitMatch[]): FaceitMatch[] {
+  const seen = new Set<string>();
+  return matches.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
+}
+
 function gameCard(players: readonly PlayerData[], period: Period, tz: string): GameCardView {
   const answered = players.filter((p) => p.faceit?.status === "ok");
   const matches = answered.flatMap((p) => (p.faceit?.status === "ok" ? p.faceit.matches : []));
+  // Maps played and Win Rate count a match once however many selected players were in it; K/D and ADR average
+  // every selected player's own lines.
   const summary = gameSummary(matches, period.from, period.to, tz);
+  const distinct = gameSummary(distinctMatches(matches), period.from, period.to, tz);
   const ended = players.map((p) => lastValue(p.series.elo)).filter((v): v is number => v !== null);
   const elo = mean(ended);
   const some = answered.length > 0;
   const orNo = (value: number | null, format: (v: number) => string): string => (value === null ? NO_DATA : format(value));
   return {
     tiles: [
-      { label: "Сыграно карт", value: some ? String(summary.matches) : NO_DATA },
+      { label: "Сыграно карт", value: some ? String(distinct.matches) : NO_DATA },
       { label: "Средний K/D", value: orNo(summary.avgKD, (v) => fixed(v, 2)) },
       { label: "Средний ADR", value: orNo(summary.adr, (v) => fixed(v, 1)) },
-      { label: "Win Rate", value: orNo(summary.winRate, (v) => `${whole(v)}%`) },
+      { label: "Win Rate", value: orNo(distinct.winRate, (v) => `${whole(v)}%`) },
       { label: "ELO на конец периода", value: orNo(elo, (v) => fixed(v, 0)) },
     ],
     note:
       players.length > 1
-        ? "По матчам всех выбранных игроков с данными Faceit; ELO — среднее значение на конец периода по игрокам, у которых он есть."
+        ? "Карты и Win Rate — по матчам игроков с данными Faceit, общий матч считается один раз; K/D и ADR — по матчам каждого игрока; ELO — среднее значение на конец периода по игрокам, у которых он есть."
         : null,
   };
 }

@@ -54,6 +54,17 @@ async function seeded(): Promise<{ t: CardTeam; faceit: () => FakeFaceit }> {
 }
 
 describe("«Статистика» page", () => {
+  it("smallMultiplesSayTheirAverageIsOverDays", async () => {
+    const { t, faceit } = await seeded();
+    const markup = await render(t, { who: t.ids.vega, m: "sleep,kd" }, faceit());
+    const words = text(markup);
+    // the chart average is the mean of the daily values, not of the matches (the game card's K/D)
+    expect(words).toMatch(/Сон ср\. по дням \d/);
+    expect(words).toMatch(/K\/D ср\. по дням \d/);
+    expect(words).not.toMatch(/ср\. \d/);
+    expect(markup.match(/ср\. по дням/g)).toHaveLength(2);
+  });
+
   it("keepsHeroAndShowsTheRangeLabel", async () => {
     const { t, faceit } = await seeded();
     const words = text(await render(t, {}, faceit()));
