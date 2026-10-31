@@ -189,7 +189,7 @@ function dynamicsTile(label: string, days: readonly Day[], series: DaySeries): K
   return { label, value: whole(average), note };
 }
 
-/** «{n} из {days with data}» for the days whose value reaches 8. */
+/** «{n} из {days with data}»; a day is high when its DAY MEAN of focus/fatigue reaches 8 (accepted ruling). */
 function highTile(label: string, caption: string, days: readonly Day[], series: DaySeries): KpiTile {
   const values = dataValues(days, series);
   const value = values.length === 0 ? NO_DATA : `${values.filter((v) => v >= HIGH_SCORE).length} из ${values.length}`;

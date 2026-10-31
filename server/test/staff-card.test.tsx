@@ -121,9 +121,13 @@ describe("card frame", () => {
     expect(words).toContain("Score");
     expect(markup).toContain('viewBox="0 0 900 220"');
     expect(markup).toContain('aria-label="Score и Индекс состояния игрока vega за период"');
-    expect(markup).toContain('stroke="#3fd0ff"');
-    expect(markup).toContain('stroke="#ffaa3c"');
-    expect(markup).toContain('stroke-dasharray="8 6"');
+    // the dashed orange line is the state index, the solid cyan one is the score
+    const paths = markup.match(/<path [^>]*>/g) ?? [];
+    expect(paths.filter((p) => p.includes('stroke="#ffaa3c"') && p.includes('stroke-dasharray="8 6"'))).toHaveLength(1);
+    const score = paths.filter((p) => p.includes('stroke="#3fd0ff"'));
+    expect(score).toHaveLength(1);
+    expect(score[0]).not.toContain("stroke-dasharray");
+    expect(paths.filter((p) => p.includes("stroke-dasharray"))).toHaveLength(1);
     for (const label of [">100<", ">50<", ">0<"]) expect(markup).toContain(label);
   });
 

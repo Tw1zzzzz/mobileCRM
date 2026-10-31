@@ -233,6 +233,11 @@ describe("loadCard", () => {
     // Seven days 20..26 Oct: x = 40 + i * 850 / 6; score on 20, 22, 24, 26 -> i = 0, 2, 4, 6, y = 180 - v * 1.6.
     expect(chart?.score.dots).toContain("M36.5 68"); // (40, 180 - 70 * 1.6 = 68), radius 3.5
     expect(chart?.score.line).toBe(""); // no two consecutive days: nothing to join
+    // Readiness on the same days (81, 58, 92, 48): y = 180 - v * 1.6 = 50.4, 87.2, 32.8, 103.2 at x = 40, 323.3, 606.7, 890.
+    expect(chart?.state.line).toBe("");
+    expect(chart?.state.dots).toBe(
+      ["M36.5 50.4", "M319.8 87.2", "M603.2 32.8", "M886.5 103.2"].map((m) => `${m}a3.5 3.5 0 1 0 7 0a3.5 3.5 0 1 0 -7 0`).join(""),
+    );
     expect(chart?.aria).toBe("Score и Индекс состояния игрока vega за период");
   });
 
