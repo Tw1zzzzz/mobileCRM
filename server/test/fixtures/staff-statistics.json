@@ -1,0 +1,69 @@
+{
+"pearson": [
+{"name": "pearsonPerfect", "xs": [1, 2, 3, 4, 5], "ys": [3, 5, 7, 9, 11], "expected": 1.0},
+{"name": "pearsonPerfectInverse", "xs": [1, 2, 3, 4], "ys": [8, 6, 4, 2], "expected": -1.0},
+{"name": "pearsonSleepVsCognitiveIsMinusOne", "xs": [8.0, 6.0, 7.0], "ys": [60.0, 90.0, 75.0], "expected": -1.0},
+{"name": "pearsonPartial", "xs": [6.5, 7.0, 7.5, 8.0, 5.5, 9.0], "ys": [41.0, 52.0, 47.0, 66.0, 38.0, 58.0], "expected": 0.81888097611134},
+{"name": "pearsonThreePairsIsEnough", "xs": [1, 2, 3], "ys": [1, 3, 2], "expected": 0.5},
+{"name": "pearsonTooFewPairsIsNull", "xs": [1, 2], "ys": [3, 4], "expected": null},
+{"name": "pearsonSizeMismatchIsNull", "xs": [1, 2, 3, 4], "ys": [1, 2, 3], "expected": null},
+{"name": "pearsonZeroVarianceIsNull", "xs": [5, 5, 5, 5], "ys": [1, 2, 3, 4], "expected": null},
+{"name": "pearsonZeroVarianceYIsNull", "xs": [1, 2, 3, 4], "ys": [7, 7, 7, 7], "expected": null}
+],
+"pairByDay": [
+{"name": "pairByDayDropsGaps", "a": {"2026-10-20": 7.0, "2026-10-21": 6.0, "2026-10-23": 8.0, "2026-10-24": 5.0}, "b": {"2026-10-21": 50.0, "2026-10-22": 99.0, "2026-10-23": 70.0, "2026-10-24": 40.0, "2026-10-25": 10.0}, "expected": {"xs": [6.0, 8.0, 5.0], "ys": [50.0, 70.0, 40.0]}},
+{"name": "pairByDayAscendingWhateverTheKeyOrder", "a": {"2026-10-24": 1.0, "2026-10-22": 2.0, "2026-10-23": 3.0}, "b": {"2026-10-23": 30.0, "2026-10-24": 10.0, "2026-10-22": 20.0}, "expected": {"xs": [2.0, 3.0, 1.0], "ys": [20.0, 30.0, 10.0]}},
+{"name": "pairByDayNoOverlap", "a": {"2026-10-20": 1.0}, "b": {"2026-10-21": 2.0}, "expected": {"xs": [], "ys": []}},
+{"name": "pairByDayEmpty", "a": {}, "b": {"2026-10-21": 2.0}, "expected": {"xs": [], "ys": []}}
+],
+"strength": [
+{"r": 1, "label": "Сильная", "direction": "direct"},
+{"r": 0.7, "label": "Сильная", "direction": "direct"},
+{"r": 0.699, "label": "Заметная", "direction": "direct"},
+{"r": 0.4, "label": "Заметная", "direction": "direct"},
+{"r": 0.399, "label": "Слабая", "direction": "direct"},
+{"r": 0.2, "label": "Слабая", "direction": "direct"},
+{"r": 0.199, "label": "Связи почти нет", "direction": null},
+{"r": 0.0, "label": "Связи почти нет", "direction": null},
+{"r": -0.199, "label": "Связи почти нет", "direction": null},
+{"r": -0.2, "label": "Слабая", "direction": "inverse"},
+{"r": -0.399, "label": "Слабая", "direction": "inverse"},
+{"r": -0.4, "label": "Заметная", "direction": "inverse"},
+{"r": -0.7, "label": "Сильная", "direction": "inverse"},
+{"r": -1, "label": "Сильная", "direction": "inverse"},
+{"r": null, "label": "мало данных", "direction": null}
+],
+"correlate": [
+{"name": "correlateUsesSharedDaysOnly", "a": {"2026-10-20": 7.0, "2026-10-21": 6.0, "2026-10-22": 8.0, "2026-10-24": 5.0, "2026-10-26": 9.0}, "b": {"2026-10-21": 50.0, "2026-10-22": 70.0, "2026-10-23": 1.0, "2026-10-24": 40.0, "2026-10-26": 82.0}, "expected": 0.9993534382550399},
+{"name": "correlateTwoSharedDaysIsNull", "a": {"2026-10-20": 7.0, "2026-10-21": 6.0, "2026-10-23": 8.0, "2026-10-24": 5.0}, "b": {"2026-10-21": 1.0, "2026-10-24": 9.0, "2026-10-30": 5.0}, "expected": null},
+{"name": "correlateConstantSeriesIsNull", "a": {"2026-10-20": 7.0, "2026-10-21": 7.0, "2026-10-22": 7.0}, "b": {"2026-10-20": 1.0, "2026-10-21": 2.0, "2026-10-22": 3.0}, "expected": null}
+],
+"pooled": [
+{"name": "pooledUsesAllPlayers", "pairs": [{"a": {"2026-10-20": 6.0, "2026-10-21": 8.0}, "b": {"2026-10-20": 40.0, "2026-10-21": 60.0}}, {"a": {"2026-10-20": 5.0, "2026-10-22": 9.0}, "b": {"2026-10-20": 30.0, "2026-10-22": 80.0}}], "expected": 0.9880643635111419},
+{"name": "pooledThreePlayersMixedSigns", "pairs": [{"a": {"2026-10-20": 6.0, "2026-10-21": 8.0}, "b": {"2026-10-20": 40.0, "2026-10-21": 60.0}}, {"a": {"2026-10-20": 5.0, "2026-10-22": 9.0}, "b": {"2026-10-20": 30.0, "2026-10-22": 80.0}}, {"a": {"2026-10-23": 7.0, "2026-10-24": 7.5, "2026-10-25": 6.0, "2026-10-26": 8.5}, "b": {"2026-10-23": 55.0, "2026-10-24": 50.0, "2026-10-25": 62.0, "2026-10-26": 41.0}}], "expected": 0.6100773857291024},
+{"name": "pooledSinglePlayerEqualsCorrelate", "pairs": [{"a": {"2026-10-23": 7.0, "2026-10-24": 7.5, "2026-10-25": 6.0, "2026-10-26": 8.5}, "b": {"2026-10-23": 55.0, "2026-10-24": 50.0, "2026-10-25": 62.0, "2026-10-26": 41.0}}], "expected": -0.9972018709041055},
+{"name": "pooledNoPlayersIsNull", "pairs": [], "expected": null},
+{"name": "pooledOnePlayerTwoDaysIsNull", "pairs": [{"a": {"2026-10-20": 6.0, "2026-10-21": 8.0}, "b": {"2026-10-20": 40.0, "2026-10-21": 60.0}}], "expected": null}
+],
+"medianSplit": [
+{"name": "medianSplitMatchesBoard", "xs": [6.0, 7.5, 5.0, 8.0, 7.0], "ys": [40.0, 60.0, 35.0, 70.0, 50.0], "expected": {"median": 7.0, "hiMean": 60.0, "loMean": 37.5}},
+{"name": "medianSplitEvenCountTakesUpperMiddle", "xs": [1.0, 2.0, 3.0, 4.0], "ys": [10.0, 20.0, 30.0, 50.0], "expected": {"median": 3.0, "hiMean": 40.0, "loMean": 15.0}},
+{"name": "medianSplitTiesGoToHi", "xs": [5.0, 5.0, 5.0, 9.0, 1.0], "ys": [10.0, 20.0, 30.0, 40.0, 50.0], "expected": {"median": 5.0, "hiMean": 25.0, "loMean": 50.0}},
+{"name": "medianSplitAllEqualIsNull", "xs": [5.0, 5.0, 5.0, 5.0], "ys": [1.0, 2.0, 3.0, 4.0], "expected": null},
+{"name": "medianSplitTooFewIsNull", "xs": [1.0, 2.0], "ys": [3.0, 4.0], "expected": null},
+{"name": "medianSplitSizeMismatchIsNull", "xs": [1.0, 2.0, 3.0], "ys": [3.0, 4.0], "expected": null}
+],
+"keyLinks": [
+{"name": "keyLinksPrefersCrossPairs", "metrics": [{"id": "mood", "group": "state"}, {"id": "sleep", "group": "state"}, {"id": "elo", "group": "game"}, {"id": "kd", "group": "game"}], "matrix": {"mood": {"sleep": 0.95, "elo": 0.3, "kd": -0.5}, "sleep": {"elo": -0.6, "kd": 0.1}, "elo": {"kd": 0.99}}, "expected": [{"a": "sleep", "b": "elo", "r": -0.6, "cross": true}, {"a": "mood", "b": "kd", "r": -0.5, "cross": true}, {"a": "mood", "b": "elo", "r": 0.3, "cross": true}]},
+{"name": "keyLinksSwapsGameFirst", "metrics": [{"id": "kd", "group": "game"}, {"id": "sleep", "group": "state"}, {"id": "elo", "group": "game"}, {"id": "mood", "group": "state"}], "matrix": {"kd": {"sleep": -0.8, "elo": 0.9, "mood": 0.2}, "sleep": {"elo": 0.4, "mood": 0.99}, "elo": {"mood": -0.3}}, "expected": [{"a": "sleep", "b": "kd", "r": -0.8, "cross": true}, {"a": "sleep", "b": "elo", "r": 0.4, "cross": true}, {"a": "mood", "b": "elo", "r": -0.3, "cross": true}]},
+{"name": "keyLinksFallsBackToAllPairsWithoutCross", "metrics": [{"id": "mood", "group": "state"}, {"id": "sleep", "group": "state"}, {"id": "screen", "group": "state"}], "matrix": {"mood": {"sleep": 0.5, "screen": -0.9}, "sleep": {"screen": 0.1}}, "expected": [{"a": "mood", "b": "screen", "r": -0.9, "cross": false}, {"a": "mood", "b": "sleep", "r": 0.5, "cross": false}, {"a": "sleep", "b": "screen", "r": 0.1, "cross": false}]},
+{"name": "keyLinksFallsBackWhenEveryCrossPairIsNull", "metrics": [{"id": "mood", "group": "state"}, {"id": "sleep", "group": "state"}, {"id": "elo", "group": "game"}, {"id": "kd", "group": "game"}], "matrix": {"mood": {"sleep": 0.5, "elo": null, "kd": null}, "sleep": {"elo": null, "kd": null}, "elo": {"kd": -0.7}}, "expected": [{"a": "elo", "b": "kd", "r": -0.7, "cross": false}, {"a": "mood", "b": "sleep", "r": 0.5, "cross": false}]},
+{"name": "keyLinksNullPairsNeverLink", "metrics": [{"id": "mood", "group": "state"}, {"id": "elo", "group": "game"}, {"id": "kd", "group": "game"}], "matrix": {"mood": {"elo": null, "kd": 0.3}, "elo": {"kd": null}}, "expected": [{"a": "mood", "b": "kd", "r": 0.3, "cross": true}]},
+{"name": "keyLinksAllNullIsEmpty", "metrics": [{"id": "mood", "group": "state"}, {"id": "elo", "group": "game"}], "matrix": {"mood": {"elo": null}}, "expected": []},
+{"name": "keyLinksTiesKeepInputOrder", "metrics": [{"id": "mood", "group": "state"}, {"id": "sleep", "group": "state"}, {"id": "elo", "group": "game"}, {"id": "kd", "group": "game"}], "matrix": {"mood": {"elo": 0.5, "kd": -0.5}, "sleep": {"elo": 0.5, "kd": 0.5}}, "expected": [{"a": "mood", "b": "elo", "r": 0.5, "cross": true}, {"a": "mood", "b": "kd", "r": -0.5, "cross": true}, {"a": "sleep", "b": "elo", "r": 0.5, "cross": true}]},
+{"name": "keyLinksTopThreeByAbsoluteValue", "metrics": [{"id": "mood", "group": "state"}, {"id": "energy", "group": "state"}, {"id": "sleep", "group": "state"}, {"id": "elo", "group": "game"}, {"id": "kd", "group": "game"}, {"id": "adr", "group": "game"}], "matrix": {"mood": {"elo": 0.1, "kd": -0.9, "adr": 0.4}, "energy": {"elo": 0.8, "kd": 0.2, "adr": -0.3}, "sleep": {"elo": -0.75, "kd": 0.05, "adr": 0.6}}, "expected": [{"a": "mood", "b": "kd", "r": -0.9, "cross": true}, {"a": "energy", "b": "elo", "r": 0.8, "cross": true}, {"a": "sleep", "b": "elo", "r": -0.75, "cross": true}]},
+{"name": "keyLinksFewerThanThree", "metrics": [{"id": "mood", "group": "state"}, {"id": "elo", "group": "game"}], "matrix": {"mood": {"elo": -0.4}}, "expected": [{"a": "mood", "b": "elo", "r": -0.4, "cross": true}]},
+{"name": "keyLinksSingleMetricIsEmpty", "metrics": [{"id": "mood", "group": "state"}], "matrix": {}, "expected": []},
+{"name": "keyLinksMatrixMayBeFilledOnTheOtherTriangle", "metrics": [{"id": "mood", "group": "state"}, {"id": "elo", "group": "game"}, {"id": "kd", "group": "game"}], "matrix": {"elo": {"mood": 0.6}, "kd": {"mood": -0.7}}, "expected": [{"a": "mood", "b": "kd", "r": -0.7, "cross": true}, {"a": "mood", "b": "elo", "r": 0.6, "cross": true}]}
+]
+}

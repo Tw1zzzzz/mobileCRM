@@ -31,9 +31,10 @@ kotlin {
     }
 }
 
-// The Kotlin parity test reads the staff-metrics, staff-series and faceit-matches fixtures shared with the server's tests: a change to it must rerun the test.
+// The Kotlin parity test reads the staff-metrics, staff-series, staff-statistics and faceit-matches fixtures shared with the server's tests: a change to it must rerun the test.
 tasks.named("jvmTest") {
     inputs.file(rootProject.file("server/test/fixtures/staff-metrics.json")).withPropertyName("staffMetricsFixture")
     inputs.file(rootProject.file("server/test/fixtures/staff-series.json")).withPropertyName("staffSeriesFixture")
+    inputs.file(rootProject.file("server/test/fixtures/staff-statistics.json")).withPropertyName("staffStatisticsFixture")
     inputs.file(rootProject.file("server/test/fixtures/faceit-matches.json")).withPropertyName("faceitMatchesFixture")
 }
