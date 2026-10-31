@@ -1,0 +1,617 @@
+/* «Статистика»: ported from docs/superpowers/specs/2026-10-28-staff-panel-design-boards/Statistics.dc.html
+   (correlation mode). Colour and font tokens come from the panel root (app/staff/staff.module.css). */
+
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  min-width: 0;
+}
+
+/* ---- hero and shared controls ---- */
+
+.hero {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+}
+.heroText {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  flex: 1 1 420px;
+  min-width: 0;
+}
+.eyebrow {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(63, 208, 255, 0.12);
+  border: 1px solid rgba(63, 208, 255, 0.3);
+  color: var(--cyan-soft);
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.lead {
+  margin: 0;
+  font-size: 18px;
+  line-height: 1.45;
+  color: var(--text-soft);
+  max-width: 640px;
+}
+.controls {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 10px;
+  flex: 0 1 auto;
+  max-width: 100%;
+}
+.range {
+  font-size: 13px;
+  color: var(--faint);
+}
+.truncated {
+  margin: 0;
+  font-size: 13px;
+  color: var(--danger);
+}
+
+.chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.controls .chips {
+  justify-content: flex-end;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--text-soft) !important;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+a.chip:hover {
+  color: var(--text) !important;
+  border-color: rgba(63, 208, 255, 0.4);
+}
+a.chip:focus-visible,
+a.mchip:focus-visible,
+a.ghost:focus-visible,
+.summary:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.chipOn,
+a.chipOn:hover {
+  background: var(--brand-flat);
+  border-color: transparent;
+  color: #fff !important;
+  font-weight: 600;
+}
+
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+.dates label {
+  font-size: 13px;
+  color: var(--muted);
+}
+.date {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(63, 208, 255, 0.35);
+  background: rgba(63, 208, 255, 0.06);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color-scheme: dark;
+}
+.date:focus {
+  outline: 2px solid var(--cyan);
+  border-color: transparent;
+}
+.apply,
+.ghost {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-soft) !important;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+.apply:hover,
+.ghost:hover {
+  background: var(--raised-hover);
+  color: var(--text) !important;
+}
+
+/* ---- cards ---- */
+
+.card {
+  padding: 24px;
+  border-radius: 24px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+  box-sizing: border-box;
+}
+.cardHead {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+.cardTitles {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.cardTitle {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+}
+.sub {
+  font-size: 14px;
+  color: var(--muted);
+}
+.notice {
+  margin: 0;
+  padding: 12px 16px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 170, 60, 0.35);
+  background: rgba(255, 170, 60, 0.08);
+  color: var(--text-soft);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ---- picker ---- */
+
+.pickerGroups {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 340px), 1fr));
+  gap: 20px;
+}
+.pickerGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.groupTitle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.groupState {
+  color: var(--cyan-soft);
+}
+.groupGame {
+  color: #ffc27a;
+}
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+.dotState {
+  background: #3fd0ff;
+}
+.dotGame {
+  background: #ffaa3c;
+}
+.metricChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.mchip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--input);
+  color: var(--text-soft) !important;
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 500;
+  text-decoration: none;
+  box-sizing: border-box;
+}
+a.mchip:hover {
+  color: var(--text) !important;
+  border-color: rgba(63, 208, 255, 0.4);
+}
+.mchipOff {
+  opacity: 0.55;
+}
+.mchipOnState,
+a.mchipOnState:hover {
+  background: rgba(63, 208, 255, 0.14);
+  border-color: rgba(63, 208, 255, 0.55);
+  color: #fff !important;
+  font-weight: 600;
+}
+.mchipOnGame,
+a.mchipOnGame:hover {
+  background: rgba(255, 170, 60, 0.14);
+  border-color: rgba(255, 170, 60, 0.55);
+  color: #fff !important;
+  font-weight: 600;
+}
+.limit {
+  font-size: 13px;
+  color: var(--danger);
+}
+
+/* ---- key links ---- */
+
+.linksGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+}
+.link {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+.linkHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.linkTitle {
+  font-size: 16px;
+  font-weight: 700;
+}
+.linkR {
+  font-size: 18px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+.up {
+  color: var(--cyan-soft);
+}
+.down {
+  color: var(--danger);
+}
+.rbar {
+  position: relative;
+  height: 10px;
+  border-radius: 5px;
+  background: #1e2740;
+}
+.rbar::after {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: -3px;
+  width: 2px;
+  height: 16px;
+  background: #5e6a8a;
+}
+.rfill {
+  position: absolute;
+  top: 0;
+  height: 100%;
+  border-radius: 5px;
+}
+.rpos {
+  background: linear-gradient(90deg, #0066ff, #3fd0ff);
+}
+.rneg {
+  background: linear-gradient(90deg, #ff7a3d, #ffaa3c);
+}
+.axis {
+  display: flex;
+  justify-content: space-between;
+  font-size: 11px;
+  color: #6f7c9e;
+}
+.strength {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-soft);
+}
+.example {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--input);
+}
+.exampleTitle {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--cyan-soft);
+}
+.exampleText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: #d5dcec;
+}
+
+/* ---- small multiples ---- */
+
+.multiplesGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr));
+  gap: 14px;
+}
+.multiple {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px;
+  border-radius: 18px;
+  background: var(--raised);
+  border: 1px solid var(--line);
+  min-width: 0;
+}
+.multipleHead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+.multipleName {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 15px;
+  font-weight: 700;
+}
+.avg {
+  font-size: 13px;
+  color: var(--muted);
+}
+.avg b {
+  font-weight: 700;
+  color: #fff;
+}
+.chart {
+  display: block;
+  width: 100%;
+  height: 90px;
+}
+.chartEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  height: 90px;
+  border-radius: 12px;
+  background: var(--input);
+  font-size: 14px;
+  color: var(--faint);
+}
+.foot {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+  color: #7d89a8;
+}
+
+/* ---- matrix (a <details>: open by default, no script) ---- */
+
+.matrixBox {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+.summary {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+  cursor: pointer;
+  list-style: none;
+  border-radius: 12px;
+}
+.summary::-webkit-details-marker {
+  display: none;
+}
+.toggle {
+  min-height: 42px;
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  color: var(--text-soft);
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  box-sizing: border-box;
+}
+.summary:hover .toggle {
+  background: var(--raised-hover);
+  color: var(--text);
+}
+.matrixBox:not([open]) .whenOpen,
+.matrixBox[open] .whenClosed {
+  display: none;
+}
+.matrixScroll {
+  overflow-x: auto;
+  margin-top: 18px;
+}
+.mx {
+  display: grid;
+  gap: 4px;
+}
+.mxRow {
+  display: contents;
+}
+.mxc,
+.mxh,
+.mxr {
+  padding: 10px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.mxc {
+  text-align: center;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: #fff;
+}
+.mxDiag {
+  background: var(--raised);
+}
+.mxFew {
+  background: var(--input);
+  color: var(--faint);
+  font-size: 11px;
+  font-weight: 600;
+}
+.mxh {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mxr {
+  padding: 10px 8px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* ---- game card ---- */
+
+.stats {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 170px), 1fr));
+  gap: 12px;
+  margin: 0;
+}
+.stat {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--raised);
+  min-width: 0;
+}
+.statLabel {
+  font-size: 12px;
+  color: var(--faint);
+}
+.statValue {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---- empty states ---- */
+
+.empty {
+  align-items: center;
+  text-align: center;
+  padding: 56px 24px;
+}
+.emptyIcon {
+  width: 64px;
+  height: 64px;
+  border-radius: 20px;
+  background: rgba(63, 208, 255, 0.12);
+  color: var(--cyan-soft);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.emptyText {
+  margin: 0;
+  max-width: 460px;
+  font-size: 14px;
+  color: var(--muted);
+}
+.code {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  color: var(--text);
+}
+
+@media (max-width: 900px) {
+  .controls {
+    align-items: flex-start;
+    flex: 1 1 100%;
+  }
+  .controls .chips,
+  .dates {
+    justify-content: flex-start;
+  }
+  .card {
+    padding: 18px;
+  }
+  .empty {
+    padding: 36px 16px;
+  }
+}

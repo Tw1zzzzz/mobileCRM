@@ -79,7 +79,7 @@ export interface CorrView extends FaceitInfo {
 // ---------------------------------------------------------------- formats
 
 /** Half-up fixed-point text (`toFixed` rounds the binary value, which can go either way on a half). */
-function fixed(value: number, digits: number): string {
+export function fixed(value: number, digits: number): string {
   const factor = 10 ** digits;
   return (Math.floor(value * factor + 0.5) / factor).toFixed(digits);
 }
@@ -90,7 +90,7 @@ function signedWhole(value: number): string {
   return `${rounded > 0 ? "+" : rounded < 0 ? "−" : "±"}${Math.abs(rounded)}`;
 }
 
-function signedR(r: number): string {
+export function signedR(r: number): string {
   return `${r >= 0 ? "+" : "−"}${fixed(Math.abs(r), 2)}`;
 }
 
@@ -227,7 +227,7 @@ const LINK_METRICS: readonly LinkMetric[] = [
 ];
 
 /** The board's cell colour: `a = 0.12 + |r|·0.7`, blue for a direct link, orange for an inverse one. */
-function cellColour(r: number): string {
+export function cellColour(r: number): string {
   const alpha = fixed(0.12 + Math.abs(r) * 0.7, 2);
   return r >= 0 ? `rgba(0,140,255,${alpha})` : `rgba(255,122,61,${alpha})`;
 }

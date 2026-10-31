@@ -350,7 +350,7 @@ export interface CardOptions {
 }
 
 /** What the player's synced `faceit` document says about who they are on Faceit. */
-function faceitIdentity(doc: unknown): { playerId: string | null; nickname: string | null } {
+export function faceitIdentity(doc: unknown): { playerId: string | null; nickname: string | null } {
   const held = isRecord(doc) ? doc : {};
   return {
     playerId: typeof held.playerId === "string" ? held.playerId : null,

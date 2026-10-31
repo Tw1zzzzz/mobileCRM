@@ -60,7 +60,11 @@ describe("staff panel guard", () => {
   it("findsThePanelPages", () => {
     // If the glob silently matched nothing, the checks below would pass for the wrong reason.
     expect(pages.map(rel)).toEqual(
-      expect.arrayContaining(["app/staff/(panel)/overview/page.tsx", "app/staff/(panel)/players/page.tsx"]),
+      expect.arrayContaining([
+        "app/staff/(panel)/overview/page.tsx",
+        "app/staff/(panel)/players/page.tsx",
+        "app/staff/(panel)/statistics/page.tsx",
+      ]),
     );
   });
 
