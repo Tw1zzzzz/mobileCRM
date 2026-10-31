@@ -20,7 +20,7 @@ import { teamCodes } from "@/lib/teams";
 /** What a cell shows when the player has no value for it today. */
 export const EMPTY_CELL = "—";
 
-const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"] as const;
+export const MONTHS = ["янв", "фев", "мар", "апр", "мая", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"] as const;
 
 export interface PlayerRow {
   id: string;
@@ -73,7 +73,8 @@ export interface PlayersPage {
   error: TeamError | null;
 }
 
-function clock(instant: Date, tz: string): string {
+/** «09:17» in the staff zone. */
+export function clock(instant: Date, tz: string): string {
   return new Intl.DateTimeFormat("ru-RU", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(instant);
 }
 

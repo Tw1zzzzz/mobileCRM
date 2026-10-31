@@ -1,3 +1,5 @@
+import Link from "next/link";
+import { CARD_PATH, CARD_PERIODS, cardHref, type CardParams } from "@/lib/staff/card";
 import type { ReadinessStatus } from "@/lib/staff/metrics";
 import { NO_DATA } from "@/lib/staff/overview-format";
 import { EMPTY_CELL, type PlayerRow, type RosterData } from "@/lib/staff/players";
@@ -46,35 +48,67 @@ function Ring({ value, status }: { value: number | null; status: ReadinessStatus
   );
 }
 
-function PlayerCard({ row }: { row: PlayerRow }) {
+function PlayerCard({ row, params }: { row: PlayerRow; params: CardParams | null }) {
   const status = row.status === null ? null : STATUS[row.status];
+  const selected = params?.player === row.id;
   return (
-    <li className={styles.card}>
-      <div className={styles.cardTop}>
-        <Ring value={row.readiness} status={row.status} />
-        <span className={styles.who}>
-          <span className={styles.nick}>{row.nickname}</span>
-          <span className={`${styles.st} ${status?.pill ?? styles.stNone}`}>{status?.label ?? NO_DATA}</span>
-        </span>
-      </div>
-      <div className={styles.mini}>
-        <span>
-          Сон<b>{row.sleep}</b>
-        </span>
-        <span>
-          Настр.<b>{row.mood}</b>
-        </span>
-        <span>
-          Когн.<b>{row.cog}</b>
-        </span>
-      </div>
-      <span className={styles.last}>Активность: {row.lastActivity}</span>
+    <li className={styles.cardItem}>
+      <Link
+        href={params ? cardHref(params, { player: row.id }) : `${CARD_PATH}?player=${encodeURIComponent(row.id)}`}
+        className={selected ? `${styles.card} ${styles.cardOn}` : styles.card}
+        aria-current={selected ? "true" : undefined}
+      >
+        <div className={styles.cardTop}>
+          <Ring value={row.readiness} status={row.status} />
+          <span className={styles.who}>
+            <span className={styles.nick}>{row.nickname}</span>
+            <span className={`${styles.st} ${status?.pill ?? styles.stNone}`}>{status?.label ?? NO_DATA}</span>
+          </span>
+        </div>
+        <div className={styles.mini}>
+          <span>
+            Сон<b>{row.sleep}</b>
+          </span>
+          <span>
+            Настр.<b>{row.mood}</b>
+          </span>
+          <span>
+            Когн.<b>{row.cog}</b>
+          </span>
+        </div>
+        <span className={styles.last}>Активность: {row.lastActivity}</span>
+      </Link>
     </li>
   );
 }
 
-/** «Игроки»: the segments, today's readiness of each player and the legend. Cards are not links (plan B). */
-export function Roster({ roster }: { roster: RosterData }) {
+/** The header's period chips (7 / 30 / 90 дней): links, so the choice lives in the URL next to the player. */
+export function PeriodChips({ params }: { params: CardParams }) {
+  return (
+    <div role="group" aria-label="Период" className={styles.chips}>
+      {CARD_PERIODS.map((days) => {
+        const on = params.period === days;
+        return (
+          <Link
+            key={days}
+            href={cardHref(params, { period: days })}
+            scroll={false}
+            className={on ? `${styles.chip} ${styles.chipOn}` : styles.chip}
+            aria-current={on ? "true" : undefined}
+          >
+            {days} дней
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+/**
+ * «Игроки»: the segments, today's readiness of each player and the legend. A card is a link to that player's
+ * card below (`params` is the card's current selection, kept except for the player).
+ */
+export function Roster({ roster, params }: { roster: RosterData; params: CardParams | null }) {
   const { rows, summary } = roster;
   return (
     <>
@@ -99,7 +133,7 @@ export function Roster({ roster }: { roster: RosterData }) {
         ) : (
           <ul className={styles.cards} aria-label="Игроки команды">
             {rows.map((row) => (
-              <PlayerCard key={row.id} row={row} />
+              <PlayerCard key={row.id} row={row} params={params} />
             ))}
           </ul>
         )}

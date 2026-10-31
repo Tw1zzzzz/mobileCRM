@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { removeMember } from "../lib/team/members";
-import { playerDocuments, requireStaff, teamPlayers, type StaffContext } from "../lib/staff/access";
+import { playerDocuments, requireStaff, rosterPlayer, teamPlayers, type StaffContext } from "../lib/staff/access";
 import { handle } from "../lib/http";
 import { resetDb, testDeps } from "./helpers";
 
@@ -131,6 +131,34 @@ describe("teamPlayers", () => {
     await removeMember(deps, a.teamId, a.staffId, p);
     expect(await teamPlayers(deps, ctx)).toEqual([]);
     await expect(playerDocuments(deps, ctx, p, ["sleep"])).rejects.toMatchObject({ code: "not_found", status: 404 });
+  });
+});
+
+describe("faceitUrl and rosterPlayer", () => {
+  it("teamPlayersCarryTheFaceitUrl", async () => {
+    const a = await makeTeam("Alpha");
+    const linked = await addUser("linked", "teamPlayer", a.teamId);
+    const bare = await addUser("bare", "teamPlayer", a.teamId);
+    await deps.sql`update users set faceit_url = 'https://www.faceit.com/ru/players/Nova' where id = ${linked}`;
+    const byId = new Map((await teamPlayers(deps, await ctxOf(a.staffId))).map((p) => [p.id, p]));
+    expect(byId.get(linked)?.faceitUrl).toBe("https://www.faceit.com/ru/players/Nova");
+    expect(byId.get(bare)?.faceitUrl).toBeNull();
+  });
+
+  it("rosterPlayerIsTheRosterCheck", async () => {
+    const a = await makeTeam("Alpha");
+    const b = await makeTeam("Bravo");
+    const mine = await addUser("mine", "teamPlayer", a.teamId);
+    const theirs = await addUser("theirs", "teamPlayer", b.teamId);
+    const solo = await addUser("solo", "soloPlayer", null);
+    const unverified = await addUser("unverified", "teamPlayer", a.teamId, { verified: false });
+    const ctx = await ctxOf(a.staffId);
+    expect(await rosterPlayer(deps, ctx, mine)).toMatchObject({ id: mine, nickname: "mine", faceitUrl: null });
+    for (const id of [theirs, solo, unverified, a.staffId, b.staffId, "not-a-uuid", ""]) {
+      expect(await rosterPlayer(deps, ctx, id), id).toBeNull();
+    }
+    await removeMember(deps, a.teamId, a.staffId, mine);
+    expect(await rosterPlayer(deps, ctx, mine)).toBeNull();
   });
 });
 

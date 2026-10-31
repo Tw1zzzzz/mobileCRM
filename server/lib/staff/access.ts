@@ -21,6 +21,8 @@ export interface TeamPlayer {
   nickname: string;
   /** Latest time any of the player's documents was synced; null when nothing was synced yet. */
   lastActivity: Date | null;
+  /** `users.faceit_url` as the player entered it; null when they gave none. Not validated here. */
+  faceitUrl: string | null;
 }
 
 /** Collections staff may ask for: everything synced except `body-profile`. */
@@ -53,13 +55,32 @@ async function rosterPlayers(deps: Deps, teamId: string): Promise<{ id: string; 
 export async function teamPlayers(deps: Deps, ctx: StaffContext): Promise<TeamPlayer[]> {
   const players = await rosterPlayers(deps, ctx.teamId);
   if (players.length === 0) return [];
-  const rows = await deps.sql<{ user_id: string; last: Date }[]>`
-    select user_id, max(updated_at) as last
-    from sync_documents
-    where user_id in ${deps.sql(players.map((p) => p.id))}
-    group by user_id`;
+  const ids = players.map((p) => p.id);
+  const [rows, links] = await Promise.all([
+    deps.sql<{ user_id: string; last: Date }[]>`
+      select user_id, max(updated_at) as last
+      from sync_documents
+      where user_id in ${deps.sql(ids)}
+      group by user_id`,
+    deps.sql<{ id: string; faceit_url: string | null }[]>`
+      select id, faceit_url from users where id in ${deps.sql(ids)}`,
+  ]);
   const last = new Map(rows.map((r) => [r.user_id, r.last]));
-  return players.map((p) => ({ id: p.id, nickname: p.nickname, lastActivity: last.get(p.id) ?? null }));
+  const faceit = new Map(links.map((r) => [r.id, r.faceit_url]));
+  return players.map((p) => ({
+    id: p.id,
+    nickname: p.nickname,
+    lastActivity: last.get(p.id) ?? null,
+    faceitUrl: faceit.get(p.id) ?? null,
+  }));
+}
+
+/**
+ * One player of the caller's team, or null for anyone else (another team's player, a solo player, staff, a
+ * removed member, a malformed id). The roster is the only gate: nothing about a non-member is read.
+ */
+export async function rosterPlayer(deps: Deps, ctx: StaffContext, id: string): Promise<TeamPlayer | null> {
+  return (await teamPlayers(deps, ctx)).find((p) => p.id === id) ?? null;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

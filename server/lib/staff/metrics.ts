@@ -107,7 +107,7 @@ export const PILL_THRESHOLDS = {
 } as const;
 
 /** A sleep session shorter than this is «Неполная» in the app and is not counted as sleep. */
-const MIN_SLEEP_MS = 60 * 60 * 1000;
+export const MIN_SLEEP_MS = 60 * 60 * 1000;
 export const HOUR_MS = 60 * 60 * 1000;
 const WINDOW_DAYS = 7;
 

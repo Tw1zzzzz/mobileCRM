@@ -44,6 +44,43 @@
   color: var(--muted);
 }
 
+/* ---- period chips in the page header (the board's `.chip`) ---- */
+
+.chips {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0 16px;
+  border-radius: 999px;
+  border: 1px solid var(--line-strong);
+  background: var(--raised);
+  color: var(--text-soft) !important;
+  font-size: 14px;
+  font-weight: 500;
+  white-space: nowrap;
+  text-decoration: none;
+}
+a.chip:hover {
+  color: var(--text) !important;
+  border-color: rgba(63, 208, 255, 0.4);
+}
+a.chip:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.chipOn,
+a.chipOn:hover {
+  background: var(--brand-flat);
+  border-color: transparent;
+  color: #fff !important;
+  font-weight: 600;
+}
+
 .section {
   display: flex;
   flex-direction: column;
@@ -88,7 +125,12 @@
   grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
   gap: 12px;
 }
+.cardItem {
+  display: flex;
+  min-width: 0;
+}
 .card {
+  flex: 1 1 auto;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -97,6 +139,25 @@
   border: 1px solid rgba(120, 150, 220, 0.16);
   background: rgba(15, 21, 40, 0.88);
   min-width: 0;
+}
+a.card,
+a.card:hover {
+  color: var(--text) !important;
+  text-decoration: none;
+}
+a.card:hover {
+  border-color: rgba(63, 208, 255, 0.45);
+}
+a.card:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+/* The selected player (the board's `.pc-on`). */
+a.cardOn,
+a.cardOn:hover {
+  border-color: rgba(63, 208, 255, 0.7);
+  background: linear-gradient(160deg, rgba(0, 102, 255, 0.28), rgba(15, 21, 40, 0.92) 65%);
+  box-shadow: 0 12px 30px rgba(0, 110, 255, 0.22);
 }
 .cardTop {
   display: flex;

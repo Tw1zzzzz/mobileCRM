@@ -171,7 +171,7 @@ describe("roster", () => {
     });
     expect(page.roster.summary).toEqual({ ready: 1, doubt: 1, risk: 1, noData: 1 });
 
-    const markup = renderToStaticMarkup(<Roster roster={page.roster} />);
+    const markup = renderToStaticMarkup(<Roster roster={page.roster} params={null} />);
     const words = text(markup);
     expect(words).toContain("Готовность сегодня");
     expect(words).toContain("Готовы 1 · под вопросом 1 · риск 1 · нет данных 1");
@@ -186,8 +186,7 @@ describe("roster", () => {
     expect(words).toContain("Когн.");
     expect(words).toContain("Активность: сегодня, 15:00");
     expect(words).toContain("Активность: нет данных");
-    // not links: the player card belongs to plan B
-    expect(markup).not.toContain("<a ");
+    // the cards are links to the player card (see staff-card.test.tsx), never buttons
     expect(markup).not.toContain("<button");
     // the board's demo names are gone
     expect(words).not.toMatch(/vexa|frost|Atlant/);
@@ -199,14 +198,14 @@ describe("roster", () => {
     await addUser("outsider", "teamPlayer", other.teamId);
     await addUser("lonely", "soloPlayer", null);
     const page = await loadPlayers(deps, ctx, {});
-    const markup = renderToStaticMarkup(<Roster roster={page.roster} />);
+    const markup = renderToStaticMarkup(<Roster roster={page.roster} params={null} />);
     expect(markup).not.toContain("outsider");
     expect(markup).not.toContain("lonely");
   });
 
   it("rosterLegendVerbatim", () => {
     const empty: PlayersPage["roster"] = { rows: [], summary: { ready: 0, doubt: 0, risk: 0, noData: 0 } };
-    const markup = renderToStaticMarkup(<Roster roster={empty} />);
+    const markup = renderToStaticMarkup(<Roster roster={empty} params={null} />);
     const words = text(markup);
     expect(words).toContain(
       "Готовность 0–100 — из сна, настроения, энергии и когнитивного индекса за последние сутки. " +
