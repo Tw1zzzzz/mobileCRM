@@ -213,11 +213,11 @@ describe("roster", () => {
     );
     expect(words).toContain("Состав и карточки");
     expect(words).toContain("Питание команды");
-    expect(words).toContain("Скоро");
-    // «Питание команды» waits for plan D: shown, but neither a link nor a button
-    expect(markup).not.toContain("<a ");
+    expect(words).not.toContain("Скоро");
+    // «Питание команды» is the link into the feed; «Состав и карточки» is where we are
+    expect(markup).toMatch(/<a[^>]*href="\/staff\/players\?section=nutrition"[^>]*>[^<]*Питание команды/);
+    expect(markup).toMatch(/aria-current="page"[^>]*>[^<]*Состав и карточки/);
     expect(markup).not.toContain("<button");
-    expect(markup).toMatch(/aria-disabled="true"[^>]*>[^<]*Питание команды/);
     expect(words).toContain("В команде пока нет игроков");
     expect(words).not.toContain("Готовы 0");
   });

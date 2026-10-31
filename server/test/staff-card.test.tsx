@@ -200,6 +200,7 @@ describe("roster and header links", () => {
     const t = await seedCardTeam(deps);
     const { markup } = await roster(t, {});
     expect(hrefs(markup)).toEqual([
+      "/staff/players?section=nutrition", // the segment «Питание команды»
       `/staff/players?player=${t.ids.vega}`,
       `/staff/players?player=${t.ids.nova}`,
       `/staff/players?player=${t.ids.ghost}`,
@@ -211,6 +212,7 @@ describe("roster and header links", () => {
     const t = await seedCardTeam(deps);
     const { markup } = await roster(t, { player: t.ids.nova, period: "90", tab: "sleep", type: "game", day: "2026-10-20" });
     expect(hrefs(markup)).toEqual([
+      "/staff/players?section=nutrition", // the segment keeps nothing of the card's selection
       `/staff/players?player=${t.ids.vega}&period=90&tab=sleep&type=game`,
       `/staff/players?player=${t.ids.nova}&period=90&tab=sleep&type=game`,
       `/staff/players?player=${t.ids.ghost}&period=90&tab=sleep&type=game`,

@@ -30,18 +30,18 @@
   background: var(--brand-flat);
   color: #fff;
 }
-.tabSoon {
-  color: var(--faint);
-  cursor: default;
+a.tab,
+a.tab:hover {
+  color: var(--text-soft) !important;
+  text-decoration: none;
 }
-.soon {
-  font-style: normal;
-  font-size: 11px;
-  font-weight: 700;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: var(--input);
-  color: var(--muted);
+a.tab:hover {
+  background: var(--raised-hover);
+  color: #fff !important;
+}
+a.tab:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
 }
 
 /* ---- period chips in the page header (the board's `.chip`) ---- */

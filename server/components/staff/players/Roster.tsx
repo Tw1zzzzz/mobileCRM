@@ -3,6 +3,7 @@ import { CARD_PATH, CARD_PERIODS, cardHref, type CardParams } from "@/lib/staff/
 import type { ReadinessStatus } from "@/lib/staff/metrics";
 import { NO_DATA } from "@/lib/staff/overview-format";
 import { EMPTY_CELL, type PlayerRow, type RosterData } from "@/lib/staff/players";
+import { Segments } from "./Segments";
 import styles from "./players.module.css";
 
 const RING_RADIUS = 27;
@@ -112,15 +113,7 @@ export function Roster({ roster, params }: { roster: RosterData; params: CardPar
   const { rows, summary } = roster;
   return (
     <>
-      <div className={styles.segments} role="group" aria-label="Раздел игроков">
-        <span className={`${styles.tab} ${styles.tabOn}`} aria-current="page">
-          Состав и карточки
-        </span>
-        <span className={`${styles.tab} ${styles.tabSoon}`} aria-disabled="true">
-          Питание команды
-          <em className={styles.soon}>Скоро</em>
-        </span>
-      </div>
+      <Segments active="roster" />
       <section className={styles.section} aria-labelledby="ready-today">
         <div className={styles.sectionHead}>
           <h2 id="ready-today" className={styles.sectionTitle}>
