@@ -1,6 +1,6 @@
 import type { Deps } from "@/lib/deps";
 import { ApiError } from "@/lib/http";
-import { rosterPlayer, type StaffContext } from "@/lib/staff/access";
+import { rosterMember, rosterPlayer, type StaffContext } from "@/lib/staff/access";
 import {
   IMAGE_KINDS,
   IMAGE_MAX_BYTES,
@@ -122,7 +122,7 @@ export async function staffImage(
 ): Promise<StoredImage | null> {
   const wanted = IMAGE_KINDS.find((k) => k === kind);
   if (wanted === undefined) return null;
-  const player = await rosterPlayer(deps, ctx, playerId);
+  const player = await rosterMember(deps, ctx, playerId);
   if (player === null) return null;
   const [row] = await deps.sql<{ content_type: string; bytes: Buffer }[]>`
     select content_type, bytes from staff_player_images

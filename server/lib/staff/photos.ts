@@ -1,7 +1,7 @@
 import type { Deps } from "@/lib/deps";
 import { ApiError } from "@/lib/http";
 import { parseMealId } from "@/lib/photos";
-import { rosterPlayer, type StaffContext } from "@/lib/staff/access";
+import { rosterMember, type StaffContext } from "@/lib/staff/access";
 
 /**
  * Meal photos for the staff website. The synced nutrition document only says that a photo exists
@@ -25,7 +25,7 @@ export async function staffMealPhoto(
   const meal = parseMealId(mealId);
   if (meal === null) return null;
   // The roster is the only gate; `playerId` is compared with roster ids and never reaches SQL otherwise.
-  const player = await rosterPlayer(deps, ctx, playerId);
+  const player = await rosterMember(deps, ctx, playerId);
   if (player === null) return null;
   const [row] = await deps.sql<{ jpeg: Buffer }[]>`
     select jpeg from meal_photos where user_id = ${player.id} and meal_id = ${meal}`;

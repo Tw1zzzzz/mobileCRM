@@ -1,6 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { removeMember } from "../lib/team/members";
-import { playerDocuments, requireStaff, rosterPlayer, teamPlayers, type StaffContext } from "../lib/staff/access";
+import { playerDocuments, requireStaff, rosterMember, rosterPlayer, teamPlayers, type StaffContext } from "../lib/staff/access";
 import { handle } from "../lib/http";
 import { resetDb, testDeps } from "./helpers";
 
@@ -159,6 +159,41 @@ describe("faceitUrl and rosterPlayer", () => {
     }
     await removeMember(deps, a.teamId, a.staffId, mine);
     expect(await rosterPlayer(deps, ctx, mine)).toBeNull();
+  });
+});
+
+describe("rosterMember", () => {
+  it("rosterMemberRejectsExactlyWhatRosterPlayerRejects", async () => {
+    const a = await makeTeam("Alpha");
+    const b = await makeTeam("Bravo");
+    const mine = await addUser("mine", "teamPlayer", a.teamId);
+    const theirs = await addUser("theirs", "teamPlayer", b.teamId);
+    const solo = await addUser("solo", "soloPlayer", null);
+    const unverified = await addUser("unverified", "teamPlayer", a.teamId, { verified: false });
+    const ctx = await ctxOf(a.staffId);
+    expect(await rosterMember(deps, ctx, mine)).toEqual({ id: mine, nickname: "mine" });
+    for (const id of [theirs, solo, unverified, a.staffId, b.staffId, "not-a-uuid", ""]) {
+      expect(await rosterMember(deps, ctx, id), id).toBeNull();
+      expect(await rosterPlayer(deps, ctx, id), id).toBeNull();
+    }
+    await removeMember(deps, a.teamId, a.staffId, mine);
+    expect(await rosterMember(deps, ctx, mine)).toBeNull();
+  });
+
+  it("rosterMemberAsksTheDatabaseOnceAndNotAboutActivityOrFaceit", async () => {
+    const a = await makeTeam("Alpha");
+    const mine = await addUser("mine", "teamPlayer", a.teamId);
+    const ctx = await ctxOf(a.staffId);
+    const seen: string[] = [];
+    const spy = new Proxy(deps.sql, {
+      apply: (target, thisArg, args) => {
+        seen.push(String((args[0] as TemplateStringsArray).join("?")));
+        return Reflect.apply(target as never, thisArg, args);
+      },
+    });
+    await rosterMember({ ...deps, sql: spy } as typeof deps, ctx, mine);
+    expect(seen).toHaveLength(1);
+    expect(seen[0]).not.toMatch(/sync_documents|faceit_url/);
   });
 });
 
