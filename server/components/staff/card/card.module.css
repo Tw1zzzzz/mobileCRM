@@ -52,6 +52,41 @@
   overflow-wrap: anywhere;
 }
 
+.links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btnGhost {
+  box-sizing: border-box;
+  min-height: 40px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-soft);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  text-decoration: none;
+  cursor: pointer;
+}
+.btnGhost:hover:not(:disabled) {
+  background: var(--raised-hover);
+  color: #fff;
+}
+.btnGhost:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.btnGhost:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
 /* ---- filters ---- */
 
 .filters {
@@ -505,6 +540,63 @@ a.chipOn:hover {
 .corrLead {
   font-weight: 700;
   color: var(--cyan-soft);
+}
+
+/* ---- «Профиль» ---- */
+
+.profile {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  min-width: 0;
+}
+.profileGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 320px), 1fr));
+  gap: 16px;
+}
+.profileCard {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 20px;
+  border-radius: 18px;
+  background: var(--raised);
+  min-width: 0;
+}
+.profileEmpty {
+  margin: 0;
+  font-size: 14px;
+  color: var(--faint);
+}
+.archName {
+  font-size: 22px;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+.archText {
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-soft);
+}
+.tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.tag {
+  padding: 5px 10px;
+  border-radius: 8px;
+  background: var(--input);
+  border: 1px solid var(--line-strong);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text-soft);
 }
 
 @media (max-width: 900px) {

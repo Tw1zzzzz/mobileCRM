@@ -3,8 +3,10 @@ import { CARD_PATH, cardHref, cardQuery, type CardData, type CardTab, type GameS
 import { CorrTab } from "./CorrTab";
 import { FilterSelect } from "./FilterSelect";
 import { FoodTab } from "./FoodTab";
+import { IdentityRow } from "./IdentityRow";
 import { GameTab } from "./GameTab";
 import { KpiStrip } from "./KpiStrip";
+import { ProfileTab } from "./ProfileTab";
 import { SleepTab } from "./SleepTab";
 import { TestsTab } from "./TestsTab";
 import { WheelTab } from "./WheelTab";
@@ -48,17 +50,7 @@ export function CardFrame({ card }: { card: CardData }) {
   const { params, player } = card;
   return (
     <section id="player-card" className={styles.card} aria-labelledby="pname">
-      <div className={styles.identity}>
-        <span className={styles.avatar} aria-hidden="true">
-          {player.initials}
-        </span>
-        <div className={styles.who}>
-          <h2 id="pname" className={styles.name}>
-            {player.nickname}
-          </h2>
-          <span className={styles.sub}>Последняя активность: {player.lastActivity}</span>
-        </div>
-      </div>
+      <IdentityRow player={player} />
 
       <div className={styles.filters}>
         <FilterSelect
@@ -101,7 +93,9 @@ export function CardFrame({ card }: { card: CardData }) {
         })}
       </nav>
 
-      {params.tab === "tests" ? (
+      {params.tab === "profile" ? (
+        <ProfileTab archetype={card.archetype} />
+      ) : params.tab === "tests" ? (
         <TestsTab tests={card.tests} />
       ) : params.tab === "game" && card.game !== null ? (
         <GameTab game={card.game} />

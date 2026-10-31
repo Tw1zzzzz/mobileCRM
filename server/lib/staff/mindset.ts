@@ -13,7 +13,9 @@ interface Question {
   reversed: boolean;
 }
 
-const TRAITS: readonly MindsetTrait[] = ["composure", "resilience", "focus", "teamwork", "leadership", "drive"];
+/** In the order of the app's `MindsetTrait.entries`: it is also the tie-break order of the ranking. */
+export const MINDSET_TRAITS: readonly MindsetTrait[] = ["composure", "resilience", "focus", "teamwork", "leadership", "drive"];
+const TRAITS = MINDSET_TRAITS;
 
 /** q1–q6 first items, q7–q12 their reversed pairs, and so on, in the order of the app's `mindsetQuestions`. */
 const QUESTIONS: readonly Question[] = Array.from({ length: 24 }, (_, i) => ({
@@ -42,3 +44,56 @@ export function mindsetScores(answers: unknown): MindsetScores {
   }
   return scores;
 }
+
+export interface TraitTexts {
+  /** `MindsetTrait.title`. */
+  title: string;
+  /** `MindsetTrait.shortTitle`. */
+  shortTitle: string;
+  /** `leadingTraitSummary(trait)`. */
+  summary: string;
+}
+
+/** Copied verbatim from core (SurveyTexts.kt: `MindsetTrait` titles and `leadingTraitSummary`). */
+export const TRAIT_TEXTS: Readonly<Record<MindsetTrait, TraitTexts>> = {
+  composure: {
+    title: "Хладнокровие",
+    shortTitle: "Хладнокр.",
+    summary: "Спокойно принимает решения под давлением: клатчи, овертаймы, важные матчи.",
+  },
+  resilience: {
+    title: "Контроль тильта",
+    shortTitle: "Антитильт",
+    summary: "Быстро отпускает ошибки и проигранные раунды.",
+  },
+  focus: {
+    title: "Концентрация",
+    shortTitle: "Фокус",
+    summary: "Держит внимание весь матч и не отвлекается.",
+  },
+  teamwork: {
+    title: "Командность",
+    shortTitle: "Команда",
+    summary: "Хорошая коммуникация, готов играть на команду.",
+  },
+  leadership: {
+    title: "Лидерство",
+    shortTitle: "Лидерство",
+    summary: "Готов брать решения на себя и вести команду.",
+  },
+  drive: {
+    title: "Дисциплина",
+    shortTitle: "Дисциплина",
+    summary: "Тренируется регулярно и по плану.",
+  },
+};
+
+/** `MindsetArchetype.forTrait(null)`: no single trait stands out. */
+export const BALANCED_TEXTS = {
+  title: "Ровный по всем чертам",
+  summary: "Ни одна черта заметно не выделяется — нет и явных провалов.",
+} as const;
+
+/** `MindsetMath.STRENGTH_THRESHOLD` and `BALANCED_SPREAD`. */
+export const STRENGTH_THRESHOLD = 70;
+export const BALANCED_SPREAD = 12;

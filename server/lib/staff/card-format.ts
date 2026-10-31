@@ -40,3 +40,21 @@ export function signed1(value: number): string {
 export function initials(nickname: string): string {
   return Array.from(nickname).slice(0, 2).join("").toUpperCase();
 }
+
+const FACEIT_PREFIX = "https://www.faceit.com/";
+
+/**
+ * The player's Faceit address as a safe link target, else null. `users.faceit_url` is free text the player typed:
+ * only an https address on www.faceit.com is a link (never `javascript:`, `data:`, another host or a lookalike).
+ */
+export function faceitLink(value: string | null): string | null {
+  if (value === null || !value.startsWith(FACEIT_PREFIX)) return null;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" && url.hostname === "www.faceit.com" && url.username === "" && url.password === ""
+      ? url.href
+      : null;
+  } catch {
+    return null;
+  }
+}

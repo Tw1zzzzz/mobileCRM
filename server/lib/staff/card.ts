@@ -1,4 +1,5 @@
 import type { Deps } from "@/lib/deps";
+import { archetypeOf, latestMindsetScores, type Archetype } from "@/lib/staff/archetype";
 import { loadMatches, type FaceitResult } from "@/lib/faceit/cache";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext } from "@/lib/staff/access";
 import { chartLine, type TestsChart } from "@/lib/staff/card-charts";
@@ -162,16 +163,27 @@ export interface SleepData {
   rows: SleepRow[];
 }
 
+export interface CardPlayer {
+  id: string;
+  nickname: string;
+  initials: string;
+  /** As the player typed it: not a link until `faceitLink` says so. */
+  faceitUrl: string | null;
+  lastActivity: string;
+}
+
 export type CardData =
   | { kind: "none" }
   | {
       kind: "card";
       params: CardParams;
-      player: { id: string; nickname: string; initials: string; faceitUrl: string | null; lastActivity: string };
+      player: CardPlayer;
       rangeLabel: string;
       kpis: KpiTile[];
       tests: TestsData;
       sleep: SleepData;
+      /** From the latest finished «Игровой характер» run; null without one. */
+      archetype: Archetype | null;
       wheel: WheelData;
       food: FoodData;
       /** Only on the «Игра» tab (and only then is Faceit asked). */
@@ -394,6 +406,7 @@ export async function loadCard(
     ],
     tests: testsData(docs, params, period, series, player.nickname, tz),
     sleep: sleepData(docs, period, series.sleep, tz),
+    archetype: archetypeOf(latestMindsetScores(docs["player-survey"])),
     wheel: wheelData(docs, today, params.day, (day) => cardHref(params, { day })),
     food: foodData(docs, player.id, period.from, period.to, tz),
     game: faceit && params.tab === "game" ? gameView(faceit, period, today, tz) : null,

@@ -95,13 +95,9 @@ describe("card frame", () => {
     expect(text(nova.markup)).toContain("−20,0 за период");
   });
 
-  it("tabsNotBuiltYetSaySoon", async () => {
+  it("everyTabIsBuilt", async () => {
     const t = await seedCardTeam(deps);
-    for (const tab of ["profile"]) {
-      const { markup } = await frame(t, { player: t.ids.vega, tab });
-      expect(text(markup), tab).toMatch(SOON);
-    }
-    for (const tab of ["tests", "game", "corr", "sleep", "wheel", "food"]) {
+    for (const tab of ["profile", "tests", "game", "corr", "sleep", "wheel", "food"]) {
       const { markup } = await frame(t, { player: t.ids.vega, tab });
       expect(text(markup), tab).not.toMatch(SOON);
     }
@@ -169,7 +165,7 @@ describe("card frame", () => {
       expect(words).toContain("Фокус high нет данных дней с фокусом 8+");
       expect(words).toContain("Усталость high нет данных дней с усталостью 8+");
       expect(words).toContain("Последняя активность: нет данных");
-      expect(markup).not.toContain("<svg");
+      expect(markup).not.toContain('role="img"'); // no chart (the link buttons' icon is decoration)
       expect(markup).not.toMatch(/>0</);
     }
     expect(text((await frame(t, { player: t.ids.ghost, tab: "tests" })).markup)).toMatch(/нет данных[\s\S]*Дата Тест Score Индекс состояния нет данных/);
