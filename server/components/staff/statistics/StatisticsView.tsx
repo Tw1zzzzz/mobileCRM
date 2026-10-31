@@ -38,12 +38,15 @@ function NoData() {
 }
 
 function Links({ page }: { page: DataPage }) {
-  const { links, linksMessage } = page.view;
+  const { links, linksMessage, pooled } = page.view;
   return (
     <section className={styles.card}>
       <div className={styles.cardTitles}>
         <h2 className={styles.cardTitle}>Главные связи</h2>
         <span className={styles.sub}>Сильнейшие связи между выбранными метриками за период — с примером на данных</span>
+        {pooled && (
+          <span className={styles.sub}>Вся команда: дни всех игроков объединены, поэтому на r влияют и различия между игроками.</span>
+        )}
       </div>
       {linksMessage !== null ? (
         <span className={styles.sub}>{linksMessage}</span>
@@ -72,7 +75,7 @@ function Body({ page }: { page: DataPage }) {
       ) : (
         <>
           <Links page={page} />
-          {analysed && <SmallMultiples multiples={view.multiples} />}
+          {analysed && <SmallMultiples multiples={view.multiples} team={view.team} />}
           {view.matrix !== null && <Matrix matrix={view.matrix} />}
           {view.game !== null && <GameCard game={view.game} />}
           {view.coverage !== null && <span className={styles.sub}>{view.coverage}</span>}

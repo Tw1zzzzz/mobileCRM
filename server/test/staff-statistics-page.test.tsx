@@ -72,10 +72,12 @@ describe("«Статистика» page", () => {
     expect(words).toContain("Слева состояние, справа игра. Выбрано 6 из 8");
     expect(words).toContain("Сбросить выбор");
     expect(words).toContain("Состояние");
-    expect(words).toContain("Игра · пракки и Faceit");
+    expect(words).toContain("Игра · Faceit");
+    expect(words).not.toContain("пракки");
     expect(words).not.toContain("Можно выбрать до 8 метрик");
     // selected chips are pressed and link to the selection without them; the others add themselves
-    expect(defaults).toMatch(/aria-pressed="true"[^>]*href="\/staff\/statistics\?m=sleep,screen,elo,kd,adr"[^>]*>Настроение</);
+    expect(defaults).not.toContain("aria-pressed");
+    expect(defaults).toMatch(/aria-current="true"[^>]*href="\/staff\/statistics\?m=sleep,screen,elo,kd,adr"[^>]*>Настроение</);
     expect(hrefs(defaults)).toContain("/staff/statistics?m=mood,sleep,screen,elo,kd,adr,energy");
     // KAST is not offered
     expect(defaults).not.toContain("KAST");
@@ -86,7 +88,7 @@ describe("«Статистика» page", () => {
     expect(text(eight)).toContain("Можно выбрать до 8 метрик — снимите одну, чтобы добавить другую");
     expect(eight).toMatch(/aria-disabled="true"[^>]*>K\/D</);
     expect(hrefs(eight).filter((h) => h.includes("kd"))).toEqual([]);
-    expect(eight).toMatch(/aria-pressed="true"[^>]*>Сон</);
+    expect(eight).toMatch(/aria-current="true"[^>]*>Сон</);
   });
 
   it("resetLinkReturnsToDefaults", async () => {
@@ -199,6 +201,30 @@ describe("«Статистика» page", () => {
     expect(markup).not.toContain("Что это значит");
     expect((markup.match(/role="cell"[^>]*>мало данных</g) ?? []).length).toBe(6);
     expect(markup).not.toMatch(/NaN|undefined|Infinity/);
+  });
+
+  it("teamModeSaysThatDaysArePooled", async () => {
+    const { t, faceit } = await seeded();
+    const line = "Вся команда: дни всех игроков объединены, поэтому на r влияют и различия между игроками.";
+    const team = await render(t, { m: "sleep,kd" }, faceit());
+    expect(text(team)).toContain(line);
+    // under «Главные связи», before the cards
+    expect(team.indexOf("Главные связи")).toBeLessThan(team.indexOf(line));
+    expect(text(team)).toContain("Вся команда: среднее по игрокам за день");
+    // one player: nothing is pooled
+    const one = text(await render(t, { who: t.ids.vega, m: "sleep,kd" }, faceit()));
+    expect(one).not.toContain("дни всех игроков объединены");
+    expect(one).not.toContain("среднее по игрокам");
+    // a team where only one player has data pools nothing either
+    await deps.sql`delete from sync_documents where user_id = ${t.ids.nova}`;
+    expect(text(await render(t, { m: "sleep,mood" }))).not.toContain("дни всех игроков объединены");
+  });
+
+  it("matrixSummaryHasAHeadingAsItsChildNotInsideASpan", async () => {
+    const { t } = await seeded();
+    const markup = await render(t, { m: "mood,sleep" });
+    expect(markup).toMatch(/<summary[^>]*><h2[^>]*>Таблица корреляций<\/h2>/);
+    expect(markup).not.toMatch(/<span[^>]*><h2/);
   });
 
   it("nothingToShowGivesTheStaffEmptyState", async () => {

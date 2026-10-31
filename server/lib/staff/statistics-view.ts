@@ -99,6 +99,10 @@ export interface StatsView {
   game: GameCardView | null;
   notices: FaceitNoticeData[];
   coverage: string | null;
+  /** Several players' days are pooled into one sample (team mode, at least two players with data). */
+  pooled: boolean;
+  /** More than one player: the small multiples show the mean over players per day. */
+  team: boolean;
   /** Team mode with more players than the page takes. */
   truncated: { shown: number; total: number } | null;
 }
@@ -333,6 +337,8 @@ export function buildView(input: ViewInput): StatsView {
   return {
     rangeLabel: rangeLabel(period),
     hasAnyData: metrics.some((id) => players.some((p) => hasDays(seriesOf(id, p)))),
+    pooled: players.length > 1 && players.filter((p) => metrics.some((id) => hasDays(seriesOf(id, p)))).length >= 2,
+    team: players.length > 1,
     links,
     linksMessage: links.length > 0 ? null : metrics.length < 2 ? SELECT_MORE : NOT_ENOUGH_FOR_LINKS,
     multiples: metrics.map((id) => multipleView(id, players, period)),

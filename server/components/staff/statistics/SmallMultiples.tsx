@@ -46,12 +46,14 @@ function Multiple({ m }: { m: MultipleView }) {
 }
 
 /** «Динамика выбранных метрик»: one 300×90 chart per metric, min–max scaled, with gaps for days without data. */
-export function SmallMultiples({ multiples }: { multiples: readonly MultipleView[] }) {
+export function SmallMultiples({ multiples, team }: { multiples: readonly MultipleView[]; team: boolean }) {
   return (
     <section className={styles.card}>
       <div className={styles.cardTitles}>
         <h2 className={styles.cardTitle}>Динамика выбранных метрик</h2>
-        <span className={styles.sub}>Каждая метрика — отдельный график, ось X — даты периода</span>
+        <span className={styles.sub}>
+          Каждая метрика — отдельный график, ось X — даты периода{team ? ". Вся команда: среднее по игрокам за день" : ""}
+        </span>
       </div>
       <div className={styles.multiplesGrid}>
         {multiples.map((m) => (

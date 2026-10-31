@@ -34,7 +34,8 @@ const FACEIT_PARALLEL = 4;
 const STATS_COLLECTIONS = ["sleep", "nutrition", "wellbeing", "cognitive", "screen-time", "faceit"] as const satisfies readonly Collection[];
 
 const KNOWN: ReadonlySet<string> = new Set(STAT_METRICS.map((m) => m.id));
-const GAME_METRICS: ReadonlySet<string> = new Set(STAT_METRICS.filter((m) => m.group === "game").map((m) => m.id));
+/** The metrics that need Faceit matches; `elo` is read from the players' synced snapshots and never asks Faceit. */
+export const NEEDS_FACEIT: ReadonlySet<string> = new Set(["kd", "adr", "wr"]);
 
 export interface StatsParams {
   /** `"team"` or the id of a player of the roster. */
@@ -169,7 +170,7 @@ async function faceitOf(
 }
 
 /**
- * Everything the page needs. Faceit is asked only when a game metric is selected, and only for the roster's
+ * Everything the page needs. Faceit is asked only when K/D, ADR or Win Rate is selected (`NEEDS_FACEIT`), and only for the roster's
  * players the page shows (never for an id from the URL). `tz` is the staff time zone.
  */
 export async function loadStatistics(
@@ -188,7 +189,7 @@ export async function loadStatistics(
   const { from, to } = params.range;
 
   const docs = await Promise.all(scope.map((p) => playerDocuments(deps, ctx, p.id, STATS_COLLECTIONS)));
-  const wantsFaceit = params.metrics.some((id) => GAME_METRICS.has(id));
+  const wantsFaceit = params.metrics.some((id) => NEEDS_FACEIT.has(id));
   const faceit = wantsFaceit
     ? await mapLimited(scope, FACEIT_PARALLEL, (p) => faceitOf(deps, p, docs[scope.indexOf(p)], options))
     : scope.map(() => null);

@@ -18,10 +18,8 @@ export function Matrix({ matrix }: { matrix: MatrixView }) {
   return (
     <details open className={`${styles.card} ${styles.matrixBox}`}>
       <summary className={styles.summary}>
-        <span className={styles.cardTitles}>
-          <h2 className={styles.cardTitle}>Таблица корреляций</h2>
-          <span className={styles.sub}>Все пары выбранных метрик. Голубой — прямая связь, оранжевый — обратная, ярче — сильнее</span>
-        </span>
+        <h2 className={styles.cardTitle}>Таблица корреляций</h2>
+        <span className={styles.sub}>Все пары выбранных метрик. Голубой — прямая связь, оранжевый — обратная, ярче — сильнее</span>
         <span className={`${styles.toggle} ${styles.whenOpen}`}>Свернуть таблицу</span>
         <span className={`${styles.toggle} ${styles.whenClosed}`}>Показать таблицу</span>
       </summary>

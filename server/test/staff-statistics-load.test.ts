@@ -249,8 +249,19 @@ describe("loadStatistics", () => {
     expect(faceit.calls).toEqual([]);
     expect(none.view.game).toBeNull();
     expect(none.view.notices).toEqual([]);
-    await open(t, { m: "sleep,wr" }, faceit);
-    expect(faceit.calls.length).toBe(1);
+    // ELO comes from the synced snapshots: alone or with state metrics it never asks Faceit and shows no game card
+    for (const m of ["elo", "elo,sleep,mood"]) {
+      const withElo = await open(t, { m }, faceit);
+      expect(faceit.calls, m).toEqual([]);
+      expect(withElo.view.game, m).toBeNull();
+      expect(withElo.view.notices, m).toEqual([]);
+    }
+    for (const m of ["kd", "adr", "wr", "elo,kd"]) {
+      await deps.sql`delete from faceit_cache`;
+      faceit.calls.length = 0;
+      await open(t, { m }, faceit);
+      expect(faceit.calls.length, m).toBe(1);
+    }
   });
 
   it("asksOnlyTheFirstTwelvePlayersWithALimitOnParallelCalls", async () => {

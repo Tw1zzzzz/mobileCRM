@@ -7,7 +7,7 @@ type Group = "state" | "game";
 
 const GROUPS: readonly { group: Group; title: string; label: string }[] = [
   { group: "state", title: "Состояние", label: "Метрики состояния" },
-  { group: "game", title: "Игра · пракки и Faceit", label: "Игровые метрики" },
+  { group: "game", title: "Игра · Faceit", label: "Игровые метрики" },
 ];
 
 function chipClass(group: Group, on: boolean, off: boolean): string {
@@ -52,7 +52,7 @@ export function Picker({ params }: { params: StatsParams }) {
                 return (
                   <Link
                     key={m.id}
-                    aria-pressed={on}
+                    aria-current={on ? "true" : undefined}
                     href={statsHref(toggleMetric(params, m.id))}
                     scroll={false}
                     className={chipClass(group, on, false)}
