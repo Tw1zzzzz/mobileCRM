@@ -113,7 +113,7 @@ function indexExtras(docs: Documents, tz: string): ExtraIndex {
     let sum = 0;
     for (const key of WHEEL_KEYS) {
       const v = values[key];
-      sum += inRange(v, 1, 10) ? v : WHEEL_DEFAULT;
+      sum += inRange(v, 0, 10) ? v : WHEEL_DEFAULT;
     }
     extra.balance.set(phoneDayOf(at), sum / WHEEL_KEYS.length);
   }

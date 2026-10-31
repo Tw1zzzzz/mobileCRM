@@ -79,9 +79,16 @@ describe("playerSeries", () => {
     const s = run(named("balanceMeanOfEightMissingKeyIsFive"));
     expect(s.balance["2026-10-30"]).toBe(6.75); // the last entry of the day wins (46 / 8 would be 5.75)
     expect(s.balance["2026-10-31"]).toBe(5.625); // (10 + 7 * 5) / 8
-    expect(s.balance["2026-11-01"]).toBe(5); // 11 and 0 are outside 1..10: the key counts as missing
+    expect(s.balance["2026-11-01"]).toBe(5); // 11 and -1 are outside 0..10: the key counts as missing
     expect(s.balance["2026-11-02"]).toBe(5); // an empty wheel is all fives
     expect(Object.keys(s.balance)).toHaveLength(4); // an entry without `values` is skipped
+  });
+
+  it("balanceZeroSpokeCountsAsZero", () => {
+    const s = run(named("balanceZeroSpokeCountsAsZero"));
+    expect(s.balance["2026-10-30"]).toBe(30 / 8); // two zero spokes, six missing keys at 5.0
+    expect(s.balance["2026-10-31"]).toBe(70 / 8); // one zero spoke, seven tens
+    expect(s.balance["2026-11-01"]).toBe(0); // an all-zero wheel is 0, not 5.0
   });
 
   it("eloLastSnapshotOfTheDay", () => {

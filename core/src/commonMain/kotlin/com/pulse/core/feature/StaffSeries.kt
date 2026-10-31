@@ -99,7 +99,7 @@ object StaffSeries {
             val at = parseInstant(e["day"]) ?: continue
             val values = e["values"] as? JsonObject ?: continue
             var sum = 0.0
-            for (key in WHEEL_KEYS) sum += number(values[key], 1.0, 10.0) ?: WHEEL_DEFAULT
+            for (key in WHEEL_KEYS) sum += number(values[key], 0.0, 10.0) ?: WHEEL_DEFAULT
             extra.balance[phoneDayOf(at)] = sum / WHEEL_KEYS.size
         }
         for (g in records(docs["cognitive"], "gameResults")) {

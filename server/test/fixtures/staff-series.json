@@ -4,7 +4,7 @@
   "(core/src/jvmTest/.../StaffSeriesParityTest.kt). Generated from an independent Python reference, then frozen.",
   "playerSeries(docs, from, to, tz): inclusive range, only days with data (absent key = no data, never 0).",
   "sleep/mood/energy/cog/kcal are plan A's dailyInputs values (round2 half-up); readiness = readiness(dailyInputs) for each day with any readiness input.",
-  "screen = minutes / 60 (phone day), balance = mean of the 8 wheel values with a missing or out-of-1..10 key counted 5.0 (last entry of the phone day wins),",
+  "screen = minutes / 60 (phone day), balance = mean of the 8 wheel values with a missing or out-of-0..10 key counted 5.0 (0 is a valid spoke) (last entry of the phone day wins),",
   "focus/fatigue = day mean of cognitive.gameResults (1..10), elo = elo of the latest snapshot of the day; these five are not rounded (compare at 1e-9).",
   "Phone days (mood, energy, balance, screen) = UTC date of instant + 12h; sleep end, tests, meals and snapshots are real instants in the staff zone."
  ],
@@ -250,7 +250,7 @@
        "day": "2026-10-31T21:00:00Z",
        "values": {
         "physical": 11,
-        "social": 0
+        "social": -1
        }
       },
       {
@@ -280,6 +280,71 @@
      "2026-10-31": 5.625,
      "2026-11-01": 5.0,
      "2026-11-02": 5.0
+    },
+    "focus": {},
+    "fatigue": {},
+    "elo": {},
+    "readiness": {}
+   }
+  },
+  {
+   "name": "balanceZeroSpokeCountsAsZero",
+   "docs": {
+    "wellbeing": {
+     "balance": [
+      {
+       "id": "a",
+       "day": "2026-10-29T21:00:00Z",
+       "values": {
+        "physical": 0,
+        "social": 0
+       }
+      },
+      {
+       "id": "b",
+       "day": "2026-10-30T21:00:00Z",
+       "values": {
+        "physical": 0,
+        "emotional": 10,
+        "intellectual": 10,
+        "spiritual": 10,
+        "professional": 10,
+        "social": 10,
+        "environment": 10,
+        "financial": 10
+       }
+      },
+      {
+       "id": "c",
+       "day": "2026-10-31T21:00:00Z",
+       "values": {
+        "physical": 0,
+        "emotional": 0,
+        "intellectual": 0,
+        "spiritual": 0,
+        "professional": 0,
+        "social": 0,
+        "environment": 0,
+        "financial": 0
+       }
+      }
+     ]
+    }
+   },
+   "from": "2026-10-29",
+   "to": "2026-11-02",
+   "tz": "Europe/Moscow",
+   "expected": {
+    "sleep": {},
+    "mood": {},
+    "energy": {},
+    "cog": {},
+    "kcal": {},
+    "screen": {},
+    "balance": {
+     "2026-10-30": 3.75,
+     "2026-10-31": 8.75,
+     "2026-11-01": 0.0
     },
     "focus": {},
     "fatigue": {},

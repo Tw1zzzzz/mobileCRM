@@ -57,6 +57,14 @@ class StaffSeriesParityTest {
     }
 
     @Test
+    fun balanceZeroSpokeCountsAsZero() {
+        val s = run("balanceZeroSpokeCountsAsZero")
+        assertEquals(30.0 / 8, s.balance["2026-10-30"])
+        assertEquals(70.0 / 8, s.balance["2026-10-31"])
+        assertEquals(0.0, s.balance["2026-11-01"])
+    }
+
+    @Test
     fun readinessSeriesMatchesDailyInputs() {
         val c = case("readinessSeriesMatchesDailyInputs")
         val docs = c.getValue("docs").jsonObject
