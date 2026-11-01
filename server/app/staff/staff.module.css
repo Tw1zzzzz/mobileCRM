@@ -1,5 +1,18 @@
 /* Tokens and shell of the staff panel; the dark theme of docs/superpowers/specs/2026-10-28-staff-panel-design-boards. */
 
+/*
+ * The root layout renders a bare <html><body>, so the browser's 8px body margin and white canvas
+ * showed around the dark shell. Paint the whole viewport (also the overscroll area) and drop the
+ * margin. `:has(.root)` keeps it to pages that render the staff layout (a CSS module cannot hold a
+ * purely global selector), so the root page and /v1 are untouched.
+ */
+:global(html):has(.root),
+:global(body):has(.root) {
+  margin: 0;
+  background: #070b17; /* = --bg */
+  color-scheme: dark; /* scrollbars and form controls */
+}
+
 .root {
   --bg: #070b17;
   --surface: rgba(15, 21, 40, 0.82);
