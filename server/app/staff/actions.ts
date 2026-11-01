@@ -20,6 +20,8 @@ import {
 } from "@/lib/staff/session";
 import { deleteImageCore, saveNoteCore, uploadImageCore } from "@/lib/staff/notes-actions";
 import { removeMemberCore, rotateCodeCore, teamHref } from "@/lib/staff/team-management";
+import { deleteCalendarEvent, saveCalendarEvent } from "@/lib/staff/calendar";
+import { revalidatePath } from "next/cache";
 
 const SignInFields = z.object({ email: z.string().trim().min(1), password: z.string().min(1) });
 const RequestFields = z.object({ email: z.string().trim().min(1) });
@@ -34,6 +36,11 @@ function fields(form: FormData): Record<string, string> {
   const values: Record<string, string> = {};
   for (const [key, value] of form.entries()) if (typeof value === "string") values[key] = value;
   return values;
+}
+
+function field(form: FormData, name: string): string | undefined {
+  const value = form.get(name);
+  return typeof value === "string" ? value : undefined;
 }
 
 const failure = (message: string): FormState => ({ status: "error", message });
@@ -116,6 +123,24 @@ export async function removeMemberAction(form: FormData): Promise<void> {
   const ctx = await requireStaffContext();
   const result = await removeMemberCore(defaultDeps(), ctx, form);
   redirect(teamHref(result.ok ? undefined : result.error));
+}
+
+// ---- Team calendar ----
+export async function saveCalendarEventAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const result = await saveCalendarEvent(defaultDeps(), ctx, form);
+  if (!result.ok) redirect(`/staff/calendar?error=${result.error}`);
+  revalidatePath("/staff/calendar");
+  redirect(`/staff/calendar?month=${result.month}&day=${result.day}`);
+}
+
+export async function deleteCalendarEventAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const id = field(form, "id");
+  if (!id || !z.string().uuid().safeParse(id).success) redirect("/staff/calendar?error=not-found");
+  const deleted = await deleteCalendarEvent(defaultDeps(), ctx, id);
+  revalidatePath("/staff/calendar");
+  redirect(deleted ? "/staff/calendar" : "/staff/calendar?error=not-found");
 }
 
 // ---- «Игроки → карточка → Профиль»: notes and images ----

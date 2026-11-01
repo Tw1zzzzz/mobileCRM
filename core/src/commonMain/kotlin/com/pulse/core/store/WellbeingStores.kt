@@ -310,14 +310,29 @@ class CognitiveStore(
 
 // Calendar
 
+@Serializable
+data class PendingTeamCalendarChanges(
+    val upserts: Map<String, CalendarEvent> = emptyMap(),
+    val deletes: Set<String> = emptySet()
+)
+
 /** Calendar events («calendar.json» — a plain array, like iOS). */
 class CalendarStore(
     private val storage: JsonFileStorage<List<CalendarEvent>>?,
+    private val sharedStorage: JsonFileStorage<List<CalendarEvent>>? = null,
+    private val pendingStorage: JsonFileStorage<PendingTeamCalendarChanges>? = null,
+    private val teamStorage: JsonFileStorage<String>? = null,
     seed: List<CalendarEvent> = DemoData.calendarEvents()
 ) : PulseStore<List<CalendarEvent>>(seed.sortedBy { it.start }) {
 
+    private var privateEvents = emptyList<CalendarEvent>()
+    private var sharedEvents = emptyList<CalendarEvent>()
+    private var remotePlayerNames = emptyList<String>()
+    private var cachedTeamId: String? = null
+    var onSharedChange: (() -> Unit)? = null
+
     init {
-        storage?.load()?.let { current = it.sortedBy { e -> e.start } }
+        storage?.load()?.let { loaded -> current = loaded.sortedBy { e -> e.start } }
     }
 
     val events get() = current
@@ -325,9 +340,45 @@ class CalendarStore(
     /** The demo roster is offered as event tags only while a demo account is active (the seed is the demo's too). */
     private var offersDemoRoster = true
 
-    fun reload(isDemo: Boolean) {
+    fun reload(isDemo: Boolean, shareLegacyEvents: Boolean = false, isTeamMember: Boolean = true) {
         offersDemoRoster = isDemo
-        current = (storage?.load() ?: if (isDemo) DemoData.calendarEvents() else emptyList()).sortedBy { it.start }
+        if (isDemo) {
+            privateEvents = emptyList()
+            sharedEvents = emptyList()
+            remotePlayerNames = emptyList()
+            cachedTeamId = null
+            sharedStorage?.clear()
+            pendingStorage?.clear()
+            teamStorage?.clear()
+            current = (storage?.load() ?: DemoData.calendarEvents()).sortedBy { it.start }
+            return
+        }
+        val loaded = storage?.load().orEmpty()
+        privateEvents = loaded.filter { it.tag == EventTag.Personal }.sortedBy { it.start }
+        if (!isTeamMember) {
+            sharedEvents = emptyList()
+            remotePlayerNames = emptyList()
+            cachedTeamId = null
+            sharedStorage?.clear()
+            pendingStorage?.clear()
+            teamStorage?.clear()
+            if (loaded.any { it.tag != EventTag.Personal }) storage?.save(privateEvents)
+            current = privateEvents
+            return
+        }
+        cachedTeamId = teamStorage?.load()
+        val cachedShared = sharedStorage?.load().orEmpty()
+        val legacyShared = if (shareLegacyEvents) loaded.filter { it.tag != EventTag.Personal } else emptyList()
+        sharedEvents = (cachedShared + legacyShared).distinctBy { it.id }.sortedBy { it.start }
+        if (legacyShared.isNotEmpty()) {
+            val pending = pendingStorage?.load() ?: PendingTeamCalendarChanges()
+            pendingStorage?.save(pending.copy(
+                upserts = pending.upserts + legacyShared.associateBy { it.id.toString() },
+                deletes = pending.deletes - legacyShared.map { it.id.toString() }.toSet()
+            ))
+            storage?.save(privateEvents)
+        }
+        current = (privateEvents + sharedEvents).distinctBy { it.id }.sortedBy { it.start }
     }
 
     /** Events visible for a date under an optional tag filter (staff view). */
@@ -339,23 +390,110 @@ class CalendarStore(
     fun event(id: Uuid): CalendarEvent? = current.firstOrNull { it.id == id }
 
     fun upsert(event: CalendarEvent) {
-        current = (current.filter { it.id != event.id } + event).sortedBy { it.start }
-        storage?.save(current)
+        if (offersDemoRoster) {
+            current = (current.filter { it.id != event.id } + event).sortedBy { it.start }
+            storage?.save(current)
+            return
+        }
+        if (event.tag == EventTag.Personal) {
+            if (sharedEvents.any { it.id == event.id }) {
+                sharedEvents = sharedEvents.filterNot { it.id == event.id }
+                sharedStorage?.save(sharedEvents)
+                queueSharedChange(event.id.toString(), null)
+                onSharedChange?.invoke()
+            }
+            privateEvents = (privateEvents.filter { it.id != event.id } + event).sortedBy { it.start }
+            storage?.save(privateEvents)
+        } else {
+            if (privateEvents.any { it.id == event.id }) {
+                privateEvents = privateEvents.filterNot { it.id == event.id }
+                storage?.save(privateEvents)
+            }
+            sharedEvents = (sharedEvents.filter { it.id != event.id } + event).sortedBy { it.start }
+            sharedStorage?.save(sharedEvents)
+            queueSharedChange(event.id.toString(), event)
+            onSharedChange?.invoke()
+        }
+        current = (privateEvents + sharedEvents).distinctBy { it.id }.sortedBy { it.start }
     }
 
     fun delete(id: Uuid) {
-        current = current.filter { it.id != id }
-        storage?.save(current)
+        val event = current.firstOrNull { it.id == id } ?: return
+        if (offersDemoRoster) {
+            current = current.filterNot { it.id == id }
+            storage?.save(current)
+            return
+        }
+        if (event.tag == EventTag.Personal) {
+            privateEvents = privateEvents.filterNot { it.id == id }
+            storage?.save(privateEvents)
+        } else {
+            sharedEvents = sharedEvents.filterNot { it.id == id }
+            sharedStorage?.save(sharedEvents)
+            queueSharedChange(id.toString(), null)
+            onSharedChange?.invoke()
+        }
+        current = (privateEvents + sharedEvents).distinctBy { it.id }.sortedBy { it.start }
     }
 
     fun resetToDemo() {
         offersDemoRoster = true
+        privateEvents = emptyList()
+        sharedEvents = emptyList()
         current = DemoData.calendarEvents().sortedBy { it.start }
         storage?.save(current)
     }
 
+    private fun queueSharedChange(id: String, event: CalendarEvent?) {
+        val storage = pendingStorage ?: return
+        val pending = storage.load() ?: PendingTeamCalendarChanges()
+        storage.save(if (event == null) {
+            pending.copy(upserts = pending.upserts - id, deletes = pending.deletes + id)
+        } else {
+            pending.copy(upserts = pending.upserts + (id to event), deletes = pending.deletes - id)
+        })
+    }
+
+    fun pendingSharedChanges(): Map<String, CalendarEvent?> = pendingStorage?.load()?.let { pending ->
+        pending.upserts + pending.deletes.associateWith { null }
+    }.orEmpty()
+
+    fun acknowledgeSharedChange(id: String, sent: CalendarEvent?) {
+        val storage = pendingStorage ?: return
+        val pending = storage.load() ?: return
+        val next = if (sent == null && id in pending.deletes) pending.copy(deletes = pending.deletes - id)
+            else if (sent != null && pending.upserts[id] == sent) pending.copy(upserts = pending.upserts - id)
+            else pending
+        if (next != pending) storage.save(next)
+    }
+
+    fun applyServerCalendar(events: List<CalendarEvent>, players: List<String>, teamId: String): Boolean {
+        val previous = sharedEvents
+        val teamChanged = cachedTeamId != null && cachedTeamId != teamId
+        if (teamChanged) {
+            pendingStorage?.clear()
+            sharedEvents = emptyList()
+        }
+        val pending = if (teamChanged) emptyMap() else pendingSharedChanges()
+        val merged = events.associateBy { it.id }.toMutableMap()
+        pending.forEach { (id, event) ->
+            val uuid = runCatching { Uuid.parse(id) }.getOrNull() ?: return@forEach
+            if (event == null) merged.remove(uuid) else merged[uuid] = event
+        }
+        sharedEvents = merged.values.sortedBy { it.start }
+        remotePlayerNames = players.distinct()
+        cachedTeamId = teamId
+        teamStorage?.save(teamId)
+        sharedStorage?.save(sharedEvents)
+        current = (privateEvents + sharedEvents).sortedBy { it.start }
+        return previous != sharedEvents
+    }
+
     /** Staff tags for events: the demo roster for demo accounts, none for real ones (their players are on the website). */
-    val playerTags: List<EventTag> get() = if (offersDemoRoster) DemoData.players.map { EventTag.Player(it.nickname) } else emptyList()
+    val playerTags: List<EventTag> get() = when {
+        offersDemoRoster -> DemoData.players.map { EventTag.Player(it.nickname) }
+        else -> remotePlayerNames.map { EventTag.Player(it) }
+    }
 
     companion object {
         const val FILE = "calendar.json"

@@ -10,6 +10,8 @@ import io.ktor.http.HttpMethod
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.ListSerializer
 import kotlinx.serialization.json.JsonElement
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.put
 import kotlin.coroutines.cancellation.CancellationException
@@ -317,7 +319,9 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
         }
 
         private suspend fun fetch(collection: String): RemoteDocument? = try {
-            client.send(HttpMethod.Get, "sync/$collection", RemoteDocument.serializer())
+            client.send(HttpMethod.Get, "sync/$collection", RemoteDocument.serializer()).let { remote ->
+                if (collection == CALENDAR) remote.copy(document = privateCalendar(remote.document)) else remote
+            }
         } catch (error: ApiException) {
             if (error.code == NOT_FOUND) null else throw error
         }
@@ -342,9 +346,19 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
          * behind; photos still to download keep theirs, so an upload never drops the server's reference.
          */
         private fun forServer(collection: String, local: JsonElement, unsentPhotos: Set<String> = emptySet()): JsonElement {
+            if (collection == CALENDAR) return privateCalendar(local)
             if (collection != NUTRITION) return local
             val photos = photoLedger()
             return MealPhotos.strip(local, unreferenced = photos.rejected + unsentPhotos, referenced = photos.pendingDownloads)
+        }
+
+        /** Team/player events use the team endpoint; only personal entries stay in per-user sync. */
+        private fun privateCalendar(document: JsonElement): JsonElement {
+            val records = document as? JsonArray ?: return document
+            return JsonArray(records.filter { record ->
+                val tag = (record as? JsonObject)?.get("tag") as? JsonObject
+                tag == null || "personal" in tag
+            })
         }
     }
 
@@ -401,6 +415,7 @@ class SyncEngine(private val client: ApiClient, private val scope: DataScope, pr
         const val MAX_PUT_ATTEMPTS = 3
         const val MAX_ABSORB_PASSES = 3
         const val NUTRITION = "nutrition"
+        const val CALENDAR = "calendar"
         const val NOT_FOUND = "not_found"
         /** Photo errors that a retry cannot fix. */
         val PHOTO_REJECTIONS = setOf("payload_too_large", "validation_failed")

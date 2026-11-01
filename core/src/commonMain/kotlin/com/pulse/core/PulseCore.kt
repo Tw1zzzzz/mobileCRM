@@ -30,6 +30,7 @@ import com.pulse.core.platform.SecretStore
 import com.pulse.core.storage.DataScope
 import com.pulse.core.storage.JsonFileStorage
 import com.pulse.core.store.CalendarStore
+import com.pulse.core.store.PendingTeamCalendarChanges
 import com.pulse.core.store.CognitiveStore
 import com.pulse.core.store.FaceitClient
 import com.pulse.core.store.FitnessStore
@@ -47,6 +48,7 @@ import com.pulse.core.staff.StaffTeam
 import com.pulse.core.store.WellbeingStore
 import com.pulse.core.sync.SyncEngine
 import com.pulse.core.sync.SyncResult
+import com.pulse.core.sync.TeamCalendarSync
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -68,6 +70,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.builtins.ListSerializer
+import kotlinx.serialization.builtins.serializer
 import kotlin.time.Duration.Companion.seconds
 
 /** What the app shows about data sync: only the download right after sign-in has its own screen. */
@@ -123,7 +126,13 @@ class PulseCore(
     val nutrition = NutritionStore(file(NutritionStore.FILE, NutritionStore.Saved.serializer()), foodAnalyzer)
     val wellbeing = WellbeingStore(file(WellbeingStore.FILE, WellbeingStore.Saved.serializer()))
     val cognitive = CognitiveStore(file(CognitiveStore.FILE, CognitiveStore.Saved.serializer()))
-    val calendar = CalendarStore(file(CalendarStore.FILE, ListSerializer(CalendarEvent.serializer())))
+    val calendar = CalendarStore(
+        file(CalendarStore.FILE, ListSerializer(CalendarEvent.serializer())),
+        JsonFileStorage("team-calendar.json", ListSerializer(CalendarEvent.serializer()), scope, ledger = null, notifyOnChange = false),
+        JsonFileStorage("team-calendar-pending.json", PendingTeamCalendarChanges.serializer(), scope, ledger = null, notifyOnChange = false),
+        JsonFileStorage("team-calendar-team.json", String.serializer(), scope, ledger = null, notifyOnChange = false)
+    )
+    private val teamCalendarSync = TeamCalendarSync(api, calendar)
     val fitness = FitnessStore(file(FitnessStore.FILE, FitnessStore.Saved.serializer()), health)
     val screenTime = ScreenTimeStore(file(ScreenTimeStore.FILE, ScreenTimeStore.Saved.serializer()))
     val lineups = LineupStore(file(LineupStore.FILE, ListSerializer(Lineup.serializer())))
@@ -134,6 +143,13 @@ class PulseCore(
 
     /** Platform hook: reschedule reminders, stop the sleep notification of the previous account, etc. */
     var onAccountActivated: ((User?, Boolean) -> Unit)? = null
+
+    /** Platform hook: refresh local calendar reminders after shared events arrive from the server. */
+    var onCalendarChanged: (() -> Unit)? = null
+
+    init {
+        teamCalendarSync.onCalendarChanged = { onCalendarChanged?.invoke() }
+    }
 
     private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
     val syncStatus: StateFlow<SyncStatus> = _syncStatus.asStateFlow()
@@ -178,6 +194,7 @@ class PulseCore(
         if (isRemote && stored != null && !stored.isDemo && tokens.tokens == null) session.signOutNow()
         fitness.onHealthSnapshot = { sleep.applyHealth(it) }
         scope.onChange = { if (isSyncable) onLocalChange?.invoke() }
+        calendar.onSharedChange = { if (isSyncable) onLocalChange?.invoke() }
         session.beforeLogout = { pushBeforeLogout() }
         sync.applyFile = { folder, file, write -> applyMergedFile(folder, file, write) }
         sync.log = { message -> log(message) }
@@ -219,7 +236,11 @@ class PulseCore(
             NutritionStore.FILE -> nutrition.reload(isDemo)
             WellbeingStore.FILE -> wellbeing.reload(isDemo)
             CognitiveStore.FILE -> cognitive.reload(isDemo)
-            CalendarStore.FILE -> calendar.reload(isDemo)
+            CalendarStore.FILE -> calendar.reload(
+                isDemo,
+                shareLegacyEvents = isRemote && user?.role?.isStaff == true,
+                isTeamMember = user?.role?.let { it.isStaff || it == com.pulse.core.model.UserRole.TEAM_PLAYER } == true
+            )
             FitnessStore.FILE -> fitness.reload(isDemo)
             ScreenTimeStore.FILE -> screenTime.reload(isDemo)
             LineupStore.FILE -> lineups.reload(isDemo)
@@ -263,9 +284,15 @@ class PulseCore(
         val running = _syncStatus.compareAndSet(SyncStatus.Idle, SyncStatus.Running)
         try {
             val pulled = step { sync.pullChanged(folder) }
-            afterPull(pulled)
+            val user = session.user.value
+            val teamCalendar = if (user?.role?.isStaff == true || user?.role == com.pulse.core.model.UserRole.TEAM_PLAYER) {
+                step { teamCalendarSync.sync() }
+            } else NOTHING
+            val downloaded = mergeResults(pulled, teamCalendar)
+            afterPull(downloaded)
             val pushed = step { sync.pushPending(folder) }
-            SyncResult((pulled.uploaded + pushed.uploaded).distinct(), (pulled.downloaded + pushed.downloaded).distinct(), pulled.failed || pushed.failed)
+            val result = mergeResults(downloaded, pushed)
+            result
         } finally {
             if (running) _syncStatus.compareAndSet(SyncStatus.Running, SyncStatus.Idle)
         }
@@ -336,7 +363,13 @@ class PulseCore(
     }
 
     private suspend fun pushBeforeLogout() {
-        if (isSyncable) exclusiveRound { folder -> step { sync.pushPending(folder) } }
+        if (isSyncable) exclusiveRound { folder ->
+            val user = session.user.value
+            val sharedCalendar = if (user?.role?.isStaff == true || user?.role == com.pulse.core.model.UserRole.TEAM_PLAYER) {
+                step { teamCalendarSync.sync() }
+            } else NOTHING
+            mergeResults(sharedCalendar, step { sync.pushPending(folder) })
+        }
     }
 
     /**
@@ -378,6 +411,12 @@ class PulseCore(
         log("sync: round failed (${error::class.simpleName})")
         FAILED
     }
+
+    private fun mergeResults(first: SyncResult, second: SyncResult) = SyncResult(
+        (first.uploaded + second.uploaded).distinct(),
+        (first.downloaded + second.downloaded).distinct(),
+        first.failed || second.failed
+    )
 
     /** A real player without «О тебе» answers: the step is shown once, on its own, at the next launch. */
     val needsAboutYou: Boolean

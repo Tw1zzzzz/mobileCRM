@@ -47,6 +47,7 @@ class PulseApplication : Application() {
         PulseNotifications.ensureChannels(this)
         // Data sync: after local changes, when the app goes to the background and at every start with a real account.
         SyncScheduler.attach(this, core)
+        core.onCalendarChanged = { ReminderScheduler.rescheduleAll(this, core) }
         // Reminders follow the signed-in account (and its role) — replanned on every sign-in, switch and sign-out.
         appScope.launch {
             var previous: Any? = null

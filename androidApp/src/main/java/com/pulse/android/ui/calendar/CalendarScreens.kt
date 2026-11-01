@@ -127,7 +127,9 @@ fun CalendarScreen(startsWithCreate: Boolean) {
             }
         }
         Box(Modifier.pulseCard(16.dp)) {
-            MonthGrid(month, selectedDay, { month = it }, { selectedDay = it }) { day -> store.events(day, effectiveTag).any(::isVisible) }
+            MonthGrid(month, selectedDay, { month = it }, { selectedDay = it }, { month = LocalDate(today.localDate().year, today.localDate().month, 1); selectedDay = today }) { day ->
+                store.events(day, effectiveTag).filter(::isVisible).map { it.tag }.distinct()
+            }
         }
         PulseSection(Formatters.dayMonthWeekday(selectedDay)) {
             val events = store.events(selectedDay, effectiveTag).filter(::isVisible)
@@ -170,7 +172,8 @@ private val weekdays = listOf("Пн", "Вт", "Ср", "Чт", "Пт", "Сб", "�
 /** Month with Monday-first weeks; swipe left/right or the arrows change the month. */
 @Composable
 private fun MonthGrid(
-    month: LocalDate, selectedDay: Instant, onMonth: (LocalDate) -> Unit, onSelect: (Instant) -> Unit, hasEvents: (Instant) -> Boolean
+    month: LocalDate, selectedDay: Instant, onMonth: (LocalDate) -> Unit, onSelect: (Instant) -> Unit,
+    onToday: () -> Unit, eventTags: (Instant) -> List<EventTag>
 ) {
     val today = Clock.System.now()
     val next = month.plus(DatePeriod(months = 1))
@@ -188,6 +191,9 @@ private fun MonthGrid(
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
             Text(Formatters.monthYear(month.startInstant()), color = Palette.textPrimary, fontSize = 20.sp, fontWeight = FontWeight.Bold, modifier = Modifier.weight(1f))
+            Box(Modifier.clip(RoundedCornerShape(10.dp)).pressable(onClick = onToday).padding(horizontal = 10.dp, vertical = 8.dp)) {
+                Text("Сегодня", color = Palette.cyan, fontSize = 13.sp, fontWeight = FontWeight.SemiBold)
+            }
             MonthButton("chevron.left", "Предыдущий месяц") { onMonth(month.plus(DatePeriod(months = -1))) }
             Box(Modifier.width(8.dp))
             MonthButton("chevron.right", "Следующий месяц") { onMonth(next) }
@@ -201,7 +207,7 @@ private fun MonthGrid(
                     week.forEach { date ->
                         if (date == null) Box(Modifier.weight(1f).height(44.dp)) else {
                             val day = date.startInstant()
-                            DayCell(date.day, day.isSameDay(selectedDay), day.isSameDay(today), hasEvents(day), Modifier.weight(1f)) { onSelect(day) }
+                            DayCell(date.day, day.isSameDay(selectedDay), day.isSameDay(today), eventTags(day), Modifier.weight(1f)) { onSelect(day) }
                         }
                     }
                     repeat(7 - week.size) { Box(Modifier.weight(1f)) }
@@ -212,7 +218,7 @@ private fun MonthGrid(
 }
 
 @Composable
-private fun DayCell(number: Int, isSelected: Boolean, isToday: Boolean, hasEvents: Boolean, modifier: Modifier, onClick: () -> Unit) {
+private fun DayCell(number: Int, isSelected: Boolean, isToday: Boolean, eventTags: List<EventTag>, modifier: Modifier, onClick: () -> Unit) {
     val shape = RoundedCornerShape(12.dp)
     Column(
         modifier.height(44.dp).clip(shape)
@@ -223,7 +229,11 @@ private fun DayCell(number: Int, isSelected: Boolean, isToday: Boolean, hasEvent
     ) {
         Text("$number", color = if (isSelected) Color.White else if (isToday) Palette.cyan else Palette.textPrimary, fontSize = 16.sp,
             fontWeight = if (isSelected || isToday) FontWeight.Bold else FontWeight.Normal)
-        Box(Modifier.padding(top = 3.dp).size(5.dp).clip(CircleShape).background(if (hasEvents) (if (isSelected) Color.White else Palette.cyan) else Color.Transparent))
+        Row(Modifier.padding(top = 3.dp).height(5.dp), horizontalArrangement = Arrangement.spacedBy(3.dp), verticalAlignment = Alignment.CenterVertically) {
+            eventTags.take(3).forEach { tag ->
+                Box(Modifier.size(5.dp).clip(CircleShape).background(if (isSelected) Color.White else tag.tint.color))
+            }
+        }
     }
 }
 

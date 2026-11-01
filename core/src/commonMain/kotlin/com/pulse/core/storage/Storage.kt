@@ -54,7 +54,8 @@ class JsonFileStorage<T>(
     private val serializer: KSerializer<T>,
     private val scope: DataScope,
     private val global: Boolean = false,
-    private val ledger: SyncLedger? = if (global) null else SyncLedger(scope)
+    private val ledger: SyncLedger? = if (global) null else SyncLedger(scope),
+    private val notifyOnChange: Boolean = true
 ) {
     private val path: String get() = if (global) filename else "${scope.folder()}/$filename"
 
@@ -66,7 +67,7 @@ class JsonFileStorage<T>(
     fun save(value: T) {
         scope.files.writeText(path, PulseJson.encodeToString(serializer, value))
         ledger?.markChanged(filename)
-        if (!global) scope.onChange?.invoke(filename)
+        if (!global && notifyOnChange) scope.onChange?.invoke(filename)
     }
 
     fun clear() = scope.files.delete(path)

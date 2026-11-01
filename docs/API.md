@@ -155,7 +155,7 @@ Refresh-токен одноразовый: каждый `/auth/refresh` выда
 | `nutrition` | `meals[] {id, date, name, kcal, protein, fat, carbs, photoRef (true — фото блюда лежит на сервере), source, author}`, `water {day: ml}`, `goals` |
 | `wellbeing` | `mood[] {id, day, slot, mood, energy}`, `balance[] {id, day, values}` |
 | `cognitive` | `results[] {id, kind, date, score, metric}`, `gameResults[] {id, date, phase, focus, fatigue, readiness}` |
-| `calendar` | документ — сам массив событий: `[{id, title, details, start, end, links, tag, ownerId}]` |
+| `calendar` | документ — личные события: `[{id, title, details, start, end, links, tag, ownerId}]`; события команды/игроков синхронизируются через `/calendar` |
 | `fitness-state` | `workouts[] {id, kind, detail, date, minutes, kcal, averageHeartRate, rpe}`, `goals`, `ratings`, `healthConnected` |
 | `screen-time` | `entries[] {date, minutes}`, `limitMinutes`, `accessGranted` |
 | `lineups` | документ — сам массив раскидок/заметок дневника CS2: `[{id, …, visibility (personal / team), variations[]}]` |
@@ -164,8 +164,21 @@ Refresh-токен одноразовый: каждый `/auth/refresh` выда
 | `player-survey` | `survey {goals[], role, level, yearsPlaying, hoursPerWeek, playTime, motivation, updatedAt}`, `mindset[] {id, date, answers {q1…q24: 1–5}}`, `onboardingDismissed` |
 | `body-profile` | шаг анкеты «О тебе»: `birthDate`, `heightCm`, `weightKg`, `updatedAt` |
 
-> Для этапа 1 сервер хранит документ без разбора (кроме списка `meals` в `nutrition` — по нему чистятся фото);
+> Для этапа 1 сервер хранит документ без разбора (кроме списка `meals` в `nutrition` и личных событий `calendar`);
 > на этапе 2 (ниже) появятся нормальные таблицы.
+
+### Общий календарь команды
+
+| Метод | Путь | Описание |
+|---|---|---|
+| GET | `/calendar` | События команды и игроков; стафф видит все, игрок — события команды и назначенные ему |
+| POST | `/calendar` | Стафф создаёт общее событие; `id`, `title`, `details`, `start`, `end`, `links`, `tag` (`team`/`player`), `player_nickname` |
+| PUT | `/calendar/{id}` | Стафф обновляет общее событие |
+| DELETE | `/calendar/{id}` | Стафф удаляет общее событие |
+
+Личные события остаются в per-user коллекции `calendar`. События команды хранятся по `team_id` в `staff_calendar_events`;
+участники видят только свою команду, а назначенное игроку событие — только этот игрок и стафф команды. Телефон
+кеширует общий календарь и отправляет локальные изменения в следующем цикле синхронизации.
 
 **Этап 2 — построчная синхронизация** (когда понадобятся отчёты стаффа по всей базе):
 `GET /sync/{collection}/changes?since=<ISO>` и `POST /sync/{collection}/batch { upserts[], deletes[] }`,
