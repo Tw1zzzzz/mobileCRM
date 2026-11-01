@@ -40,7 +40,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
-private const val MEAL_NAME_FALLBACK = "Приём пищи"
+internal const val MEAL_NAME_FALLBACK = "Приём пищи"
 private val THUMBNAIL_SIZE = 52.dp
 
 /** The photo at about [targetPx] on its short side: the bounds are read first and the decoder subsamples (30 rows must not hold 30 full-size bitmaps). */
@@ -53,19 +53,25 @@ private fun decodeThumbnail(bytes: ByteArray, targetPx: Int): Bitmap? {
 }
 
 /**
- * A meal of a team player: name, macros and time, and the photo when the player took one. The photo is downloaded
- * (`staffTeam.photo`) and decoded off the main thread only when the row is composed; a meal without a stored photo,
- * or one that cannot be had (offline, not allowed), keeps the plain icon.
+ * The photo of a team player's meal at about [targetPx] on its short side, or null while it loads and for a meal without
+ * a stored photo or one that cannot be had (offline, not allowed). Downloaded (`staffTeam.photo`) and decoded off the
+ * main thread, only when the composable that asks is composed.
  */
 @Composable
-fun StaffMealRow(entry: StaffViews.FoodEntry) {
+fun rememberMealPhoto(entry: StaffViews.FoodEntry, targetPx: Int): ImageBitmap? {
     val core = observeCore()
-    val thumbnailPx = with(LocalDensity.current) { THUMBNAIL_SIZE.roundToPx() }
-    val photo by produceState<ImageBitmap?>(null, entry.playerId, entry.mealId, entry.hasPhoto) {
+    val photo by produceState<ImageBitmap?>(null, entry.playerId, entry.mealId, entry.hasPhoto, targetPx) {
         value = if (!entry.hasPhoto) null else withContext(Dispatchers.Default) {
-            core.staffTeam.photo(entry.playerId, entry.mealId)?.let { decodeThumbnail(it, thumbnailPx) }?.asImageBitmap()
+            core.staffTeam.photo(entry.playerId, entry.mealId)?.let { decodeThumbnail(it, targetPx) }?.asImageBitmap()
         }
     }
+    return photo
+}
+
+/** A meal of a team player: name, macros and time, and the photo when the player took one; otherwise the plain icon. */
+@Composable
+fun StaffMealRow(entry: StaffViews.FoodEntry) {
+    val photo = rememberMealPhoto(entry, with(LocalDensity.current) { THUMBNAIL_SIZE.roundToPx() })
     val name = entry.name ?: MEAL_NAME_FALLBACK
     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         val bitmap = photo
@@ -90,4 +96,4 @@ fun StaffMealRow(entry: StaffViews.FoodEntry) {
 }
 
 /** A macro in whole grams; «—» when the player did not give it. */
-private fun grams(value: Double?): String = value?.let { "${it.roundToInt()}" } ?: "—"
+internal fun grams(value: Double?): String = value?.let { "${it.roundToInt()}" } ?: "—"

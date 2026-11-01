@@ -90,15 +90,18 @@ fun StaffAnalyticsTab() {
     val (section, select) = rememberSection("staff.analytics.section", AnalyticsSection.entries.toTypedArray(), AnalyticsSection.TEAM)
     val scroll = rememberScrollState()
     LaunchedEffect(section) { scroll.scrollTo(0) }
-    ScreenScaffold(spacing = 22.dp, scrollState = scroll, header = {
+    // Both sections share the Faceit matches of the team for as long as the tab is open.
+    val matches = rememberTeamMatches()
+    val refresh = rememberRealTeamRefresh()
+    ScreenScaffold(spacing = 22.dp, scrollState = scroll, isRefreshing = refresh?.isRefreshing ?: false, onRefresh = refresh?.refresh, header = {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             NavHeader("Аналитика", "Состояние и игра команды")
             PulseSegmented(AnalyticsSection.entries, section, { it.title }, height = 38.dp, onSelect = select)
         }
     }) {
         when (section) {
-            AnalyticsSection.TEAM -> TeamAnalyticsContent()
-            AnalyticsSection.CORRELATIONS -> TeamCorrelationsContent()
+            AnalyticsSection.TEAM -> TeamAnalyticsContent(matches)
+            AnalyticsSection.CORRELATIONS -> TeamCorrelationsContent(matches)
         }
     }
 }

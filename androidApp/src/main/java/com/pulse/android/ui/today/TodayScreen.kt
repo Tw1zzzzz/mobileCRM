@@ -51,6 +51,7 @@ import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.AppTab
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
+import com.pulse.android.ui.staff.realWeeklySubtitle
 import com.pulse.android.ui.theme.Gradients
 import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
@@ -293,8 +294,8 @@ fun WeeklySummaryCard() {
     val week = WeekRange.containing(Clock.System.now())
     val isStaff = core.session.isStaff
     val subtitle = if (isStaff && !core.showsTeamDemo) {
-        // The team summary is built from the seeded demo team: a real staff account has no team data yet.
-        "${week.title} · нет данных"
+        // A real staff account: readiness and risks of the downloaded team.
+        realWeeklySubtitle(week)
     } else if (isStaff) {
         val report = TeamWeeklyBuilder.demo(week)
         "${week.title} · ${report.readiness?.let { "готовность ${Formatters.decimal(it)}" } ?: "нет данных"} · рисков: ${report.risks.size}"

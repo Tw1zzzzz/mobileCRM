@@ -95,7 +95,7 @@ private enum class SortBy(val title: String) { READINESS("Готовность")
 
 /** Team dashboard: KPIs, readiness per player, dynamics, ELO vs K/D and a sortable table. */
 @Composable
-fun TeamAnalyticsContent() = TeamDemoOnly { DemoTeamAnalytics() }
+fun TeamAnalyticsContent(matches: TeamMatches = rememberTeamMatches()) = TeamDemoOnly(empty = { RealTeamAnalytics(matches) }) { DemoTeamAnalytics() }
 
 @Composable
 private fun DemoTeamAnalytics() {
@@ -253,7 +253,7 @@ private fun TableRow(snapshot: PlayerSnapshot, onClick: () -> Unit) {
 
 /** Heat map of factors × game metrics, «сон → K/D» scatter and the strongest relations. */
 @Composable
-fun TeamCorrelationsContent() = TeamDemoOnly { DemoTeamCorrelations() }
+fun TeamCorrelationsContent(matches: TeamMatches = rememberTeamMatches()) = TeamDemoOnly(empty = { RealTeamCorrelations(matches) }) { DemoTeamCorrelations() }
 
 @Composable
 private fun DemoTeamCorrelations() {
@@ -297,7 +297,7 @@ private fun DemoTeamCorrelations() {
 }
 
 @Composable
-private fun Dot(title: String, color: Color) {
+internal fun Dot(title: String, color: Color) {
     Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(Modifier.size(8.dp).clip(CircleShape).background(color))
         Text(title, color = Palette.textSecondary, fontSize = 12.sp)
@@ -330,7 +330,7 @@ private fun Heatmap(matrix: List<List<Double?>>) {
     }
 }
 
-private fun heatColor(value: Double?): Color {
+internal fun heatColor(value: Double?): Color {
     if (value == null) return Palette.track
     val strength = minOf(abs(value), 1.0)
     if (strength < 0.1) return Palette.track
@@ -339,7 +339,7 @@ private fun heatColor(value: Double?): Color {
 
 /** «Питание игроков»: what the players eat — dish photos, calories and macros for the week. */
 @Composable
-fun TeamFoodContent() = TeamDemoOnly { DemoTeamFood() }
+fun TeamFoodContent() = TeamDemoOnly(empty = { RealTeamFood() }) { DemoTeamFood() }
 
 @Composable
 private fun DemoTeamFood() {
@@ -440,17 +440,23 @@ private fun FoodEntrySheet(entry: TeamFood.Entry, onClose: () -> Unit) {
 @Composable
 fun TeamAnalyticsScreen() {
     val router = LocalRouter.current
-    ScreenScaffold(spacing = 22.dp, header = { NavHeader("Аналитика игроков", "Дашборд команды", onBack = { router.pop() }) }) { TeamAnalyticsContent() }
+    val refresh = rememberRealTeamRefresh()
+    ScreenScaffold(spacing = 22.dp, isRefreshing = refresh?.isRefreshing ?: false, onRefresh = refresh?.refresh,
+        header = { NavHeader("Аналитика игроков", "Дашборд команды", onBack = { router.pop() }) }) { TeamAnalyticsContent() }
 }
 
 @Composable
 fun TeamCorrelationsScreen() {
     val router = LocalRouter.current
-    ScreenScaffold(spacing = 22.dp, header = { NavHeader("Корреляции", "Игровые и неигровые признаки · 30 дней", onBack = { router.pop() }) }) { TeamCorrelationsContent() }
+    val refresh = rememberRealTeamRefresh()
+    ScreenScaffold(spacing = 22.dp, isRefreshing = refresh?.isRefreshing ?: false, onRefresh = refresh?.refresh,
+        header = { NavHeader("Корреляции", "Игровые и неигровые признаки · 30 дней", onBack = { router.pop() }) }) { TeamCorrelationsContent() }
 }
 
 @Composable
 fun TeamFoodScreen() {
     val router = LocalRouter.current
-    ScreenScaffold(spacing = 18.dp, header = { NavHeader("Питание игроков", "Фото еды за 7 дней", onBack = { router.pop() }) }) { TeamFoodContent() }
+    val refresh = rememberRealTeamRefresh()
+    ScreenScaffold(spacing = 18.dp, isRefreshing = refresh?.isRefreshing ?: false, onRefresh = refresh?.refresh,
+        header = { NavHeader("Питание игроков", "Фото еды за 7 дней", onBack = { router.pop() }) }) { TeamFoodContent() }
 }

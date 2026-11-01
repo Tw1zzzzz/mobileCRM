@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -110,6 +111,14 @@ fun rememberTeamRefresh(): TeamRefresh? {
             scope.launch { try { StaffTeamRefresh.start(core).join() } finally { pulled = false } }
         }
     }
+}
+
+/** [rememberTeamRefresh] of a screen that opens a download of an old copy when it appears (null for a demo account). */
+@Composable
+fun rememberRealTeamRefresh(): TeamRefresh? {
+    val core = observeCore()
+    LaunchedEffect(Unit) { StaffTeamRefresh.startIfOld(core) }
+    return rememberTeamRefresh()
 }
 
 /** «Обновлено 14:05» (with the day when it was another one): the copy on screen is not from the last refresh. */

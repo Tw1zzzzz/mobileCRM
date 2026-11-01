@@ -337,7 +337,7 @@ private fun GameSection(faceit: FaceitMatches, matches: List<GameMatch>) {
 }
 
 @Composable
-private fun CorrelationsSection(links: List<StaffViews.Link>?) {
+internal fun CorrelationsSection(links: List<StaffViews.Link>?) {
     if (links == null) {
         FaceitProgress()
         return

@@ -41,6 +41,7 @@ import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.sfIcon
 import com.pulse.android.ui.today.WeeklySummaryCard
 import com.pulse.core.feature.StaffMetrics
+import com.pulse.core.model.WeekRange
 import com.pulse.core.staff.StaffViews
 import com.pulse.core.staff.TeamSnapshot
 import com.pulse.core.util.Formatters
@@ -74,20 +75,20 @@ private fun <T : Any> teamComputation(team: TeamSnapshot, compute: (TeamSnapshot
     return result
 }
 
-private fun readinessTint(status: StaffMetrics.ReadinessStatus?): Color = when (status) {
+internal fun readinessTint(status: StaffMetrics.ReadinessStatus?): Color = when (status) {
     StaffMetrics.ReadinessStatus.READY -> Palette.green
     StaffMetrics.ReadinessStatus.DOUBT -> Palette.orange
     StaffMetrics.ReadinessStatus.RISK -> Palette.red
     null -> Palette.textTertiary
 }
 
-private fun readinessTitle(status: StaffMetrics.ReadinessStatus): String = when (status) {
+internal fun readinessTitle(status: StaffMetrics.ReadinessStatus): String = when (status) {
     StaffMetrics.ReadinessStatus.READY -> "Готов"
     StaffMetrics.ReadinessStatus.DOUBT -> "Под вопросом"
     StaffMetrics.ReadinessStatus.RISK -> "Риск"
 }
 
-private fun playerRoute(id: String): Route? = runCatching { Uuid.parse(id) }.getOrNull()?.let { Route.Player(it) }
+internal fun playerRoute(id: String): Route? = runCatching { Uuid.parse(id) }.getOrNull()?.let { Route.Player(it) }
 
 // ------------------------------------------------------------------------------------------------ «Сегодня»
 
@@ -235,3 +236,20 @@ private fun RosterMetric(label: String, value: String?, modifier: Modifier) {
 }
 
 internal const val MINUTES_PER_HOUR = 60
+
+/** The line under «Сводка команды за неделю» of a real staff account: the week and the team's readiness and risks that week. */
+@Composable
+fun realWeeklySubtitle(week: WeekRange): String {
+    val view = observeCore().realTeamView()
+    val loaded = view.withPlayers
+    val day = teamDay()
+    val report by produceState<StaffViews.WeeklyTeam?>(null, loaded?.team, week, day.tz) {
+        value = loaded?.let { withContext(Dispatchers.Default) { StaffViews.weeklyTeam(it.team, week, day.tz) } }
+    }
+    val readiness = report?.readiness
+    return when {
+        view == RealTeamView.Loading || (loaded != null && report == null) -> "${week.title} · загружаем"
+        readiness == null -> "${week.title} · $NO_DATA"
+        else -> "${week.title} · готовность ${readiness.roundToInt()} · рисков: ${report?.atRisk ?: 0}"
+    }
+}
