@@ -35,7 +35,7 @@ object StaffMetrics {
     const val WINDOW_DAYS = 7
 
     /** A sleep session shorter than this is «Неполная» in the app and is not counted as sleep. */
-    private const val MIN_SLEEP_MS = 60L * 60 * 1000
+    internal const val MIN_SLEEP_MS = 60L * 60 * 1000
     private const val HOUR_MS = 60.0 * 60 * 1000
     private const val READINESS_FULL_MAX = 115.0
 
