@@ -9,8 +9,8 @@ import { rosterMember, type StaffContext } from "@/lib/staff/access";
  * Staff read it here, and only for players of their own team.
  */
 
-/** Photos are replaced rarely and each card shows up to 30: let the browser keep them for an hour. */
-const CACHE_CONTROL = "private, max-age=3600";
+/** A meal photo is health data: the browser must not keep it past the staff session (sign-out, removal of the player). */
+const CACHE_CONTROL = "private, no-store";
 
 /**
  * The JPEG of one meal of a player on the caller's roster. `null` for everything else, without telling why:

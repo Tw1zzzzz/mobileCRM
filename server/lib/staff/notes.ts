@@ -1,3 +1,4 @@
+import type { TransactionSql } from "postgres";
 import type { Deps } from "@/lib/deps";
 import { ApiError } from "@/lib/http";
 import { rosterMember, rosterPlayer, type StaffContext } from "@/lib/staff/access";
@@ -30,6 +31,32 @@ async function rosterId(deps: Deps, ctx: StaffContext, playerId: string): Promis
   return player.id;
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+/**
+ * Runs `write` in a transaction that first takes the team-row lock `removeMember` takes (`for update`; this is
+ * `for share`, so saves run side by side but never beside a removal) and then checks the roster again. A player
+ * removed after the first, unlocked check is «no such player», and no row is left behind for them. The predicate is
+ * the roster's (role `teamPlayer`, this team, confirmed email), as in `lib/staff/access.ts`.
+ */
+async function writeForRosterPlayer(
+  deps: Deps,
+  ctx: StaffContext,
+  playerId: string,
+  write: (tx: TransactionSql, id: string) => Promise<unknown>,
+): Promise<void> {
+  if (!UUID.test(playerId)) throw notFound();
+  await deps.sql.begin(async (tx) => {
+    const [team] = await tx`select 1 from teams where id = ${ctx.teamId} for share`;
+    if (!team) throw notFound();
+    const [player] = await tx<{ id: string }[]>`
+      select id from users
+      where id = ${playerId} and team_id = ${ctx.teamId} and role = 'teamPlayer' and email_verified_at is not null`;
+    if (!player) throw notFound();
+    await write(tx, player.id);
+  });
+}
+
 function imageKind(kind: string): ImageKind {
   const found = IMAGE_KINDS.find((k) => k === kind);
   if (found === undefined) throw new ApiError("validation_failed", "Unknown image kind.", 422);
@@ -50,14 +77,14 @@ export async function saveNote(deps: Deps, ctx: StaffContext, playerId: string, 
   if (note.length > NOTE_MAX_CHARS) {
     throw new ApiError("validation_failed", `A note is at most ${NOTE_MAX_CHARS} characters.`, 422);
   }
-  await deps.sql`
+  await writeForRosterPlayer(deps, ctx, id, (tx, playerId) => tx`
     insert into staff_player_notes (player_id, team_id, communication, updated_at, updated_by)
-    values (${id}, ${ctx.teamId}, ${note}, ${deps.now()}, ${ctx.userId})
+    values (${playerId}, ${ctx.teamId}, ${note}, ${deps.now()}, ${ctx.userId})
     on conflict (player_id) do update set
       team_id = excluded.team_id,
       communication = excluded.communication,
       updated_at = excluded.updated_at,
-      updated_by = excluded.updated_by`;
+      updated_by = excluded.updated_by`);
 }
 
 // ---------------------------------------------------------------- images
@@ -90,15 +117,15 @@ export async function saveImage(
   if (bytes.length > IMAGE_MAX_BYTES) throw new ApiError("payload_too_large", "The image is too large.", 413);
   const contentType = sniffImage(bytes);
   if (contentType === null) throw new ApiError("validation_failed", "Only PNG, JPEG and WebP images.", 422);
-  await deps.sql`
+  await writeForRosterPlayer(deps, ctx, id, (tx, playerId) => tx`
     insert into staff_player_images (player_id, kind, team_id, content_type, bytes, updated_at, updated_by)
-    values (${id}, ${checked}, ${ctx.teamId}, ${contentType}, ${bytes}, ${deps.now()}, ${ctx.userId})
+    values (${playerId}, ${checked}, ${ctx.teamId}, ${contentType}, ${bytes}, ${deps.now()}, ${ctx.userId})
     on conflict (player_id, kind) do update set
       team_id = excluded.team_id,
       content_type = excluded.content_type,
       bytes = excluded.bytes,
       updated_at = excluded.updated_at,
-      updated_by = excluded.updated_by`;
+      updated_by = excluded.updated_by`);
 }
 
 export async function deleteImage(deps: Deps, ctx: StaffContext, playerId: string, kind: ImageKind): Promise<void> {

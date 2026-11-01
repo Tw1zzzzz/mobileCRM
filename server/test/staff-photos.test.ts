@@ -73,7 +73,7 @@ describe("meal photo route", () => {
     const res = await get(t.ids.vega, MEAL);
     expect(res.status).toBe(200);
     expect(res.headers.get("content-type")).toBe("image/jpeg");
-    expect(res.headers.get("cache-control")).toBe("private, max-age=3600");
+    expect(res.headers.get("cache-control")).toBe("private, no-store"); // a photo must not outlive the staff session
     expect(res.headers.get("x-content-type-options")).toBe("nosniff");
     expect(await bytes(res)).toEqual(JPEG);
   });

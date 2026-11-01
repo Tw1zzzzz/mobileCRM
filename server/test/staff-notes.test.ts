@@ -492,6 +492,73 @@ describe("players cannot read notes", () => {
   });
 });
 
+describe("saving while the player is being removed", () => {
+  /**
+   * Starts a removal that holds the team-row lock `removeMember` takes (its roster change is not committed yet),
+   * runs `attempt` meanwhile, then commits the removal. Returns what `attempt` did and whether it had to wait.
+   */
+  async function saveDuringRemoval(
+    t: CardTeam,
+    attempt: () => Promise<void>,
+  ): Promise<{ waited: boolean; outcome: unknown }> {
+    let locked!: () => void;
+    const hasLock = new Promise<void>((resolve) => (locked = resolve));
+    let commit!: () => void;
+    const gate = new Promise<void>((resolve) => (commit = resolve));
+    const removal = deps.sql.begin(async (tx) => {
+      await tx`select 1 from teams where id = ${t.ids.team} for update`;
+      await tx`update users set role = 'soloPlayer', team_id = null where id = ${t.ids.vega}`;
+      await tx`delete from staff_player_notes where player_id = ${t.ids.vega}`;
+      await tx`delete from staff_player_images where player_id = ${t.ids.vega}`;
+      locked();
+      await gate;
+    });
+    await hasLock;
+    let settled = false;
+    const saving = attempt().then(
+      () => ({ error: null as unknown }),
+      (error: unknown) => ({ error }),
+    ).finally(() => (settled = true));
+    await new Promise((resolve) => setTimeout(resolve, 150));
+    const waited = !settled;
+    commit();
+    await removal;
+    return { waited, outcome: (await saving).error };
+  }
+
+  it("aNoteSavedWhileThePlayerIsRemovedIsRejectedAndLeavesNoRow", async () => {
+    const t = await seed();
+    const { waited, outcome } = await saveDuringRemoval(t, () => saveNote(deps, t.ctx, t.ids.vega, "late note"));
+    expect(waited).toBe(true); // it queued behind the removal's team lock
+    expect(outcome).toBeInstanceOf(ApiError);
+    expect((outcome as ApiError).status).toBe(404);
+    expect(await count("staff_player_notes")).toBe(0);
+  });
+
+  it("anImageSavedWhileThePlayerIsRemovedIsRejectedAndLeavesNoRow", async () => {
+    const t = await seed();
+    const { waited, outcome } = await saveDuringRemoval(t, () => saveImage(deps, t.ctx, t.ids.vega, "scheme", PNG));
+    expect(waited).toBe(true);
+    expect((outcome as ApiError).status).toBe(404);
+    expect(await count("staff_player_images")).toBe(0);
+  });
+
+  it("aSaveBeforeTheRemovalIsDeletedByIt", async () => {
+    const t = await seed();
+    await saveNote(deps, t.ctx, t.ids.vega, "kept until removal");
+    await saveImage(deps, t.ctx, t.ids.vega, "scheme", PNG);
+    await removeMember(deps, t.ids.team, t.ids.staff, t.ids.vega);
+    expect(await count("staff_player_notes")).toBe(0);
+    expect(await count("staff_player_images")).toBe(0);
+  });
+
+  it("aMalformedPlayerIdIsStillNotFoundNotADatabaseError", async () => {
+    const t = await seed();
+    await expectApiError(() => saveNote(deps, t.ctx, "not-a-uuid", "x"), 404);
+    await expectApiError(() => saveImage(deps, t.ctx, "not-a-uuid", "scheme", PNG), 404);
+  });
+});
+
 describe("deletion", () => {
   it("removeMemberDeletesNotesAndImages", async () => {
     const t = await seed();
