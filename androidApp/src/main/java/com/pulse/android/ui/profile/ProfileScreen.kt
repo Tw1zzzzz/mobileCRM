@@ -236,7 +236,7 @@ private fun StatsRow(user: User) {
     val core = observeCore()
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (user.role.isStaff) {
-            Stat("${core.teamPlayerCount}", "игроков", "person.3.fill", Palette.cyan, Modifier.weight(1f))
+            Stat("${core.teamPlayerCount ?: "—"}", "игроков", "person.3.fill", Palette.cyan, Modifier.weight(1f))
             Stat("${core.calendar.events.size}", "событий", "calendar", Palette.orange, Modifier.weight(1f))
             Stat("${LineupStore.visible(core.lineups.lineups, user).size}", "раскидок", "scope", Palette.green, Modifier.weight(1f))
         } else {

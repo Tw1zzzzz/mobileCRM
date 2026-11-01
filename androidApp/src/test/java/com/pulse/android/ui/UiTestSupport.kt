@@ -32,6 +32,7 @@ import io.ktor.client.engine.okhttp.OkHttp
 import io.ktor.http.HttpHeaders
 import io.ktor.http.HttpStatusCode
 import io.ktor.http.headersOf
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -99,19 +100,72 @@ fun testStaffJson(inviteCode: String? = null): String =
     """{"id":"0C1D2E3F-4A5B-4E5F-8A9B-6F1B6A2E1C2D","nickname":"Тренер","email":"coach@team.gg","role":"staff",""" +
         """"tariff":"free","team":"Pulse Academy","invite_code":${inviteCode?.let { "\"$it\"" } ?: "null"},"streak_days":0,"faceit_url":null}"""
 
-/** A remote-build core signed in to the Pulse server as a real staff account (a MockEngine server with nothing stored). */
-fun remoteStaffCore(inviteCode: String? = null): PulseCore {
+/**
+ * The Pulse server's staff endpoints as the staff screens see them (a MockEngine answers from this): the team's name and
+ * code, its players with the documents stored for them. Change it between refreshes to model a team that grew or a
+ * server that went away ([offline]); [gate] holds the roster answer back.
+ */
+class StaffServerFixture(
+    var teamName: String = "Pulse Academy",
+    var inviteCode: String? = null,
+    /** Player id → nickname, in roster order. */
+    var players: Map<String, String> = emptyMap(),
+    /** Player id → collection → document JSON. */
+    var documents: Map<String, Map<String, String>> = emptyMap(),
+    /** Player id → last activity (ISO instant). */
+    var lastActivity: Map<String, String> = emptyMap(),
+    @Volatile var offline: Boolean = false,
+    @Volatile var gate: CompletableDeferred<Unit>? = null
+) {
+    /** Paths the app asked for, in arrival order. */
+    val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
+    internal suspend fun answer(path: String): String {
+        if (offline) throw java.io.IOException("offline")
+        gate?.await()
+        if (path == "staff/team") {
+            val roster = players.entries.joinToString(",") { (id, nickname) ->
+                val activity = lastActivity[id]?.let { "\"$it\"" } ?: "null"
+                """{"id":"$id","nickname":"$nickname","last_activity":$activity}"""
+            }
+            val code = inviteCode?.let { "\"$it\"" } ?: "null"
+            return """{"team":{"name":"$teamName","invite_code":$code},"players":[$roster]}"""
+        }
+        val player = path.removePrefix("staff/players/").substringBefore('/')
+        val stored = documents[player].orEmpty().entries.joinToString(",") { (collection, document) -> "\"$collection\":$document" }
+        return """{"documents":{$stored}}"""
+    }
+}
+
+/**
+ * A remote-build core signed in to the Pulse server as a real staff account. The server is [server] (an empty team by
+ * default); with [settle] the team has been downloaded (or has failed to) before the core is returned. The core's
+ * background work runs off the main thread so that waiting for the download here never needs the main looper.
+ */
+fun remoteStaffCore(
+    inviteCode: String? = null,
+    server: StaffServerFixture = StaffServerFixture(inviteCode = inviteCode),
+    settle: Boolean = true
+): PulseCore {
     val session = """{"user":${testStaffJson(inviteCode)},"access_token":"A","refresh_token":"R"}"""
     val engine = MockEngine { request ->
-        val data = when (request.url.encodedPath.removePrefix("/v1/")) {
-            "auth/login" -> session
-            "sync" -> "[]"
+        val path = request.url.encodedPath.removePrefix("/v1/")
+        val data = when {
+            path == "auth/login" -> session
+            path == "sync" -> "[]"
+            path.startsWith("staff/") -> { server.requests += path; server.answer(path) }
             else -> """{"version":1,"updated_at":"2026-10-20T08:00:00Z"}"""
         }
         respond("""{"success":true,"data":$data,"error":null}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
     }
-    val core = testCore(null, backend = Backend.Remote("https://api.test/v1/"), http = HttpClient(engine))
-    runBlocking { core.session.login("coach@team.gg", "test-pass-1") }
+    val core = testCore(
+        null, backend = Backend.Remote("https://api.test/v1/"), http = HttpClient(engine),
+        background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+    )
+    runBlocking {
+        core.session.login("coach@team.gg", "test-pass-1")
+        if (settle) core.staffTeam.refresh()
+    }
     return core
 }
 

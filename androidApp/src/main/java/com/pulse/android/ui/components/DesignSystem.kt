@@ -33,6 +33,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.pulltorefresh.PullToRefreshBox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -151,23 +152,30 @@ fun NavHeader(title: String, subtitle: String? = null, onBack: (() -> Unit)? = n
 }
 
 /** Standard screen: fixed header + scrolling content (the background comes from the shell). */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ScreenScaffold(
     spacing: Dp = Metrics.sectionSpacing,
     scrollState: ScrollState = rememberScrollState(),
+    /** Pull down to refresh: set [onRefresh] (and [isRefreshing] while it runs) for a screen that has something to download. */
+    isRefreshing: Boolean = false,
+    onRefresh: (() -> Unit)? = null,
     header: @Composable () -> Unit,
     content: @Composable ColumnScope.() -> Unit
 ) {
     // The scroll area spans the window; header and content form a centred column no wider than maxContentWidth.
     Column(Modifier.fillMaxSize().statusBarsPadding(), horizontalAlignment = Alignment.CenterHorizontally) {
         Box(Modifier.contentWidth().padding(horizontal = Metrics.screenPadding).padding(top = 4.dp, bottom = 10.dp)) { header() }
-        Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
-            Column(
-                Modifier.contentWidth().testTag("screenContent").padding(horizontal = Metrics.screenPadding).padding(top = 10.dp, bottom = 24.dp),
-                verticalArrangement = Arrangement.spacedBy(spacing),
-                content = content
-            )
+        val scrolling = @Composable {
+            Box(Modifier.fillMaxSize().verticalScroll(scrollState), contentAlignment = Alignment.TopCenter) {
+                Column(
+                    Modifier.contentWidth().testTag("screenContent").padding(horizontal = Metrics.screenPadding).padding(top = 10.dp, bottom = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(spacing),
+                    content = content
+                )
+            }
         }
+        if (onRefresh == null) scrolling() else PullToRefreshBox(isRefreshing, onRefresh, Modifier.fillMaxSize()) { scrolling() }
     }
 }
 

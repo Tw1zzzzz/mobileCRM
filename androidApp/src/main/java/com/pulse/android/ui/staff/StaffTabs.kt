@@ -69,9 +69,11 @@ fun StaffPlayersTab() {
     val (section, select) = rememberSection("staff.players.section", PlayersSection.entries.toTypedArray(), PlayersSection.ROSTER)
     val scroll = rememberScrollState()
     LaunchedEffect(section) { scroll.scrollTo(0) }
-    ScreenScaffold(spacing = 18.dp, scrollState = scroll, header = {
+    LaunchedEffect(Unit) { StaffTeamRefresh.startIfOld(core) }
+    val refresh = rememberTeamRefresh()
+    ScreenScaffold(spacing = 18.dp, scrollState = scroll, isRefreshing = refresh?.isRefreshing ?: false, onRefresh = refresh?.refresh, header = {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            NavHeader("Игроки", "${core.session.user.value?.team ?: "Команда"} · ${core.teamPlayerCount} в составе")
+            NavHeader("Игроки", core.playersSubtitle())
             PulseSegmented(PlayersSection.entries, section, { it.title }, height = 38.dp, onSelect = select)
         }
     }) {
@@ -101,19 +103,21 @@ fun StaffAnalyticsTab() {
     }
 }
 
-/** Staff «Сегодня»: team state, who needs attention (demo team only), today's events. */
+/** Staff «Сегодня»: team state, who needs attention, today's events. */
 @Composable
 fun StaffTodayScreen(onNotifications: () -> Unit) {
     val core = observeCore()
     val router = LocalRouter.current
     val now = Clock.System.now()
-    ScreenScaffold(header = { TopPanel(onNotifications) }) {
+    LaunchedEffect(Unit) { StaffTeamRefresh.startIfOld(core) }
+    val refresh = rememberTeamRefresh()
+    ScreenScaffold(isRefreshing = refresh?.isRefreshing ?: false, onRefresh = refresh?.refresh, header = { TopPanel(onNotifications) }) {
         Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(Formatters.dayMonthWeekday(now).uppercase(), color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
             Text("Команда ${core.session.user.value?.team ?: ""}", color = Palette.textPrimary, autoSize = fit(30.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        // The ring, the counts and the attention list come from the seeded demo team: a real account has none yet.
-        TeamDemoOnly(empty = { NoTeamOverview() }) { DemoTeamOverview() }
+        // Demo accounts: the seeded demo team. A real account: its own team, downloaded from the server.
+        TeamDemoOnly(empty = { RealTeamOverview() }) { DemoTeamOverview() }
         PulseSection("События сегодня", "Календарь", { router.open(Route.Calendar(), AppTab.TODAY) }) {
             // Players' personal plans are private: staff see team events and player schedules.
             val events = core.calendar.events(now, null).filter { it.tag != EventTag.Personal }
@@ -128,15 +132,6 @@ fun StaffTodayScreen(onNotifications: () -> Unit) {
                 }
             }
         }
-    }
-}
-
-/** A real staff account: no readiness or attention list yet, and the weekly summary card says so. */
-@Composable
-private fun NoTeamOverview() {
-    Column(verticalArrangement = Arrangement.spacedBy(Metrics.sectionSpacing)) {
-        TeamNoDataState()
-        WeeklySummaryCard()
     }
 }
 
@@ -183,9 +178,9 @@ private fun DemoTeamOverview() {
 }
 
 @Composable
-private fun Stat(title: String, value: String, tint: Color = Palette.textPrimary) {
+internal fun Stat(title: String, value: String, tint: Color = Palette.textPrimary) {
     Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
         Text(title, color = Palette.textSecondary, fontSize = 13.sp)
-        Text(value, color = tint, fontSize = 20.sp, fontWeight = FontWeight.Bold)
+        Text(value, color = tint, autoSize = fit(20.sp), fontWeight = FontWeight.Bold, maxLines = 1)
     }
 }

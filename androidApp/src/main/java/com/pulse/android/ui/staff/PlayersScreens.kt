@@ -91,9 +91,9 @@ fun PlayerAvatar(nickname: String, size: Dp, fontSize: TextUnit) {
     }
 }
 
-/** Staff: the team roster with search (the demo team; a real account has no players yet). */
+/** Staff: the team roster with search (the seeded team for demo accounts, the downloaded one for a real account). */
 @Composable
-fun PlayersListContent() = TeamDemoOnly(empty = { TeamEmptyRoster() }) { DemoRosterContent() }
+fun PlayersListContent() = TeamDemoOnly(empty = { RealRosterContent() }) { DemoRosterContent() }
 
 @Composable
 private fun DemoRosterContent() {
