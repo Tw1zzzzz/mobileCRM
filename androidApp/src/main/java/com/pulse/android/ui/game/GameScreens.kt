@@ -337,8 +337,9 @@ private fun FaceitDetailsSection(profile: FaceitProfile, matches: List<GameMatch
     }
 }
 
+/** Headshots, entries, clutches, utility and the other per-match averages over [matches] (their Faceit details). */
 @Composable
-private fun PeriodCard(matches: List<GameMatch>) {
+internal fun PeriodCard(matches: List<GameMatch>) {
     val details = matches.mapNotNull { it.details }
     if (details.isEmpty()) {
         Text("За этот период матчей на Faceit нет", color = Palette.textSecondary, fontSize = 15.sp, modifier = Modifier.pulseCard(16.dp))

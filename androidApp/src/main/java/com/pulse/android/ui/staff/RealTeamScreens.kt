@@ -51,12 +51,12 @@ import kotlin.math.roundToInt
 import kotlin.time.Clock
 import kotlin.uuid.Uuid
 
-private const val NO_DATA = "нет данных"
+internal const val NO_DATA = "нет данных"
 
 /** The phone's zone and today's day in it: the zone and the day every staff number is read in. */
-private class TeamDay(val today: String, val tz: String)
+internal class TeamDay(val today: String, val tz: String)
 
-private fun teamDay(): TeamDay {
+internal fun teamDay(): TeamDay {
     val tz = TimeZone.currentSystemDefault().id
     return TeamDay(StaffMetrics.dayOf(Clock.System.now(), tz), tz)
 }
@@ -234,4 +234,4 @@ private fun RosterMetric(label: String, value: String?, modifier: Modifier) {
     }
 }
 
-private const val MINUTES_PER_HOUR = 60
+internal const val MINUTES_PER_HOUR = 60

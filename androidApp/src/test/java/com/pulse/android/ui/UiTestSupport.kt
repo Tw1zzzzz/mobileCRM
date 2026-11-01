@@ -115,10 +115,27 @@ class StaffServerFixture(
     /** Player id → last activity (ISO instant). */
     var lastActivity: Map<String, String> = emptyMap(),
     @Volatile var offline: Boolean = false,
-    @Volatile var gate: CompletableDeferred<Unit>? = null
+    @Volatile var gate: CompletableDeferred<Unit>? = null,
+    /** "playerId/mealId" → the meal's photo (JPEG); a meal without one answers 404. */
+    var photos: Map<String, ByteArray> = emptyMap(),
+    /** Faceit player id → the Faceit answer for that player's matches (`{"items":[...]}`); an id not listed answers 404. */
+    var faceitMatches: Map<String, String> = emptyMap()
 ) {
     /** Paths the app asked for, in arrival order. */
     val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
+    /** Faceit Data API paths the app asked for, in arrival order. */
+    val faceitRequests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
+
+    internal fun photo(path: String): ByteArray? {
+        if (offline) throw java.io.IOException("offline")
+        return photos[path.removePrefix("staff/players/").replace("/photos/", "/")]
+    }
+
+    internal fun faceit(path: String): String? {
+        if (offline) throw java.io.IOException("offline")
+        return faceitMatches[path.removePrefix("data/v4/players/").substringBefore('/')]
+    }
 
     internal suspend fun answer(path: String): String {
         if (offline) throw java.io.IOException("offline")
@@ -145,11 +162,24 @@ class StaffServerFixture(
 fun remoteStaffCore(
     inviteCode: String? = null,
     server: StaffServerFixture = StaffServerFixture(inviteCode = inviteCode),
-    settle: Boolean = true
+    settle: Boolean = true,
+    faceitKey: String? = null
 ): PulseCore {
     val session = """{"user":${testStaffJson(inviteCode)},"access_token":"A","refresh_token":"R"}"""
     val engine = MockEngine { request ->
+        if (request.url.host == "open.faceit.com") {
+            val path = request.url.encodedPath.removePrefix("/")
+            server.faceitRequests += path
+            val body = server.faceit(path)
+            return@MockEngine respond(body ?: "{}", if (body != null) HttpStatusCode.OK else HttpStatusCode.NotFound, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
         val path = request.url.encodedPath.removePrefix("/v1/")
+        if (path.startsWith("staff/players/") && "/photos/" in path) {
+            server.requests += path
+            val bytes = server.photo(path)
+            return@MockEngine if (bytes != null) respond(bytes, HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "image/jpeg"))
+            else respond("""{"success":false,"data":null,"error":{"code":"not_found","message":null}}""", HttpStatusCode.NotFound, headersOf(HttpHeaders.ContentType, "application/json"))
+        }
         val data = when {
             path == "auth/login" -> session
             path == "sync" -> "[]"
@@ -159,7 +189,7 @@ fun remoteStaffCore(
         respond("""{"success":true,"data":$data,"error":null}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
     }
     val core = testCore(
-        null, backend = Backend.Remote("https://api.test/v1/"), http = HttpClient(engine),
+        null, faceitKey = faceitKey, backend = Backend.Remote("https://api.test/v1/"), http = HttpClient(engine),
         background = CoroutineScope(SupervisorJob() + Dispatchers.Default)
     )
     runBlocking {

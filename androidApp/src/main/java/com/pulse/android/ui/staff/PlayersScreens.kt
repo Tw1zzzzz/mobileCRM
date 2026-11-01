@@ -74,6 +74,7 @@ import com.pulse.core.demo.PlayerSurveyDemo
 import com.pulse.core.demo.TeamAnalytics
 import com.pulse.core.demo.TeamFood
 import com.pulse.core.model.BalanceCategory
+import com.pulse.core.model.LoadStatus
 import com.pulse.core.model.MindsetProfile
 import com.pulse.core.model.PlayerProfile
 import com.pulse.core.model.TrainingLoadMath
@@ -144,13 +145,15 @@ fun PlayersScreen() {
     ScreenScaffold(header = { NavHeader("Игроки", "Состав команды", onBack = { router.pop() }) }) { PlayersListContent() }
 }
 
-/** Staff view of one player: everything the coach needs on one screen. */
+/** Staff view of one player: everything the coach needs on one screen (the seeded player for demo accounts, the team's own for a real one). */
 @Composable
-fun PlayerDetailScreen(id: Uuid) {
+fun PlayerDetailScreen(id: Uuid) = TeamDemoOnly(empty = { RealPlayerDetailScreen(id) }) { DemoPlayerDetailScreen(id) }
+
+@Composable
+private fun DemoPlayerDetailScreen(id: Uuid) {
     val core = observeCore()
     val router = LocalRouter.current
-    val isDemo = core.showsTeamDemo
-    val player = if (isDemo) DemoData.players.firstOrNull { it.id == id } else null
+    val player = DemoData.players.firstOrNull { it.id == id }
     var period by remember { mutableIntStateOf(30) }
     var testType by remember { mutableStateOf("Все тесты") }
     var source by remember { mutableStateOf("Все") }
@@ -223,7 +226,7 @@ fun PlayerDetailScreen(id: Uuid) {
 }
 
 @Composable
-private fun FilterMenu(label: String, items: List<String>, onSelect: (String) -> Unit) {
+internal fun FilterMenu(label: String, items: List<String>, onSelect: (String) -> Unit) {
     var open by remember { mutableStateOf(false) }
     Box {
         Row(
@@ -239,27 +242,35 @@ private fun FilterMenu(label: String, items: List<String>, onSelect: (String) ->
     }
 }
 
+/** A figure of the card; [value] null is «нет данных». */
 @Composable
-private fun SummaryTile(title: String, value: String, tint: Color, modifier: Modifier) {
+internal fun SummaryTile(title: String, value: String?, tint: Color, modifier: Modifier) {
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, color = Palette.textSecondary, autoSize = fit(14.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(value, color = tint, fontSize = 26.sp, fontWeight = FontWeight.Bold)
+        if (value == null) Text(NO_DATA, color = Palette.textTertiary, fontSize = 15.sp, fontWeight = FontWeight.Medium, modifier = Modifier.padding(vertical = 5.dp))
+        else Text(value, color = tint, fontSize = 26.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 private fun LoadCard(player: PlayerProfile) {
     val ratio = TrainingLoadMath.ratio(TeamAnalytics.dailyLoad(player))
-    val color = ratio.status.tint.color
+    LoadCard(ratio.value, ratio.status, ratio.acute, ratio.chronicWeekly)
+}
+
+/** ACWR with its status, the last week's load and the usual weekly one. */
+@Composable
+internal fun LoadCard(ratio: Double?, status: LoadStatus, acute: Double, chronicWeekly: Double) {
+    val color = status.tint.color
     Column(Modifier.pulseCard(16.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(ratio.value?.let { Formatters.decimal(it, 2) } ?: "—", color = color, fontSize = 32.sp, fontWeight = FontWeight.Bold)
+            Text(ratio?.let { Formatters.decimal(it, 2) } ?: "—", color = color, fontSize = 32.sp, fontWeight = FontWeight.Bold)
             Text("ACWR", color = Palette.textSecondary, fontSize = 13.sp, fontWeight = FontWeight.SemiBold, modifier = Modifier.weight(1f))
-            Text(ratio.status.title, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold,
+            Text(status.title, color = color, fontSize = 13.sp, fontWeight = FontWeight.Bold,
                 modifier = Modifier.clip(CircleShape).background(color.copy(alpha = 0.15f)).padding(horizontal = 10.dp, vertical = 5.dp))
         }
-        Text("За 7 дней ${Formatters.grouped(ratio.acute.toInt())} ед. · обычно ${Formatters.grouped(ratio.chronicWeekly.toInt())} ед. в неделю", color = Palette.textSecondary, fontSize = 13.sp)
-        Text(ratio.status.advice, color = Palette.textSecondary, fontSize = 14.sp)
+        Text("За 7 дней ${Formatters.grouped(acute.toInt())} ед. · обычно ${Formatters.grouped(chronicWeekly.toInt())} ед. в неделю", color = Palette.textSecondary, fontSize = 13.sp)
+        Text(status.advice, color = Palette.textSecondary, fontSize = 14.sp)
     }
 }
 

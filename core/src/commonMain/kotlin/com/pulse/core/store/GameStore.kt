@@ -27,6 +27,7 @@ import io.ktor.client.request.get
 import io.ktor.client.request.header
 import io.ktor.client.request.parameter
 import io.ktor.client.statement.bodyAsText
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.KSerializer
@@ -38,6 +39,9 @@ import kotlin.time.Instant
 /** Loads a player's CS2 data from Faceit (direct today, a server proxy later — screens don't change). */
 interface FaceitProvider {
     suspend fun profile(nickname: String): FaceitProfile
+
+    /** A player's recent matches by Faceit player id, newest first; a provider that cannot look one up by id says so. */
+    suspend fun matches(playerId: String): List<GameMatch> = throw FaceitException(FaceitException.Kind.SERVER)
 }
 
 class FaceitException(val kind: Kind, val status: Int = 0) : Exception() {
@@ -65,12 +69,12 @@ class FaceitClient(private val apiKey: String, private val http: HttpClient) : F
         val cs2 = player.cs2 ?: throw FaceitException(FaceitException.Kind.NO_CS2_PROFILE)
         val id = player.playerId
         val stats = async { runCatching { get("players/$id/stats/$GAME", FaceitPlayerStats.serializer()) }.getOrNull() }
-        val matchList = async { get("players/$id/games/$GAME/stats", FaceitMatchStatsList.serializer(), "limit" to MATCH_LIMIT.toString()) }
+        val matchList = async { matches(id) }
         val rank = cs2.region?.let { region ->
             runCatching { get("rankings/games/$GAME/regions/$region/players/$id", FaceitRanking.serializer(), "limit" to "1") }.getOrNull()
         }
         val lifetime = stats.await()
-        val matches = matchList.await().items.mapNotNull { FaceitMapper.match(it.stats) }.sortedByDescending { it.date }
+        val matches = matchList.await()
         FaceitProfile(
             playerId = id, nickname = player.nickname, avatar = player.avatar, country = player.country, region = cs2.region,
             elo = cs2.faceitElo ?: 0, skillLevel = cs2.skillLevel, regionRank = rank?.position,
@@ -78,6 +82,16 @@ class FaceitClient(private val apiKey: String, private val http: HttpClient) : F
             maps = FaceitMapper.maps(lifetime?.segments ?: emptyList()),
             matches = matches, fetchedAt = Clock.System.now()
         )
+    }
+
+    /**
+     * The player's last [MATCH_LIMIT] matches. The id comes from another user's data (a team player's saved Faceit link),
+     * so only a Faceit player id (a UUID) is put into the address; anything else is answered as «player not found».
+     */
+    override suspend fun matches(playerId: String): List<GameMatch> {
+        if (!PLAYER_ID.matches(playerId)) throw FaceitException(FaceitException.Kind.PLAYER_NOT_FOUND)
+        val list = get("players/$playerId/games/$GAME/stats", FaceitMatchStatsList.serializer(), "limit" to MATCH_LIMIT.toString())
+        return list.items.mapNotNull { FaceitMapper.match(it.stats) }.sortedByDescending { it.date }
     }
 
     private suspend fun <T> get(path: String, serializer: KSerializer<T>, vararg query: Pair<String, String>): T {
@@ -105,6 +119,7 @@ class FaceitClient(private val apiKey: String, private val http: HttpClient) : F
         const val BASE_URL = "https://open.faceit.com/data/v4"
         const val GAME = "cs2"
         const val MATCH_LIMIT = 100
+        private val PLAYER_ID = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
     }
 }
 
@@ -194,6 +209,21 @@ class GameStore(
             current = current.copy(error = "Не удалось обновить данные Faceit")
         } finally {
             current = current.copy(isSyncing = false)
+        }
+    }
+
+    /**
+     * The matches of another player by their Faceit player id (a team player on the staff card), newest first, with the
+     * player's own key or the app's. Null: no key, or Faceit did not answer. This store's own state is not touched.
+     */
+    suspend fun matchesOf(playerId: String): List<GameMatch>? {
+        val key = apiKey ?: return null
+        return try {
+            makeClient(key).matches(playerId)
+        } catch (stopped: CancellationException) {
+            throw stopped
+        } catch (_: Exception) {
+            null
         }
     }
 
