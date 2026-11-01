@@ -34,7 +34,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.blur
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -109,13 +108,12 @@ fun TestsScreen() {
     }
 }
 
-/** «Когнитивные тесты»: intro, battery launch, 7-day trend and history (blurred without PRO). */
+/** «Когнитивные тесты»: intro, battery launch, 7-day trend and history. */
 @Composable
 fun CognitiveScreen() {
     val core = observeCore()
     val router = LocalRouter.current
     val store = core.cognitive
-    val locked = !core.session.hasSubscription
     var battery by remember { mutableStateOf(false) }
     var historyExpanded by remember { mutableStateOf(true) }
     ScreenScaffold(header = { NavHeader("Когнитивные тесты", onBack = { router.pop() }) }) {
@@ -131,18 +129,16 @@ fun CognitiveScreen() {
         }
         PulseSection("Тренд последних 7 дней") {
             val series = store.dailyScores(7)
-            Locked(locked) {
-                Column(Modifier.pulseCard(padding = 20.dp)) {
-                    if (series.isEmpty()) {
-                        Text("Пройди батарею, чтобы увидеть тренд", color = Palette.textSecondary, fontSize = 15.sp, modifier = Modifier.padding(vertical = 40.dp))
-                    } else {
-                        PulseLineChart(
-                            series.map { it.value },
-                            calloutFor = { i -> Callout(Formatters.dayMonthWeekday(series[i].date), "${series[i].value.roundToIntSwift()} баллов", Palette.cyan) },
-                            height = 150.dp, showsArea = false, lower = 0.0, upper = 100.0,
-                            labels = series.map { Formatters.weekdayShort(it.date) }
-                        )
-                    }
+            Column(Modifier.pulseCard(padding = 20.dp)) {
+                if (series.isEmpty()) {
+                    Text("Пройди батарею, чтобы увидеть тренд", color = Palette.textSecondary, fontSize = 15.sp, modifier = Modifier.padding(vertical = 40.dp))
+                } else {
+                    PulseLineChart(
+                        series.map { it.value },
+                        calloutFor = { i -> Callout(Formatters.dayMonthWeekday(series[i].date), "${series[i].value.roundToIntSwift()} баллов", Palette.cyan) },
+                        height = 150.dp, showsArea = false, lower = 0.0, upper = 100.0,
+                        labels = series.map { Formatters.weekdayShort(it.date) }
+                    )
                 }
             }
         }
@@ -151,7 +147,7 @@ fun CognitiveScreen() {
                 Box(Modifier.weight(1f)) { SectionHeader("История") }
                 Icon(sfIcon(if (historyExpanded) "chevron.up" else "chevron.down"), null, tint = Palette.textSecondary, modifier = Modifier.size(18.dp))
             }
-            if (historyExpanded) Locked(locked) {
+            if (historyExpanded) {
                 Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 16.dp)) {
                     CognitiveTestKind.entries.forEachIndexed { index, kind ->
                         val latest = store.latest(kind)
@@ -176,21 +172,6 @@ fun CognitiveScreen() {
     if (battery) {
         Dialog({ battery = false }, DialogProperties(usePlatformDefaultWidth = false, decorFitsSystemWindows = false)) {
             BatteryRunner(onResult = { kind, outcome -> store.record(kind, outcome) }, onClose = { battery = false })
-        }
-    }
-}
-
-/** Blur + lock label when the content needs PRO (iOS `lockedIfNeeded`). */
-@Composable
-private fun Locked(isLocked: Boolean, content: @Composable () -> Unit) {
-    if (!isLocked) return content()
-    Box(contentAlignment = Alignment.Center) {
-        Box(Modifier.blur(8.dp)) { content() }
-        // blur() is a no-op before Android 12 — the scrim keeps the content unreadable there too.
-        Box(Modifier.matchParentSize().clip(androidx.compose.foundation.shape.RoundedCornerShape(Metrics.cardRadius)).background(Palette.background.copy(alpha = 0.55f)))
-        Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(8.dp)) {
-            Icon(sfIcon("lock.fill"), null, tint = Palette.textPrimary, modifier = Modifier.size(26.dp))
-            Text("Доступно по подписке PRO", color = Palette.textPrimary, fontSize = 16.sp, fontWeight = FontWeight.SemiBold)
         }
     }
 }

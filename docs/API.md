@@ -227,9 +227,12 @@ Refresh-токен одноразовый: каждый `/auth/refresh` выда
 
 | Метод | Путь | Описание |
 |---|---|---|
-| GET | `/faceit/profile` | профиль CS2: ELO, уровень, регион, место в рейтинге, lifetime, карты |
-| GET | `/faceit/matches?limit=100` | матчи с детальной статистикой (как `GameMatch.Details` в приложении) |
-| GET | `/faceit/elo-history?days=90` | ELO по дням |
+| GET | `/faceit/players?nickname={nick}&game=cs2` | найти профиль игрока |
+| GET | `/faceit/players/{player_id}/stats` | lifetime и статистика по картам |
+| GET | `/faceit/players/{player_id}/games/cs2/stats` | до 100 последних матчей с деталями |
+| GET | `/faceit/rankings/games/cs2/regions/{region}/players/{player_id}` | место в региональном рейтинге |
+
+Эти маршруты требуют обычный bearer-токен Pulse. Сервер проксирует только перечисленные запросы к фиксированному адресу Faceit; ключ не отправляется в Android и не возвращается клиенту. Лимит — 120 запросов в минуту на пользователя.
 
 ## Еда по фото (AI)
 

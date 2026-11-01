@@ -33,6 +33,7 @@ import com.pulse.core.store.CalendarStore
 import com.pulse.core.store.PendingTeamCalendarChanges
 import com.pulse.core.store.CognitiveStore
 import com.pulse.core.store.FaceitClient
+import com.pulse.core.store.FaceitApiProxyClient
 import com.pulse.core.store.FitnessStore
 import com.pulse.core.store.FoodAnalyzer
 import com.pulse.core.store.GameGoalsStore
@@ -137,7 +138,9 @@ class PulseCore(
     val screenTime = ScreenTimeStore(file(ScreenTimeStore.FILE, ScreenTimeStore.Saved.serializer()))
     val lineups = LineupStore(file(LineupStore.FILE, ListSerializer(Lineup.serializer())))
     val gameGoals = GameGoalsStore(file(GameGoalsStore.FILE, GameGoals.serializer()))
-    val game = GameStore(file(GameStore.FILE, GameStore.Saved.serializer()), secrets, faceitKey) { key -> FaceitClient(key, http) }
+    val game = GameStore(
+        file(GameStore.FILE, GameStore.Saved.serializer()), secrets, faceitKey, serverProxyAvailable = isRemote
+    ) { key -> if (isRemote) FaceitApiProxyClient(api) else FaceitClient(key, http) }
     val survey = PlayerSurveyStore(file(PlayerSurveyStore.FILE, PlayerSurveyState.serializer()))
     val body = BodyProfileStore(file(BodyProfileStore.FILE, BodyProfile.serializer()))
 

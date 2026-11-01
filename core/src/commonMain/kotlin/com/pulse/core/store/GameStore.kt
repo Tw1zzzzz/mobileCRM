@@ -36,7 +36,7 @@ import kotlinx.serialization.UseSerializers
 import kotlin.time.Clock
 import kotlin.time.Instant
 
-/** Loads a player's CS2 data from Faceit (direct today, a server proxy later — screens don't change). */
+/** Loads CS2 data from the Pulse proxy in remote builds and directly from Faceit in local builds. */
 interface FaceitProvider {
     suspend fun profile(nickname: String): FaceitProfile
 
@@ -61,7 +61,8 @@ class FaceitException(val kind: Kind, val status: Int = 0) : Exception() {
 
 /**
  * Direct client for the Faceit Data API v4. Only public data is read; the key is supplied by the user and kept
- * in the secure store (never in the source). ELO history is not exposed by the Data API.
+ * in the secure store for local builds; remote builds send requests through the authenticated Pulse server. ELO history
+ * is not exposed by the Data API.
  */
 class FaceitClient(private val apiKey: String, private val http: HttpClient) : FaceitProvider {
     override suspend fun profile(nickname: String): FaceitProfile = coroutineScope {
@@ -125,13 +126,14 @@ class FaceitClient(private val apiKey: String, private val http: HttpClient) : F
 
 /**
  * Player-side CS2 data for every game screen: real Faceit data when connected, demo matches otherwise («faceit.json»).
- * [builtInKey] is the app's own client-side Data API key, set at build time outside the repository; a key the player
- * enters is stored in [secrets] and wins over it.
+ * Local builds may use [builtInKey] or a player key in [secrets]. Remote builds use the server proxy and never read a
+ * Faceit key from the device.
  */
 class GameStore(
     private val storage: JsonFileStorage<Saved>?,
     private val secrets: SecretStore,
     builtInKey: String? = null,
+    private val serverProxyAvailable: Boolean = false,
     private val makeClient: (String) -> FaceitProvider
 ) : PulseStore<GameStore.State>(State()) {
 
@@ -160,10 +162,10 @@ class GameStore(
 
     /** Something to show on game screens: real Faceit data, or the demo for demo accounts. */
     val hasData: Boolean get() = current.faceit != null || current.isDemo
-    val hasBuiltInKey: Boolean get() = builtInKey != null
-    val hasApiKey: Boolean get() = apiKey != null
+    val hasBuiltInKey: Boolean get() = builtInKey != null || serverProxyAvailable
+    val hasApiKey: Boolean get() = apiKey != null || serverProxyAvailable
     /** The player's own key, else the app's. */
-    private val apiKey: String? get() = secrets.read(API_KEY_ACCOUNT)?.takeIf { it.isNotEmpty() } ?: builtInKey
+    private val apiKey: String? get() = if (serverProxyAvailable) null else secrets.read(API_KEY_ACCOUNT)?.takeIf { it.isNotEmpty() } ?: builtInKey
     val isConnected: Boolean get() = current.nickname != null && hasApiKey
     val usesRealData: Boolean get() = current.faceit != null
 
@@ -196,7 +198,7 @@ class GameStore(
 
     suspend fun refresh(now: Instant = Clock.System.now()) {
         val nickname = current.nickname ?: return
-        val key = apiKey ?: return
+        val key = apiKey ?: if (serverProxyAvailable) "" else return
         if (current.isSyncing) return
         current = current.copy(isSyncing = true)
         try {
@@ -217,7 +219,7 @@ class GameStore(
      * player's own key or the app's. Null: no key, or Faceit did not answer. This store's own state is not touched.
      */
     suspend fun matchesOf(playerId: String): List<GameMatch>? {
-        val key = apiKey ?: return null
+        val key = apiKey ?: if (serverProxyAvailable) "" else return null
         return try {
             makeClient(key).matches(playerId)
         } catch (stopped: CancellationException) {

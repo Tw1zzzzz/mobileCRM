@@ -225,10 +225,7 @@ private fun FaceitLogo() {
     }
 }
 
-/**
- * Nickname or profile link plus the user's own Faceit API key. The key goes to the Android Keystore-backed secret store
- * and is never shown again; the field stays empty to keep the saved one.
- */
+/** Connects a profile; remote builds use the server-held key, while local builds may ask for a device key. */
 @Composable
 private fun FaceitConnectSheet(onClose: () -> Unit) {
     val core = observeCore()
@@ -242,13 +239,13 @@ private fun FaceitConnectSheet(onClose: () -> Unit) {
         PulseTextField("Ник или ссылка на профиль", nickname, "https://www.faceit.com/ru/players/…") { nickname = it }
         // The app's own key (from the build) is enough: only builds without it ask the player for one.
         if (game.hasBuiltInKey) {
-            Text("ELO, уровень, матчи и статистика по картам подтянутся по нику.", color = Palette.textSecondary, fontSize = 14.sp)
+            Text("ELO, уровень, матчи и статистика загрузятся по нику через сервер Pulse.", color = Palette.textSecondary, fontSize = 14.sp)
         } else {
             PulseTextField(if (game.hasApiKey) "API-ключ (сохранён, можно заменить)" else "API-ключ *", apiKey, "xxxxxxxx-xxxx-…", secure = true) { apiKey = it }
             Column(Modifier.pulseCard(padding = 14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Где взять ключ", color = Palette.textPrimary, fontSize = 15.sp, fontWeight = FontWeight.SemiBold)
                 Text(
-                    "developers.faceit.com → App Studio → создать приложение → API Keys → ключ типа Client side. Ключ хранится только на этом телефоне в защищённом хранилище Android; когда появится сервер Pulse, он будет обращаться к Faceit сам.",
+                    "developers.faceit.com → App Studio → создать приложение → API Keys → ключ типа Client side. В локальной сборке ключ хранится только на этом телефоне в защищённом хранилище Android.",
                     color = Palette.textSecondary, fontSize = 13.sp
                 )
                 Text("Открыть портал разработчиков", color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold,
