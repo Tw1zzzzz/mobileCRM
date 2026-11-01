@@ -92,20 +92,30 @@ class StaffTeam(
 
     /**
      * The active account changed (sign-in, sign-out, switch): shows that account's copy from the phone, if it has one,
-     * and stops a refresh that belongs to the previous account. [enabled] is true for a real staff account only.
+     * and stops a refresh that belongs to the previous account. [enabled] is true for a real staff account only; for
+     * any other account a leftover copy in its folder is deleted. The lock is held only to switch state: the copy is
+     * read and deleted outside it, so a refresh writing a large file never makes this wait.
      */
     fun activate(enabled: Boolean) {
         running.value?.cancel()
-        locked(lock) {
+        val on = enabled && client.isConfigured
+        val accountFolder = scope.folder()
+        val mine = locked(lock) {
             epoch++
             completedRefreshes = 0
-            this.enabled = enabled && client.isConfigured
-            folder = scope.folder()
-            _state.value = if (this.enabled) {
-                loadCopy(folder)?.let { StaffTeamState.Ready(it, stale = true) } ?: StaffTeamState.Idle
-            } else {
-                StaffTeamState.Idle
-            }
+            this.enabled = on
+            folder = accountFolder
+            _state.value = StaffTeamState.Idle
+            epoch
+        }
+        if (!on) {
+            removeCopy(accountFolder)
+            return
+        }
+        val copy = loadCopy(accountFolder) ?: return
+        locked(lock) {
+            // A refresh started meanwhile (Loading) or another switch has the last word.
+            if (epoch == mine && _state.value == StaffTeamState.Idle) _state.value = StaffTeamState.Ready(copy, stale = true)
         }
     }
 
@@ -203,38 +213,58 @@ class StaffTeam(
         null
     }
 
-    /** Publishes and saves the result unless the account changed meanwhile. */
-    private fun commit(epochOfRefresh: Long, folderOfRefresh: String, outcome: Outcome) = locked(lock) {
-        if (epoch != epochOfRefresh) return@locked
-        completedRefreshes++
+    /**
+     * Saves the result and publishes it unless the account changed meanwhile. The file work (encoding and writing a
+     * possibly large team, deleting) happens outside the lock: the folder is the refresh's own account's, so a write
+     * that is late only lands in that account's folder. The lock is taken to re-check the epoch and publish the state.
+     */
+    private fun commit(epochOfRefresh: Long, folderOfRefresh: String, outcome: Outcome) {
+        if (locked(lock) { epoch != epochOfRefresh }) return
         when (outcome) {
-            is Outcome.Downloaded -> {
-                try {
-                    scope.files.writeText(path(folderOfRefresh), PulseJson.encodeToString(TeamSnapshot.serializer(), outcome.snapshot))
-                } catch (error: Exception) {
-                    // The copy on screen is fresh anyway; only the offline copy is behind.
-                    log("staff team: copy not saved (${error::class.simpleName})")
-                }
-                _state.value = StaffTeamState.Ready(outcome.snapshot, stale = false)
-            }
-            Outcome.Failed -> {
-                val current = _state.value
-                _state.value = if (current is StaffTeamState.Ready) current.copy(stale = true) else StaffTeamState.Failed
-            }
+            is Outcome.Downloaded -> saveCopy(folderOfRefresh, outcome.snapshot)
             // A removed staff member must not keep the team's data on the phone.
-            Outcome.Revoked -> {
-                try {
-                    scope.files.delete(path(folderOfRefresh))
-                } catch (error: Exception) {
-                    log("staff team: copy not deleted (${error::class.simpleName})")
-                }
-                _state.value = StaffTeamState.Idle
+            Outcome.Revoked -> removeCopy(folderOfRefresh)
+            Outcome.Failed -> Unit
+        }
+        locked(lock) {
+            if (epoch != epochOfRefresh) return@locked
+            completedRefreshes++
+            _state.value = when (outcome) {
+                is Outcome.Downloaded -> StaffTeamState.Ready(outcome.snapshot, stale = false)
+                Outcome.Failed -> (_state.value as? StaffTeamState.Ready)?.copy(stale = true) ?: StaffTeamState.Failed
+                Outcome.Revoked -> StaffTeamState.Idle
             }
         }
     }
 
+    private fun saveCopy(folder: String, snapshot: TeamSnapshot) {
+        try {
+            scope.files.writeText(path(folder), PulseJson.encodeToString(TeamSnapshot.serializer(), snapshot))
+        } catch (error: Exception) {
+            // The copy on screen is fresh anyway; only the offline copy is behind.
+            log("staff team: copy not saved (${error::class.simpleName})")
+        }
+    }
+
+    /**
+     * Deletes the copy. A file system that does not delete (the call fails silently) must not keep the team's data:
+     * the file is then emptied, and [loadCopy] ignores an empty file.
+     */
+    private fun removeCopy(folder: String) {
+        val path = path(folder)
+        try {
+            if (!scope.files.exists(path)) return
+            scope.files.delete(path)
+            if (!scope.files.exists(path)) return
+            log("staff team: copy not deleted, emptied")
+            scope.files.writeText(path, "")
+        } catch (error: Exception) {
+            log("staff team: copy not removed (${error::class.simpleName})")
+        }
+    }
+
     private fun loadCopy(folder: String): TeamSnapshot? {
-        val text = scope.files.readText(path(folder)) ?: return null
+        val text = scope.files.readText(path(folder))?.takeIf { it.isNotBlank() } ?: return null
         return try {
             PulseJson.decodeFromString(TeamSnapshot.serializer(), text)
         } catch (error: Exception) {

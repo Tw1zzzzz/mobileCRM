@@ -5,6 +5,7 @@ import com.pulse.core.api.ApiClient
 import com.pulse.core.api.AuthTokens
 import com.pulse.core.api.Backend
 import com.pulse.core.api.TokenStore
+import com.pulse.core.platform.FileSystem
 import com.pulse.core.platform.JvmFileSystem
 import com.pulse.core.platform.MemorySecretStore
 import com.pulse.core.storage.DataScope
@@ -25,6 +26,9 @@ import kotlinx.coroutines.async
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
+import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.runTest
 import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.JsonElement
@@ -44,6 +48,7 @@ import kotlin.test.assertIs
 import kotlin.test.assertNotNull
 import kotlin.test.assertNull
 import kotlin.test.assertTrue
+import kotlin.time.Duration.Companion.seconds
 import kotlin.time.Instant
 
 private const val COACH = "coach@team.gg"
@@ -173,6 +178,26 @@ private class StaffServer {
 }
 
 private fun staffTeamOf(vararg members: StaffServer.Member) = StaffServer.Team("Pulse Esports", "PLAY-1234", members.toMutableList())
+
+/** A phone whose `delete` silently does nothing, and whose writes of the team copy can be held back. */
+private class AwkwardFiles(private val disk: FileSystem) : FileSystem by disk {
+    @Volatile var deletes = true
+    @Volatile var holdCopyWrite: CompletableDeferred<Unit>? = null
+    val copyWriteStarted = CompletableDeferred<Unit>()
+
+    override fun delete(path: String) {
+        if (deletes) disk.delete(path)
+    }
+
+    override fun writeText(path: String, text: String) {
+        val hold = holdCopyWrite
+        if (hold != null && path.endsWith(StaffTeam.FILE)) {
+            copyWriteStarted.complete(Unit)
+            runBlocking { hold.await() }
+        }
+        disk.writeText(path, text)
+    }
+}
 
 /** The staff app's copy of the team: download, offline copy, one copy per account. */
 class StaffTeamTest {
@@ -395,6 +420,60 @@ class StaffTeamTest {
             assertEquals(StaffTeamState.Ready(downloaded, stale = true), team.state.value, "HTTP $status")
             assertTrue(disk.exists("accounts/COACH/staff-team.json"))
         }
+    }
+
+    @Test fun leftoverCopyIsDeletedWhenTheAccountIsNoLongerStaff() = runTest {
+        disk.writeText("accounts/COACH/staff-team.json", """{"teamName":"Old"}""")
+        val team = staffTeam()
+
+        team.activate(false)
+
+        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertFalse(disk.exists("accounts/COACH/staff-team.json"))
+        assertTrue(server.requests.isEmpty())
+    }
+
+    @Test fun copyThatCannotBeDeletedIsEmptiedWhenAccessIsRevoked() = runTest {
+        seedTeam()
+        val files = AwkwardFiles(disk)
+        val awkward = DataScope(files).also { it.current = "COACH" }
+        val messages = ConcurrentLinkedQueue<String>()
+        val team = staffTeam(dataScope = awkward).also { it.log = { message -> messages += message } }
+        team.activate(true)
+        team.refresh()
+        assertTrue(assertNotNull(disk.readText("accounts/COACH/staff-team.json")).contains(P1))
+
+        files.deletes = false
+        server.teams.remove(COACH)
+        team.refresh()
+
+        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertFalse(assertNotNull(disk.readText("accounts/COACH/staff-team.json")).contains(P1), "the team's data is gone from the file")
+        assertTrue(messages.any { it.contains("not deleted") }, "${messages.toList()}")
+        val restarted = staffTeam(dataScope = awkward)
+        restarted.activate(true)
+        assertEquals(StaffTeamState.Idle, restarted.state.value)
+    }
+
+    @Test fun switchingAccountDoesNotWaitForARunningWrite() = runTest {
+        seedTeam()
+        val files = AwkwardFiles(disk)
+        val slow = DataScope(files).also { it.current = "COACH" }
+        val release = CompletableDeferred<Unit>()
+        files.holdCopyWrite = release
+        val team = staffTeam(dataScope = slow)
+        team.activate(true)
+
+        val refreshing = async(Dispatchers.Default) { team.refresh() }
+        files.copyWriteStarted.await()
+        // The refresh is inside the write of a (large) copy; the UI thread switching account must not queue behind it.
+        val switching = async(Dispatchers.Default) { team.activate(false) }
+        withContext(Dispatchers.Default) { withTimeout(5.seconds) { switching.await() } }
+        assertEquals(StaffTeamState.Idle, team.state.value)
+
+        release.complete(Unit)
+        refreshing.await()
+        assertEquals(StaffTeamState.Idle, team.state.value, "the download of the previous account is not published")
     }
 
     @Test fun removedPlayerLeavesCacheOnRefresh() = runTest {
