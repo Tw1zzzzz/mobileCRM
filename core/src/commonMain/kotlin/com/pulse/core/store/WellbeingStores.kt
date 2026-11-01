@@ -322,7 +322,11 @@ class CalendarStore(
 
     val events get() = current
 
+    /** The demo roster is offered as event tags only while a demo account is active (the seed is the demo's too). */
+    private var offersDemoRoster = true
+
     fun reload(isDemo: Boolean) {
+        offersDemoRoster = isDemo
         current = (storage?.load() ?: if (isDemo) DemoData.calendarEvents() else emptyList()).sortedBy { it.start }
     }
 
@@ -345,11 +349,13 @@ class CalendarStore(
     }
 
     fun resetToDemo() {
+        offersDemoRoster = true
         current = DemoData.calendarEvents().sortedBy { it.start }
         storage?.save(current)
     }
 
-    val playerTags: List<EventTag> get() = DemoData.players.map { EventTag.Player(it.nickname) }
+    /** Staff tags for events: the demo roster for demo accounts, none for real ones (their players are on the website). */
+    val playerTags: List<EventTag> get() = if (offersDemoRoster) DemoData.players.map { EventTag.Player(it.nickname) } else emptyList()
 
     companion object {
         const val FILE = "calendar.json"

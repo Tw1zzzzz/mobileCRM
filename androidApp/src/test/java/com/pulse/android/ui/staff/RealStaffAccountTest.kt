@@ -7,6 +7,7 @@ import androidx.compose.ui.platform.UriHandler
 import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import com.pulse.android.ui.ProvideCore
@@ -20,6 +21,7 @@ import com.pulse.android.ui.remoteStaffCore
 import com.pulse.android.ui.setMain
 import com.pulse.android.ui.testCore
 import com.pulse.core.demo.DemoData
+import com.pulse.core.model.EventTag
 import com.pulse.core.model.UserRole
 import org.junit.Rule
 import org.junit.Test
@@ -28,6 +30,7 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
+import kotlin.test.assertTrue
 
 /** A real staff account never sees the seeded demo team; demo staff keep it. */
 @RunWith(RobolectricTestRunner::class)
@@ -77,8 +80,31 @@ class RealStaffAccountTest {
 
     @Test fun debugRoutesToHiddenTabsFallBackToToday() {
         rule.setMain(remoteStaffCore(), "players")
-        rule.onNodeWithText(emptyTitle).assertExists()
+        // Only Сегодня has «События сегодня»; the gated Игроки tab would show the empty state under a «Игроки» header.
+        rule.onNodeWithText("События сегодня", ignoreCase = true).assertExists()
+        rule.onAllNodesWithText("Состав").assertCountEquals(0)
+        rule.onAllNodesWithText("Питание").assertCountEquals(0)
+        rule.onAllNodesWithText("Поиск игрока").assertCountEquals(0)
         assertNoDemoPlayers()
+    }
+
+    @Test fun calendarOffersNoDemoPlayerTags() {
+        rule.setMain(remoteStaffCore(), "calendar")
+        rule.onNodeWithText(EventTag.Team.title).assertExists()
+        assertNoDemoPlayers()
+        rule.onNodeWithContentDescription("Создать событие").performClick()
+        rule.onNodeWithText("Новое событие").assertExists()
+        rule.onNodeWithText("Тэг").assertExists()
+        assertNoDemoPlayers()
+    }
+
+    @Test fun demoStaffCalendarKeepsThePlayerTags() {
+        rule.setMain(testCore(UserRole.STAFF), "calendar")
+        val tag = EventTag.Player(DemoData.players[0].nickname).title
+        rule.onNodeWithText(tag).assertExists()
+        rule.onNodeWithContentDescription("Создать событие").performClick()
+        // The filter row and the «Тэг» row of the open sheet.
+        assertTrue(rule.onAllNodesWithText(tag).fetchSemanticsNodes().size >= 2)
     }
 
     /** A route restored after a restart (or opened by a push) on a real staff account. */

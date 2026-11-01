@@ -49,6 +49,13 @@ class AccessibilitySweepTest {
     @Test fun staffPlayers() = sweep("players", UserRole.STAFF)
     @Test fun staffAnalytics() = sweep("analytics", UserRole.STAFF)
 
+    /** A real staff account: the «Данные команды — на сайте» card instead of the demo team. */
+    @Test fun realStaffToday() {
+        rule.setMain(remoteStaffCore(), "today")
+        rule.waitForIdle()
+        rule.assertAccessible()
+    }
+
     @Test fun aboutOnly() {
         val core = registeredCore().also { it.survey.dismissOnboarding() }
         rule.setMain(core)

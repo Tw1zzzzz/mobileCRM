@@ -1,7 +1,11 @@
 package com.pulse.android.ui
 
 import android.app.Application
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.padding
 import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
@@ -9,6 +13,7 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import com.pulse.android.ui.auth.AuthScreen
+import com.pulse.android.ui.staff.StaffTeamEmptyState
 import com.pulse.android.ui.theme.Metrics
 import com.pulse.core.model.UserRole
 import com.pulse.android.ui.components.FitReport
@@ -57,6 +62,26 @@ class TextFitSweepTest {
     @Test fun nutrition() = sweep("nutrition")
     @Test fun staffPlayers() = sweep("players", UserRole.STAFF)
     @Test fun staffAnalytics() = sweep("analytics", UserRole.STAFF)
+
+    /** A real staff account: the «Данные команды — на сайте» card instead of the demo team. */
+    @Test fun realStaffToday() {
+        rule.setMain(remoteStaffCore(), "today", fontScale = Metrics.maxFontScale)
+        rule.waitForIdle()
+        rule.assertTextFits(unfit)
+    }
+
+    /** The same card in a build with a server, where it also has the «Открыть кабинет» button. */
+    @Test fun realStaffEmptyStateWithButton() {
+        rule.setContent {
+            val density = LocalDensity.current
+            CompositionLocalProvider(LocalDensity provides Density(density.density, Metrics.maxFontScale)) {
+                Column(Modifier.padding(16.dp)) { StaffTeamEmptyState("https://api.example.com/v1/") }
+            }
+        }
+        rule.waitForIdle()
+        rule.assertTextFits(unfit)
+        rule.assertAccessible()
+    }
 
     @Test fun bodyMetricsFromProfile() {
         val core = registeredCore()

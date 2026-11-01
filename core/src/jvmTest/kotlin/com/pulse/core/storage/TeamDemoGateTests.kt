@@ -16,7 +16,10 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.test.runTest
 import java.nio.file.Files
+import com.pulse.core.demo.DemoData
+import com.pulse.core.model.EventTag
 import kotlin.test.Test
+import kotlin.test.assertEquals
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
 
@@ -58,6 +61,17 @@ class TeamDemoGateTests {
         assertTrue(core.session.user.value?.role?.isStaff == true)
         assertFalse(core.session.user.value?.isDemo == true)
         assertFalse(core.showsTeamDemo)
+        // The calendar's «Тэг» / filter chips are the demo roster too.
+        assertTrue(core.calendar.playerTags.isEmpty(), core.calendar.playerTags.toString())
+    }
+
+    @Test fun demoStaffCalendarOffersTheDemoRoster() = runTest {
+        val core = core()
+        core.session.switchToDemo(UserRole.STAFF)
+        assertEquals(DemoData.players.map { EventTag.Player(it.nickname) }, core.calendar.playerTags)
+        // Signing out and in as a real account takes them away again.
+        core.session.signOutNow()
+        assertTrue(core.calendar.playerTags.isEmpty())
     }
 
     @Test fun registeredPlayerShowsNoTeamDemo() = runTest {
@@ -65,5 +79,6 @@ class TeamDemoGateTests {
         core.session.register(RegistrationForm(nickname = "Тестер", email = "t@team.gg", password = "abcd1234", confirmPassword = "abcd1234",
             acceptedTerms = true, acceptedPrivacy = true))
         assertFalse(core.showsTeamDemo)
+        assertTrue(core.calendar.playerTags.isEmpty())
     }
 }
