@@ -148,10 +148,10 @@ export async function deleteCalendarEventAction(form: FormData): Promise<void> {
 function lineupReturn(form: FormData, entry?: string, notice?: string, error?: string): string {
   const query = new URLSearchParams();
   for (const key of ["q", "map", "type", "side"] as const) {
-    const value = field(form, key)?.trim();
+    const value = (field(form, `return_${key}`) || field(form, key) || "").trim();
     if (value && value !== "all") query.set(key, value.slice(0, 100));
   }
-  if (field(form, "fav") === "1") query.set("fav", "1");
+  if (field(form, "return_fav") === "1" || field(form, "fav") === "1") query.set("fav", "1");
   if (entry) query.set("entry", entry);
   if (notice) query.set("notice", notice);
   if (error) query.set("error", error);

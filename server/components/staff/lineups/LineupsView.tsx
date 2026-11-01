@@ -53,8 +53,8 @@ function LineupForm({ entry, filters }: { entry?: StaffLineup; filters: LineupFi
   return (
     <form action={saveStaffLineupAction} className={styles.form}>
       {entry && <input type="hidden" name="id" value={entry.id} />}
-      {(["q", "map", "type", "side"] as const).map((name) => <input key={name} type="hidden" name={name} value={filters[name]} />)}
-      {filters.favorites && <input type="hidden" name="fav" value="1" />}
+      {(["q", "map", "type", "side"] as const).map((name) => <input key={name} type="hidden" name={`return_${name}`} value={filters[name]} />)}
+      {filters.favorites && <input type="hidden" name="return_fav" value="1" />}
       <label className={styles.field}>Название<input name="title" required maxLength={120} defaultValue={entry?.title ?? ""} placeholder="Например, Смок в окно с T-спавна" /></label>
       <div className={styles.formRow}>
         <label className={styles.field}>Карта<select name="map" defaultValue={entry?.map ?? "mirage"}>{LINEUP_MAPS.map((map) => <option key={map} value={map}>{MAP_NAMES[map]}</option>)}</select></label>
