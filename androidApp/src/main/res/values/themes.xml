@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Dark navy window behind Compose (no white flash on start). -->
+    <!-- Fallback launch screen for Android versions before the platform splash screen. -->
     <style name="Theme.Pulse" parent="android:Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/pulse_background</item>
+        <item name="android:windowBackground">@drawable/pulse_splash_window</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
     </style>
