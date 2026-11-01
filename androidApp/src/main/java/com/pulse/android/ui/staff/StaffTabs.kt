@@ -45,7 +45,6 @@ import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.sfIcon
 import com.pulse.android.ui.today.TopPanel
 import com.pulse.android.ui.today.WeeklySummaryCard
-import com.pulse.core.demo.DemoData
 import com.pulse.core.demo.TeamAnalytics
 import com.pulse.core.model.EventTag
 import com.pulse.core.util.Formatters
@@ -72,7 +71,7 @@ fun StaffPlayersTab() {
     LaunchedEffect(section) { scroll.scrollTo(0) }
     ScreenScaffold(spacing = 18.dp, scrollState = scroll, header = {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            NavHeader("Игроки", "${core.session.user.value?.team ?: "Команда"}" + if (core.showsTeamDemo) " · ${DemoData.players.size} в составе" else "")
+            NavHeader("Игроки", "${core.session.user.value?.team ?: "Команда"} · ${core.teamPlayerCount} в составе")
             PulseSegmented(PlayersSection.entries, section, { it.title }, height = 38.dp, onSelect = select)
         }
     }) {
@@ -113,8 +112,8 @@ fun StaffTodayScreen(onNotifications: () -> Unit) {
             Text(Formatters.dayMonthWeekday(now).uppercase(), color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
             Text("Команда ${core.session.user.value?.team ?: ""}", color = Palette.textPrimary, autoSize = fit(30.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
-        // The ring, the counts and the attention list come from the seeded demo team: a real account is pointed to the website.
-        TeamDemoOnly { DemoTeamOverview() }
+        // The ring, the counts and the attention list come from the seeded demo team: a real account has none yet.
+        TeamDemoOnly(empty = { NoTeamOverview() }) { DemoTeamOverview() }
         PulseSection("События сегодня", "Календарь", { router.open(Route.Calendar(), AppTab.TODAY) }) {
             // Players' personal plans are private: staff see team events and player schedules.
             val events = core.calendar.events(now, null).filter { it.tag != EventTag.Personal }
@@ -129,6 +128,15 @@ fun StaffTodayScreen(onNotifications: () -> Unit) {
                 }
             }
         }
+    }
+}
+
+/** A real staff account: no readiness or attention list yet, and the weekly summary card says so. */
+@Composable
+private fun NoTeamOverview() {
+    Column(verticalArrangement = Arrangement.spacedBy(Metrics.sectionSpacing)) {
+        TeamNoDataState()
+        WeeklySummaryCard()
     }
 }
 

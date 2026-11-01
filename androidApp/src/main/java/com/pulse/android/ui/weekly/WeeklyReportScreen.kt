@@ -41,7 +41,7 @@ import com.pulse.android.ui.components.pressable
 import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
-import com.pulse.android.ui.staff.StaffTeamEmptyState
+import com.pulse.android.ui.staff.TeamNoDataState
 import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.color
@@ -76,8 +76,8 @@ fun WeeklyReportScreen() {
         )
     }) {
         if (isStaff && !core.showsTeamDemo) {
-            // The team report is built from the seeded demo team: a real staff account reads it on the website.
-            StaffTeamEmptyState()
+            // The team report is built from the seeded demo team: a real staff account has no team data yet.
+            TeamNoDataState()
             return@ScreenScaffold
         }
         // The staff demo keeps four weeks of team data.

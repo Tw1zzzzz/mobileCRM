@@ -13,7 +13,6 @@ import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.unit.Density
 import com.pulse.android.ui.auth.AuthScreen
-import com.pulse.android.ui.staff.StaffTeamEmptyState
 import com.pulse.android.ui.theme.Metrics
 import com.pulse.core.model.UserRole
 import com.pulse.android.ui.components.FitReport
@@ -63,25 +62,18 @@ class TextFitSweepTest {
     @Test fun staffPlayers() = sweep("players", UserRole.STAFF)
     @Test fun staffAnalytics() = sweep("analytics", UserRole.STAFF)
 
-    /** A real staff account: the «Данные команды — на сайте» card instead of the demo team. */
-    @Test fun realStaffToday() {
-        rule.setMain(remoteStaffCore(), "today", fontScale = Metrics.maxFontScale)
+    /** A real staff account: every team screen shows its own empty state instead of the demo team. */
+    private fun realStaffSweep(route: String, open: () -> Unit = {}) {
+        rule.setMain(remoteStaffCore(inviteCode = "ABCDEF"), route, fontScale = Metrics.maxFontScale)
+        open()
         rule.waitForIdle()
         rule.assertTextFits(unfit)
     }
 
-    /** The same card in a build with a server, where it also has the «Открыть кабинет» button. */
-    @Test fun realStaffEmptyStateWithButton() {
-        rule.setContent {
-            val density = LocalDensity.current
-            CompositionLocalProvider(LocalDensity provides Density(density.density, Metrics.maxFontScale)) {
-                Column(Modifier.padding(16.dp)) { StaffTeamEmptyState("https://api.example.com/v1/") }
-            }
-        }
-        rule.waitForIdle()
-        rule.assertTextFits(unfit)
-        rule.assertAccessible()
-    }
+    @Test fun realStaffToday() = realStaffSweep("today")
+    @Test fun realStaffRoster() = realStaffSweep("players")
+    @Test fun realStaffAnalytics() = realStaffSweep("analytics")
+    @Test fun realStaffWeekly() = realStaffSweep("weekly")
 
     @Test fun bodyMetricsFromProfile() {
         val core = registeredCore()

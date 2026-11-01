@@ -91,9 +91,9 @@ fun PlayerAvatar(nickname: String, size: Dp, fontSize: TextUnit) {
     }
 }
 
-/** Staff: the team roster with search (the demo team; a real account is pointed to the website). */
+/** Staff: the team roster with search (the demo team; a real account has no players yet). */
 @Composable
-fun PlayersListContent() = TeamDemoOnly { DemoRosterContent() }
+fun PlayersListContent() = TeamDemoOnly(empty = { TeamEmptyRoster() }) { DemoRosterContent() }
 
 @Composable
 private fun DemoRosterContent() {
@@ -157,10 +157,6 @@ fun PlayerDetailScreen(id: Uuid) {
     ScreenScaffold(header = {
         NavHeader(player?.nickname ?: "Игрок", player?.let { "${it.realName} · ${it.gameRole}" }, onBack = { router.pop() })
     }) {
-        if (!isDemo) {
-            StaffTeamEmptyState()
-            return@ScreenScaffold
-        }
         if (player == null) {
             EmptyStateView("person.crop.circle.badge.questionmark", "Игрок не найден", "")
             return@ScreenScaffold

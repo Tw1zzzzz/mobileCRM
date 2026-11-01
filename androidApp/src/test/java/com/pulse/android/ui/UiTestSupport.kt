@@ -95,12 +95,13 @@ fun remoteTestCore(requests: MutableList<String> = mutableListOf()): PulseCore {
 }
 
 /** A server staff user as the auth endpoints return it: a real account, not one of the demos. */
-const val TEST_STAFF_JSON = """{"id":"0C1D2E3F-4A5B-4E5F-8A9B-6F1B6A2E1C2D","nickname":"Тренер","email":"coach@team.gg","role":"staff",""" +
-    """"tariff":"free","team":"Pulse Academy","streak_days":0,"faceit_url":null}"""
+fun testStaffJson(inviteCode: String? = null): String =
+    """{"id":"0C1D2E3F-4A5B-4E5F-8A9B-6F1B6A2E1C2D","nickname":"Тренер","email":"coach@team.gg","role":"staff",""" +
+        """"tariff":"free","team":"Pulse Academy","invite_code":${inviteCode?.let { "\"$it\"" } ?: "null"},"streak_days":0,"faceit_url":null}"""
 
 /** A remote-build core signed in to the Pulse server as a real staff account (a MockEngine server with nothing stored). */
-fun remoteStaffCore(): PulseCore {
-    val session = """{"user":$TEST_STAFF_JSON,"access_token":"A","refresh_token":"R"}"""
+fun remoteStaffCore(inviteCode: String? = null): PulseCore {
+    val session = """{"user":${testStaffJson(inviteCode)},"access_token":"A","refresh_token":"R"}"""
     val engine = MockEngine { request ->
         val data = when (request.url.encodedPath.removePrefix("/v1/")) {
             "auth/login" -> session

@@ -1,14 +1,14 @@
 package com.pulse.android.ui.staff
 
 import android.app.Application
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.platform.LocalUriHandler
-import androidx.compose.ui.platform.UriHandler
+import androidx.compose.ui.test.assertAny
 import androidx.compose.ui.test.assertCountEquals
+import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onSiblings
 import androidx.compose.ui.test.performClick
 import com.pulse.android.ui.ProvideCore
 import com.pulse.android.ui.main.AppRouter
@@ -29,63 +29,112 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import kotlin.test.assertEquals
-import kotlin.test.assertNull
 import kotlin.test.assertTrue
 
-/** A real staff account never sees the seeded demo team; demo staff keep it. */
+/** A real staff account never sees the seeded demo team, but keeps every tab and screen with an honest empty state; demo staff keep the team. */
 @RunWith(RobolectricTestRunner::class)
 @Config(application = Application::class, sdk = [34])
 class RealStaffAccountTest {
     @get:Rule val rule = createComposeRule()
 
-    private val emptyTitle = "Данные команды — на сайте"
-    private val emptyText = "Состав, готовность, питание и статистику игроков смотри в кабинете стаффа на сайте — раздел /staff. " +
-        "Вход с той же почтой и паролем, что в приложении."
+    private val noData = "Пока нет данных"
+    private val noDataText = "Здесь появятся показатели игроков, когда они начнут заполнять приложение."
+    private val rosterTitle = "В команде пока нет игроков"
+    private val rosterText = "Отправь игрокам код команды — они появятся здесь после регистрации."
+    private val websiteWords = listOf("на сайте", "Открыть кабинет", "/staff", "кабинет")
 
     private fun assertNoDemoPlayers() {
         DemoData.players.forEach { rule.onAllNodesWithText(it.nickname, substring = true).assertCountEquals(0) }
     }
 
-    @Test fun todayShowsTheEmptyStateInsteadOfDemoTeam() {
+    private fun assertNoWebsitePointer() {
+        websiteWords.forEach { rule.onAllNodes(hasText(it, substring = true, ignoreCase = true)).assertCountEquals(0) }
+    }
+
+    private fun assertNoData() {
+        rule.onNodeWithText(noData).assertExists()
+        rule.onNodeWithText(noDataText).assertExists()
+        assertNoDemoPlayers()
+        assertNoWebsitePointer()
+    }
+
+    @Test fun todayKeepsItsHeaderEventsAndShowsNoDataInPlaceOfTheReadiness() {
         rule.setMain(remoteStaffCore())
-        rule.onNodeWithText(emptyTitle).assertExists()
-        rule.onNodeWithText(emptyText).assertExists()
+        rule.onNodeWithText("Команда Pulse Academy").assertExists()
         rule.onNodeWithText("События сегодня", ignoreCase = true).assertExists()
-        for (demo in listOf("ГОТОВНОСТЬ", "Требуют внимания", "Средний score", "Игроков", "СОН И ИГРА")) {
+        assertNoData()
+        for (demo in listOf("ГОТОВНОСТЬ", "Требуют внимания", "Средний score", "СОН И ИГРА")) {
             rule.onAllNodesWithText(demo).assertCountEquals(0)
         }
-        assertNoDemoPlayers()
     }
 
-    @Test fun playersAndAnalyticsTabsAreHidden() {
+    @Test fun todayWeeklySummaryCardSaysNoData() {
         rule.setMain(remoteStaffCore())
-        listOf("Сегодня", "База знаний", "Профиль").forEach { rule.onNodeWithText(it).assertExists() }
-        rule.onAllNodesWithText("Игроки").assertCountEquals(0)
-        rule.onAllNodesWithText("Аналитика").assertCountEquals(0)
+        rule.onNodeWithText("Сводка команды за неделю").assertExists()
+        rule.onNode(hasText("· нет данных", substring = true)).assertExists()
+        rule.onAllNodes(hasText("рисков", substring = true)).assertCountEquals(0)
     }
 
-    @Test fun tabsDependOnRoleAndDemo() {
-        assertEquals(listOf(AppTab.TODAY, AppTab.PLAYERS, AppTab.ANALYTICS, AppTab.LINEUPS, AppTab.PROFILE), AppTab.tabs(UserRole.STAFF, showsTeamDemo = true))
-        assertEquals(listOf(AppTab.TODAY, AppTab.LINEUPS, AppTab.PROFILE), AppTab.tabs(UserRole.STAFF, showsTeamDemo = false))
-        assertEquals(listOf(AppTab.TODAY, AppTab.STATE, AppTab.DIARY, AppTab.PROFILE), AppTab.tabs(UserRole.TEAM_PLAYER, showsTeamDemo = false))
-        assertEquals(listOf(AppTab.TODAY, AppTab.STATE, AppTab.DIARY, AppTab.PROFILE), AppTab.tabs(null, showsTeamDemo = false))
+    @Test fun allStaffHaveAllFiveTabs() {
+        rule.setMain(remoteStaffCore())
+        listOf("Сегодня", "Игроки", "Аналитика", "База знаний", "Профиль").forEach { rule.onNodeWithText(it).assertExists() }
     }
 
-    @Test fun profileHasNoPlayersTile() {
+    @Test fun tabsDependOnRoleOnly() {
+        assertEquals(listOf(AppTab.TODAY, AppTab.PLAYERS, AppTab.ANALYTICS, AppTab.LINEUPS, AppTab.PROFILE), AppTab.tabs(UserRole.STAFF))
+        assertEquals(listOf(AppTab.TODAY, AppTab.STATE, AppTab.DIARY, AppTab.PROFILE), AppTab.tabs(UserRole.TEAM_PLAYER))
+        assertEquals(listOf(AppTab.TODAY, AppTab.STATE, AppTab.DIARY, AppTab.PROFILE), AppTab.tabs(null))
+    }
+
+    @Test fun profileShowsZeroPlayers() {
         rule.setMain(remoteStaffCore(), "profile")
-        rule.onAllNodesWithText("игроков").assertCountEquals(0)
+        rule.onNodeWithText("игроков").assertExists()
+        rule.onNodeWithText("игроков").onSiblings().assertAny(hasText("0"))
         rule.onNodeWithText("событий").assertExists()
         rule.onNodeWithText("раскидок").assertExists()
+        assertNoWebsitePointer()
     }
 
-    @Test fun debugRoutesToHiddenTabsFallBackToToday() {
+    @Test fun rosterKeepsItsHeaderAndSegmentsAndShowsTheEmptyRoster() {
         rule.setMain(remoteStaffCore(), "players")
-        // Only Сегодня has «События сегодня»; the gated Игроки tab would show the empty state under a «Игроки» header.
-        rule.onNodeWithText("События сегодня", ignoreCase = true).assertExists()
-        rule.onAllNodesWithText("Состав").assertCountEquals(0)
-        rule.onAllNodesWithText("Питание").assertCountEquals(0)
+        rule.onAllNodesWithText("Игроки").assertCountEquals(2) // the tab and the header
+        rule.onNodeWithText("Состав").assertExists()
+        rule.onNodeWithText("Питание").assertExists()
+        rule.onNodeWithText(rosterTitle).assertExists()
+        rule.onNodeWithText(rosterText).assertExists()
+        rule.onAllNodesWithText("Код для игроков").assertCountEquals(0)
         rule.onAllNodesWithText("Поиск игрока").assertCountEquals(0)
         assertNoDemoPlayers()
+        assertNoWebsitePointer()
+    }
+
+    @Test fun rosterShowsTheTeamPlayerCode() {
+        rule.setMain(remoteStaffCore(inviteCode = "ABCDEF"), "players")
+        rule.onNodeWithText(rosterTitle).assertExists()
+        rule.onNodeWithText("Код для игроков").assertExists()
+        rule.onNodeWithText("ABCDEF").assertExists()
+    }
+
+    @Test fun teamFoodSegmentShowsNoData() {
+        rule.setMain(remoteStaffCore(), "players")
+        rule.onNodeWithText("Питание").performClick()
+        rule.onNodeWithText("Состав").assertExists()
+        assertNoData()
+    }
+
+    @Test fun teamAnalyticsKeepsItsHeaderAndShowsNoData() {
+        rule.setMain(remoteStaffCore(), "analytics")
+        rule.onNodeWithText("Состояние и игра команды").assertExists()
+        rule.onNodeWithText("Команда").assertExists()
+        rule.onNodeWithText("Корреляции").assertExists()
+        assertNoData()
+    }
+
+    @Test fun correlationsSegmentShowsNoData() {
+        rule.setMain(remoteStaffCore(), "analytics")
+        rule.onNodeWithText("Корреляции").performClick()
+        rule.onNodeWithText("Состояние и игра команды").assertExists()
+        assertNoData()
     }
 
     @Test fun calendarOffersNoDemoPlayerTags() {
@@ -108,61 +157,58 @@ class RealStaffAccountTest {
     }
 
     /** A route restored after a restart (or opened by a push) on a real staff account. */
-    private fun assertRestoredRouteIsEmpty(route: Route) {
+    private fun restoredRoute(route: Route) {
         rule.setContent { ProvideCore(remoteStaffCore(), AppRouter()) { RouteScreen(route) } }
-        rule.onNodeWithText(emptyTitle).assertExists()
+    }
+
+    @Test fun restoredPlayerRouteSaysThePlayerIsNotFound() {
+        restoredRoute(Route.Player(DemoData.players[0].id))
+        rule.onNodeWithText("Игрок не найден").assertExists()
         assertNoDemoPlayers()
+        assertNoWebsitePointer()
     }
 
-    @Test fun restoredPlayerRouteShowsTheEmptyState() = assertRestoredRouteIsEmpty(Route.Player(DemoData.players[0].id))
-    @Test fun restoredPlayersRouteShowsTheEmptyState() = assertRestoredRouteIsEmpty(Route.Players)
-    @Test fun restoredTeamFoodRouteShowsTheEmptyState() = assertRestoredRouteIsEmpty(Route.TeamFood)
-    @Test fun restoredWeeklyReportRouteShowsTheEmptyState() = assertRestoredRouteIsEmpty(Route.WeeklyReport)
-    @Test fun restoredTeamAnalyticsRouteShowsTheEmptyState() = assertRestoredRouteIsEmpty(Route.TeamAnalytics)
-    @Test fun restoredTeamCorrelationsRouteShowsTheEmptyState() = assertRestoredRouteIsEmpty(Route.TeamCorrelations)
+    @Test fun restoredPlayersRouteShowsTheEmptyRoster() {
+        restoredRoute(Route.Players)
+        rule.onNodeWithText(rosterTitle).assertExists()
+        assertNoDemoPlayers()
+        assertNoWebsitePointer()
+    }
 
-    @Test fun weeklyPushTargetDoesNotCrash() {
+    @Test fun restoredTeamFoodRouteShowsNoData() { restoredRoute(Route.TeamFood); assertNoData() }
+    @Test fun restoredTeamAnalyticsRouteShowsNoData() { restoredRoute(Route.TeamAnalytics); assertNoData() }
+    @Test fun restoredTeamCorrelationsRouteShowsNoData() { restoredRoute(Route.TeamCorrelations); assertNoData() }
+
+    @Test fun weeklyReportShowsItsHeaderAndNoData() {
         rule.setMain(remoteStaffCore(), "weekly")
-        rule.onNodeWithText(emptyTitle).assertExists()
+        rule.onNodeWithText("Сводка команды").assertExists()
+        assertNoData()
     }
+
+    @Test fun restoredWeeklyReportRouteShowsNoData() { restoredRoute(Route.WeeklyReport); assertNoData() }
 
     @Test fun demoStaffKeepsTheDemoTeamAndAllTabs() {
         rule.setMain(testCore(UserRole.STAFF))
         listOf("Сегодня", "Игроки", "Аналитика", "База знаний", "Профиль").forEach { rule.onNodeWithText(it).assertExists() }
-        rule.onAllNodesWithText(emptyTitle).assertCountEquals(0)
+        rule.onAllNodesWithText(noData).assertCountEquals(0)
         rule.onNodeWithText("ГОТОВНОСТЬ").assertExists()
     }
 
     @Test fun demoStaffRosterListsTheDemoPlayers() {
         rule.setMain(testCore(UserRole.STAFF), "players")
         rule.onNodeWithText(DemoData.players[0].nickname).assertExists()
-        rule.onAllNodesWithText(emptyTitle).assertCountEquals(0)
+        rule.onAllNodesWithText(rosterTitle).assertCountEquals(0)
     }
 
-    @Test fun cabinetUrlDropsTheApiVersion() {
-        assertEquals("https://api.example.com/staff", staffCabinetUrl("https://api.example.com/v1/"))
-        assertEquals("https://api.example.com/staff", staffCabinetUrl("https://api.example.com/v1"))
-        assertEquals("https://api.example.com/staff", staffCabinetUrl(" https://api.example.com "))
-        assertNull(staffCabinetUrl(""))
+    @Test fun demoStaffAnalyticsKeepsTheTeamDashboard() {
+        rule.setMain(testCore(UserRole.STAFF), "analytics")
+        rule.onAllNodesWithText(noData).assertCountEquals(0)
     }
 
-    @Test fun emptyStateOpensTheCabinetOnlyWhenTheServerIsKnown() {
-        val opened = mutableListOf<String>()
-        val handler = object : UriHandler { override fun openUri(uri: String) { opened += uri } }
-        rule.setContent { CompositionLocalProvider(LocalUriHandler provides handler) { StaffTeamEmptyState("https://api.example.com/v1/") } }
-        rule.onNodeWithText("Открыть кабинет").performClick()
-        assertEquals(listOf("https://api.example.com/staff"), opened)
-    }
-
-    @Test fun emptyStateFitsAndIsAccessible() {
-        rule.setContent { StaffTeamEmptyState("https://api.example.com/v1/") }
+    @Test fun emptyStatesFitAndAreAccessible() {
+        rule.setMain(remoteStaffCore(inviteCode = "ABCDEF"), "players")
+        rule.waitForIdle()
         rule.assertTextFits()
         rule.assertAccessible()
-    }
-
-    @Test fun localBuildEmptyStateHasNoButton() {
-        rule.setContent { StaffTeamEmptyState("") }
-        rule.onNodeWithText(emptyTitle).assertExists()
-        rule.onAllNodesWithText("Открыть кабинет").assertCountEquals(0)
     }
 }

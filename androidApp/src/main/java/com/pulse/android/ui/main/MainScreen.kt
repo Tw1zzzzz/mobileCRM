@@ -100,10 +100,10 @@ fun MainScreen(core: PulseCore, user: User, debugRoute: String? = null, pendingO
         }
         onOpened()
     }
-    val tabs = AppTab.tabs(user.role, user.isDemo)
+    val tabs = AppTab.tabs(user.role)
     var showQuickAdd by remember { mutableStateOf(false) }
     var showNotifications by remember { mutableStateOf(false) }
-    LaunchedEffect(tabs) { if (router.selectedTab !in tabs) router.selectedTab = AppTab.TODAY }
+    LaunchedEffect(user.role) { if (router.selectedTab !in tabs) router.selectedTab = AppTab.TODAY }
     BackHandler(enabled = router.path(router.selectedTab).isNotEmpty()) { router.pop() }
 
     ProvideCore(core, router) { ScreenBackground {

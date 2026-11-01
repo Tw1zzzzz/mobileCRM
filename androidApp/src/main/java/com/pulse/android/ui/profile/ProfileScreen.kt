@@ -71,13 +71,13 @@ import com.pulse.android.ui.onboarding.ABOUT_YOU_TITLE
 import com.pulse.android.ui.onboarding.AboutYouSheet
 import com.pulse.android.ui.onboarding.PlayerPortraitSection
 import com.pulse.android.ui.theme.Gradients
+import com.pulse.android.ui.staff.teamPlayerCount
 import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.sfIcon
 import com.pulse.android.ui.today.RoleBadge
 import com.pulse.android.platform.PulseNotifications
 import com.pulse.android.platform.ReminderScheduler
-import com.pulse.core.demo.DemoData
 import com.pulse.core.feature.NotificationRules
 import com.pulse.core.feature.ReminderKind
 import com.pulse.core.feature.ScheduledReminder
@@ -236,8 +236,7 @@ private fun StatsRow(user: User) {
     val core = observeCore()
     Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
         if (user.role.isStaff) {
-            // The roster is the seeded demo team: a real staff account has no players in the app.
-            if (core.showsTeamDemo) Stat("${DemoData.players.size}", "игроков", "person.3.fill", Palette.cyan, Modifier.weight(1f))
+            Stat("${core.teamPlayerCount}", "игроков", "person.3.fill", Palette.cyan, Modifier.weight(1f))
             Stat("${core.calendar.events.size}", "событий", "calendar", Palette.orange, Modifier.weight(1f))
             Stat("${LineupStore.visible(core.lineups.lineups, user).size}", "раскидок", "scope", Palette.green, Modifier.weight(1f))
         } else {
