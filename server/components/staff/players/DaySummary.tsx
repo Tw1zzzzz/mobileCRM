@@ -1,5 +1,6 @@
 import Link from "next/link";
 import type { SummaryRow } from "@/lib/staff/nutrition";
+import { NO_DATA } from "@/lib/staff/overview-format";
 import nutrition from "./nutrition.module.css";
 
 const TONE = { ok: nutrition.stOk, mid: nutrition.stMid, bad: nutrition.stBad } as const;
@@ -34,7 +35,7 @@ export function DaySummary({ sub, rows }: { sub: string; rows: readonly SummaryR
               </span>
               <span className={nutrition.rowLine}>
                 <span>
-                  {row.kcal} / {row.goal} ккал
+                  {row.kcal === NO_DATA ? `${NO_DATA} · норма ${row.goal} ккал` : `${row.kcal} / ${row.goal} ккал`}
                 </span>
                 <span>{row.meals}</span>
               </span>

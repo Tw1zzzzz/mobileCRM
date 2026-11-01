@@ -249,6 +249,38 @@ describe("summary", () => {
     expect(nova.fill).toBe(18); // 528 / 3000
   });
 
+  it("mealsWithoutNumbersAreNoDataNotZero", async () => {
+    const t = await seedCardTeam(deps);
+    await putDoc(deps, t.ids.vega, "nutrition", {
+      meals: [
+        { id: PASTA, date: "2026-10-26T10:30:00Z", name: "Паста", source: "manual" },
+        { id: OATS, date: "2026-10-26T06:00:00Z", name: "Овсянка", kcal: "много", protein: null, source: "manual" },
+      ],
+    });
+    // nova has some numbers: kcal only on one meal, protein only on the other
+    await putDoc(deps, t.ids.nova, "nutrition", {
+      meals: [
+        { id: NOVA_MEAL, date: "2026-10-26T08:00:00Z", name: "Курица", kcal: 500, fat: 10, source: "manual" },
+        { id: STEAK, date: "2026-10-26T09:00:00Z", name: "Салат", protein: 20, source: "manual" },
+      ],
+      goals: { kcal: 2000, protein: 100, fat: 70, carbs: 250, waterMilliliters: 2500 },
+    });
+    const rows = new Map((await load(t)).summary.map((s) => [s.nickname, s]));
+    const vega = rows.get("vega")!;
+    expect(vega.meals).toBe("2 приёма пищи");
+    expect(vega.kcal).toBe("нет данных");
+    expect(vega.fill).toBe(0);
+    expect(vega.macros).toEqual(["Б нет данных", "Ж нет данных", "У нет данных"]);
+    // partial data: only the valid values are summed, and a missing macro stays «нет данных»
+    const nova = rows.get("nova")!;
+    expect(nova.kcal).toBe("500");
+    expect(nova.fill).toBe(25);
+    expect(nova.macros).toEqual(["Б 20 г", "Ж 10 г", "У нет данных"]);
+    // a day without any meal is a real zero
+    expect(rows.get("ghost")!.kcal).toBe("0");
+    expect(rows.get("ghost")!.macros).toEqual(["Б 0 г", "Ж 0 г", "У 0 г"]);
+  });
+
   it("summaryStatusByMealCount", async () => {
     const d = await load(await seed());
     const rows = new Map(d.summary.map((s) => [s.nickname, s]));

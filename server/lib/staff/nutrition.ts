@@ -258,9 +258,20 @@ interface PlayerDay {
   today: Meal[];
 }
 
+/** The sum of the values that exist, rounded; null when meals were logged but none carries this value. */
+function sumOfValid(meals: readonly Meal[], pick: (meal: Meal) => number | null): number | null {
+  if (meals.length === 0) return 0;
+  const values = meals.map(pick);
+  return values.every((v) => v === null) ? null : total(values);
+}
+
 function summaryRow(p: PlayerDay, params: NutritionParams): SummaryRow {
   const count = p.today.length;
-  const kcalSum = total(p.today.map((m) => m.kcal));
+  const kcalSum = sumOfValid(p.today, (m) => m.kcal);
+  const macro = (letter: string, pick: (meal: Meal) => number | null): string => {
+    const sum = sumOfValid(p.today, pick);
+    return sum === null ? `${letter} ${NO_DATA}` : `${letter} ${sum} г`;
+  };
   const selected = params.who === p.id;
   const status =
     count === 0
@@ -272,16 +283,12 @@ function summaryRow(p: PlayerDay, params: NutritionParams): SummaryRow {
     id: p.id,
     nickname: p.nickname,
     initials: initials(p.nickname),
-    kcal: kcal(kcalSum),
+    kcal: kcalSum === null ? NO_DATA : kcal(kcalSum),
     goal: kcal(p.goals.kcal),
     meals: `${count} ${plural(count, "приём", "приёма", "приёмов")} пищи`,
-    fill: Math.min(100, roundHalfUp((kcalSum / p.goals.kcal) * 100)),
+    fill: kcalSum === null ? 0 : Math.min(100, roundHalfUp((kcalSum / p.goals.kcal) * 100)),
     warm: count < 2,
-    macros: [
-      `Б ${total(p.today.map((m) => m.protein))} г`,
-      `Ж ${total(p.today.map((m) => m.fat))} г`,
-      `У ${total(p.today.map((m) => m.carbs))} г`,
-    ],
+    macros: [macro("Б", (m) => m.protein), macro("Ж", (m) => m.fat), macro("У", (m) => m.carbs)],
     water: p.water === null ? `Вода ${NO_DATA}` : `Вода ${fmt1(p.water / 1000)} / ${fmt1(p.goals.waterMl / 1000)} л`,
     status,
     selected,

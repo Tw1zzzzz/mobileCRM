@@ -138,6 +138,16 @@ describe("summary", () => {
     expect(markup).toMatch(/width:\s*43%/);
   });
 
+  it("aDayWithoutKcalSaysNoDataInsteadOfZero", async () => {
+    const t = await seedCardTeam(deps);
+    await putDoc(deps, t.ids.vega, "nutrition", {
+      meals: [{ id: PASTA, date: "2026-10-26T10:30:00Z", name: "Паста", source: "manual" }],
+    });
+    const words = text((await render(t)).markup);
+    expect(words).toContain("нет данных · норма 2 400 ккал");
+    expect(words).toContain("Б нет данных");
+  });
+
   it("rowsAreLinksThatToggleThePlayer", async () => {
     const t = await seed();
     const { markup } = await render(t, { who: t.ids.vega });
