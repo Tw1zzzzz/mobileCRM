@@ -165,8 +165,8 @@ object StaffViews {
             val minutes = StaffMetrics.roundHalfUp(sleepHours * MINUTES_PER_HOUR).toInt()
             add(AttentionReason(AttentionKind.SHORT_SLEEP, "Мало сна: ${Formatters.duration(minutes)}"))
         }
-        if (daysSilent == null) add(AttentionReason(AttentionKind.NO_DATA, "Нет данных"))
-        else if (daysSilent >= SILENT_DAYS) add(AttentionReason(AttentionKind.NO_DATA, "Нет данных $daysSilent дн."))
+        // A player who never had data is not listed: the roster already says «нет данных» for them.
+        if (daysSilent != null && daysSilent >= SILENT_DAYS) add(AttentionReason(AttentionKind.NO_DATA, "Нет данных $daysSilent дн."))
     }
 
     /** Days from the player's latest day with sleep, mood, energy, a test or a meal up to [today]; null when there is none. */
@@ -475,7 +475,10 @@ object StaffViews {
         val readiness: Kpi,
         val score: Kpi,
         val sleep: Kpi,
-        val mood: Kpi,
+        /** Share of won matches, 0..100, over the players' matches in the period; null without matches. */
+        val winRate: Kpi,
+        /** Matches of the period behind [winRate]. */
+        val matches: Int,
         /** Best first, players without data last. */
         val playerReadiness: List<PlayerBar>,
         /** One point per day of the period: mean, lowest and highest readiness among the players. */
@@ -484,7 +487,14 @@ object StaffViews {
         val table: List<TableRow>,
     )
 
-    fun teamAnalytics(team: TeamSnapshot, today: String, tz: String, periodDays: Int): TeamAnalyticsView {
+    /** [matches] are the players' Faceit matches by player id (the caller loads them); a player without an entry has none. */
+    fun teamAnalytics(
+        team: TeamSnapshot,
+        today: String,
+        tz: String,
+        periodDays: Int,
+        matches: Map<String, List<GameMatch>> = emptyMap(),
+    ): TeamAnalyticsView {
         val period = StaffSeries.periodDays(today, periodDays)
         val previous = StaffSeries.periodDays(StaffMetrics.shiftDay(period.from, -1), periodDays)
         val series = documentsOf(team).map { StaffSeries.playerSeries(it, previous.from, period.to, tz) }
@@ -494,6 +504,8 @@ object StaffViews {
             teamMean(series, previous.days, pick),
         )
 
+        val played = team.players.flatMap { matches[it.id].orEmpty() }
+        val thisPeriod = finishedIn(played, period, tz)
         val rows = team.players.zip(series).map { (p, s) ->
             val readiness = r2(meanOver(s.readiness, period.days))
             TableRow(p.id, p.nickname, readiness, statusOf(readiness), r2(meanOver(s.cog, period.days)),
@@ -504,7 +516,8 @@ object StaffViews {
             readiness = kpi { it.readiness },
             score = kpi { it.cog },
             sleep = kpi { it.sleep },
-            mood = kpi { it.mood },
+            winRate = compare(winRate(thisPeriod), winRate(finishedIn(played, previous, tz))),
+            matches = thisPeriod.size,
             playerReadiness = rows.map { PlayerBar(it.id, it.nickname, it.readiness, it.status) }.byReadiness { it.readiness },
             trend = period.days.map { day ->
                 val values = series.mapNotNull { it.readiness[day] }
@@ -513,6 +526,13 @@ object StaffViews {
             table = rows,
         )
     }
+
+    /** Percent of won matches among those finished on the period's days; null without matches. */
+    private fun winRate(matches: List<GameMatch>): Double? =
+        if (matches.isEmpty()) null else matches.count { it.won } * 100.0 / matches.size
+
+    private fun finishedIn(matches: List<GameMatch>, period: StaffSeries.Period, tz: String): List<GameMatch> =
+        matches.filter { StaffMetrics.dayOf(it.date, tz) in period.from..period.to }
 
     /** Mean over the days of the players' mean that day; days nobody has a value for are left out. */
     private fun teamMean(series: List<StaffSeries.PlayerSeries>, days: List<String>, pick: (StaffSeries.PlayerSeries) -> DaySeries): Double? =
@@ -564,7 +584,15 @@ object StaffViews {
         val rows: List<CorrelationRow>,
         /** The strongest links, strongest first. */
         val links: List<Link>,
+        /** «Сон → K/D»: one point per match, coloured by the result on the screen. */
+        val sleepKd: SleepKdScatter,
     )
+
+    /** A match with the sleep of the night that ended on its day (staff-zone day) and its K/D. */
+    data class SleepKdPoint(val playerId: String, val nickname: String, val at: Instant, val sleepHours: Double, val kd: Double, val won: Boolean)
+
+    /** [r] is Pearson over the points, null for fewer than 3 or a constant side. */
+    data class SleepKdScatter(val points: List<SleepKdPoint>, val r: Double?)
 
     private class MatchDaily(val kd: DaySeries, val adr: DaySeries, val winRate: DaySeries)
 
@@ -576,7 +604,7 @@ object StaffViews {
         return MatchDaily(series { it.kd }, series { it.adr }, series { if (it.won) 100.0 else 0.0 })
     }
 
-    private class PlayerInputs(val series: StaffSeries.PlayerSeries, val games: MatchDaily) {
+    private class PlayerInputs(val player: StaffPlayer, val series: StaffSeries.PlayerSeries, val games: MatchDaily, val matches: List<GameMatch>) {
         fun of(id: String): DaySeries = when (id) {
             "mood" -> series.mood
             "energy" -> series.energy
@@ -608,7 +636,8 @@ object StaffViews {
         val period = StaffSeries.periodDays(today, periodDays)
         val inputs = team.players.filter { only == null || it.id == only }.map { p ->
             val docs = StaffMetrics.PlayerDocuments(p.id, team.documents[p.id].orEmpty())
-            PlayerInputs(StaffSeries.playerSeries(docs, period.from, period.to, tz), matchDaily(matches[p.id].orEmpty(), period.from, period.to, tz))
+            val played = finishedIn(matches[p.id].orEmpty(), period, tz)
+            PlayerInputs(p, StaffSeries.playerSeries(docs, period.from, period.to, tz), matchDaily(played, period.from, period.to, tz), played)
         }
         fun pairs(a: StatMetric, b: StatMetric) = inputs.map { it.of(a.id) to it.of(b.id) }
 
@@ -627,7 +656,17 @@ object StaffViews {
             val paired = pairs(a, b).map { (x, y) -> StaffStatistics.pairByDay(x, y) }
             Link(a, b, link.r, StaffStatistics.strength(link.r), StaffStatistics.medianSplit(paired.flatMap { it.xs }, paired.flatMap { it.ys }))
         }
-        return TeamCorrelations(period, STATE_FACTORS, GAME_METRICS, rows, links)
+        return TeamCorrelations(period, STATE_FACTORS, GAME_METRICS, rows, links, sleepKdScatter(inputs, tz))
+    }
+
+    private fun sleepKdScatter(inputs: List<PlayerInputs>, tz: String): SleepKdScatter {
+        val points = inputs.flatMap { input ->
+            input.matches.mapNotNull { m ->
+                val sleep = input.series.sleep[StaffMetrics.dayOf(m.date, tz)] ?: return@mapNotNull null
+                SleepKdPoint(input.player.id, input.player.nickname, m.date, sleep, m.kd, m.won)
+            }
+        }.sortedBy { it.at }
+        return SleepKdScatter(points, StaffStatistics.pearson(points.map { it.sleepHours }, points.map { it.kd }))
     }
 
     // ------------------------------------------------------------ «Питание игроков»

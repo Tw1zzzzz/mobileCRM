@@ -196,16 +196,33 @@ class StaffViewsTest {
             Doc("empty"),
         )
         val attention = StaffViews.todayOverview(team, TODAY, TZ).attention
-        assertEquals(listOf("low", "short", "silent", "threeDays", "empty"), attention.map { it.playerId })
+        assertEquals(listOf("low", "short", "silent", "threeDays"), attention.map { it.playerId })
         val byId = attention.associateBy { it.playerId }
         assertEquals(listOf("Готовность 40"), byId.getValue("low").reasons.map { it.text })
         assertEquals(listOf(StaffViews.AttentionKind.LOW_READINESS), byId.getValue("low").reasons.map { it.kind })
         assertEquals(listOf("Мало сна: 6 ч 0 м"), byId.getValue("short").reasons.map { it.text })
         assertEquals(listOf("Нет данных 5 дн."), byId.getValue("silent").reasons.map { it.text })
         assertEquals(listOf("Нет данных 3 дн."), byId.getValue("threeDays").reasons.map { it.text })
-        assertEquals(listOf("Нет данных"), byId.getValue("empty").reasons.map { it.text })
-        assertEquals(StaffViews.AttentionKind.NO_DATA, byId.getValue("empty").reasons.single().kind)
+        assertEquals(StaffViews.AttentionKind.NO_DATA, byId.getValue("silent").reasons.single().kind)
         assertEquals("Готовность 40", byId.getValue("low").text)
+    }
+
+    @Test
+    fun freshTeamHasNoAttentionList() {
+        val team = snapshot(Doc("a"), Doc("b", mapOf("sleep" to sleepDoc())))
+        assertTrue(StaffViews.todayOverview(team, TODAY, TZ).attention.isEmpty())
+        assertEquals(2, StaffViews.roster(team, TODAY, TZ).size) // they are still on the roster, with «нет данных»
+    }
+
+    @Test
+    fun silentForThreeDaysIsListedButTwoIsNot() {
+        val team = snapshot(
+            Doc("two", mapOf("cognitive" to cognitiveDoc(cognitive("2026-10-13", "aim", 70)))),
+            Doc("three", mapOf("nutrition" to nutrition(meal(UUID_1, "2026-10-12T10:00:00Z", "Суп", 300)))),
+        )
+        val attention = StaffViews.todayOverview(team, TODAY, TZ).attention
+        assertEquals(listOf("three"), attention.map { it.playerId })
+        assertEquals("Нет данных 3 дн.", attention.single().text)
     }
 
     @Test
@@ -256,6 +273,8 @@ class StaffViewsTest {
         val analytics = StaffViews.teamAnalytics(team, TODAY, TZ, 7)
         assertNull(analytics.readiness.value)
         assertNull(analytics.sleep.delta)
+        assertEquals(StaffViews.Kpi(null, null, null), analytics.winRate)
+        assertEquals(0, analytics.matches)
         assertTrue(analytics.trend.all { it.mean == null && it.min == null && it.max == null })
         assertNull(analytics.table.single().readiness)
         assertNull(analytics.table.single().status)
@@ -438,7 +457,23 @@ class StaffViewsTest {
         assertEquals(StaffViews.Kpi(80.0, 43.0, 37.0), view.readiness) // days 91 and 69 against 43
         assertEquals(StaffViews.Kpi(70.0, null, null), view.score)
         assertEquals(StaffViews.Kpi(7.25, 6.0, 1.25), view.sleep)
-        assertEquals(StaffViews.Kpi(null, null, null), view.mood)
+        assertEquals(StaffViews.Kpi(null, null, null), view.winRate) // no matches given
+    }
+
+    @Test
+    fun teamAnalyticsWinRateIsTheShareOfWonMatches() {
+        val matches = mapOf(
+            "A" to listOf(
+                match("2026-10-14T16:00:00Z", 10, 10, 80.0, won = true),
+                match("2026-10-15T16:00:00Z", 10, 10, 80.0, won = false),
+                match("2026-10-08T16:00:00Z", 10, 10, 80.0, won = false), // the period before
+                match("2026-09-01T16:00:00Z", 10, 10, 80.0, won = true), // long before
+            ),
+            "B" to listOf(match("2026-10-15T09:00:00Z", 10, 10, 80.0, won = true)),
+        )
+        val view = StaffViews.teamAnalytics(analyticsTeam(), TODAY, TZ, 7, matches)
+        assertEquals(3, view.matches)
+        assertEquals(StaffViews.Kpi(66.67, 0.0, 66.67), view.winRate)
     }
 
     @Test
@@ -512,6 +547,20 @@ class StaffViewsTest {
         assertEquals(7.0, split.median)
         assertEquals(1.4, split.hiMean, 1e-9)
         assertEquals(0.9, split.loMean, 1e-9)
+    }
+
+    @Test
+    fun sleepKdScatterPairsEachMatchWithTheNightEndingThatDay() {
+        val (team, matches) = correlationTeam()
+        val extra = matches.getValue("A") + match("2026-10-10T16:00:00Z", 12, 10, 80.0, won = true) // no sleep that day
+        val scatter = StaffViews.teamCorrelations(team, mapOf("A" to extra), TODAY, TZ, 7).sleepKd
+        assertEquals(listOf(5.0, 6.0, 7.0, 8.0, 9.0), scatter.points.map { it.sleepHours })
+        assertEquals(listOf(0.8, 1.0, 1.2, 1.4, 1.6), scatter.points.map { Math.round(it.kd * 10) / 10.0 })
+        assertEquals(listOf(false, false, true, true, true), scatter.points.map { it.won })
+        assertEquals("A", scatter.points.first().playerId)
+        assertTrue(abs(assertNotNull(scatter.r) - 1.0) < 1e-9)
+        assertTrue(StaffViews.teamCorrelations(team, matches, TODAY, TZ, 7, only = "B").sleepKd.points.isEmpty())
+        assertNull(StaffViews.teamCorrelations(team, matches, TODAY, TZ, 7, only = "B").sleepKd.r)
     }
 
     @Test
