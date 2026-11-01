@@ -469,9 +469,16 @@ describe("players cannot read notes", () => {
     const users = sources.filter((f) => /staff_player_(notes|images)/.test(readFileSync(f, "utf8"))).map((f) => relative(ROOT, f));
     expect(users.sort()).toEqual(["lib/staff/notes.ts", "lib/team/members.ts"]);
     // 2. no route of the player API reaches into the staff modules
-    const api = sources.filter((f) => relative(ROOT, f).startsWith(join("app", "v1")));
+    //    (`app/v1/staff/*` is the staff-only JSON API for the app: it is allowed to name the staff access layer,
+    //    but never the notes.)
+    const staffApiDir = join("app", "v1", "staff");
+    const v1 = sources.filter((f) => relative(ROOT, f).startsWith(join("app", "v1")));
+    const api = v1.filter((f) => !relative(ROOT, f).startsWith(staffApiDir));
     expect(api.length).toBeGreaterThan(5);
     for (const file of api) expect(readFileSync(file, "utf8"), relative(ROOT, file)).not.toMatch(/staff\/|\/staff|notes/);
+    const staffApi = v1.filter((f) => relative(ROOT, f).startsWith(staffApiDir));
+    expect(staffApi.length).toBeGreaterThan(0);
+    for (const file of staffApi) expect(readFileSync(file, "utf8"), relative(ROOT, file)).not.toMatch(/notes/);
 
     // 3. what the player's own endpoints return
     const t = await seed();
