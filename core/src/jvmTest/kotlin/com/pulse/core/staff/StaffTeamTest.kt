@@ -83,6 +83,10 @@ private class StaffServer {
     val collectionQueries = ConcurrentLinkedQueue<String>()
     /** The staff endpoints fail as if there were no network (sign-in and sync still work). */
     @Volatile var staffOffline = false
+    /** Every staff request is answered 401 (the refresh of the session fails too). */
+    @Volatile var rejectTokens = false
+    /** `GET staff/team` fails with this status (when not 200). */
+    @Volatile var teamStatus = 200
     /** Documents of these players fail with 500. */
     @Volatile var failDocuments: Set<String> = emptySet()
     /** Answers every stored document, also ones that were not asked for (a misbehaving server). */
@@ -103,10 +107,12 @@ private class StaffServer {
         val email = request.headers[HttpHeaders.Authorization]?.removePrefix("Bearer token-")
         val answer: Answer = when {
             path == "auth/login" -> login((request.body as TextContent).text)
+            path == "auth/refresh" -> Answer.Json(401, fail("unauthorized"))
             path == "auth/logout" -> Answer.Json(200, ok("{}"))
             path == "sync" -> Answer.Json(200, ok("[]"))
             path.startsWith("staff/") -> {
                 if (staffOffline) throw IOException("offline")
+                if (rejectTokens) return@MockEngine respond("""{"success":false,"data":null,"error":{"code":"unauthorized","message":null}}""", HttpStatusCode.Unauthorized, headersOf(HttpHeaders.ContentType, "application/json"))
                 staff(path, email, request.url.parameters["collections"])
             }
             else -> Answer.Json(404, fail("not_found"))
@@ -133,6 +139,7 @@ private class StaffServer {
     private suspend fun staff(path: String, email: String?, collections: String?): Answer {
         val team = email?.let(teams::get) ?: return Answer.Json(403, fail("forbidden"))
         if (path == "staff/team") {
+            if (teamStatus != 200) return Answer.Json(teamStatus, fail(if (teamStatus == 429) "rate_limited" else "server_error"))
             teamArrived.complete(Unit)
             teamGate?.await()
             val players = team.players.joinToString(",") { member ->
@@ -334,13 +341,60 @@ class StaffTeamTest {
     }
 
     @Test fun serverRefusalIsNotAnExceptionEither() = runTest {
-        // Not a staff member of any team: 403 forbidden.
+        // Not a staff member of any team: 403 forbidden, nothing to show.
         val team = staffTeam()
         team.activate(true)
 
         team.refresh()
 
-        assertEquals(StaffTeamState.Failed, team.state.value)
+        assertEquals(StaffTeamState.Idle, team.state.value)
+    }
+
+    @Test fun removedStaffLosesCachedTeam() = runTest {
+        seedTeam()
+        val team = staffTeam()
+        team.activate(true)
+        team.refresh()
+        assertTrue(disk.exists("accounts/COACH/staff-team.json"))
+
+        // The coach is no longer staff of a team: 403 forbidden.
+        server.teams.remove(COACH)
+        team.refresh()
+
+        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertTrue(team.players().isEmpty())
+        assertFalse(disk.exists("accounts/COACH/staff-team.json"), "nothing of the team stays on the phone")
+        val restarted = staffTeam()
+        restarted.activate(true)
+        assertEquals(StaffTeamState.Idle, restarted.state.value)
+    }
+
+    @Test fun unauthorizedSessionLosesCachedTeam() = runTest {
+        seedTeam()
+        val team = staffTeam()
+        team.activate(true)
+        team.refresh()
+
+        server.rejectTokens = true
+        team.refresh()
+
+        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertFalse(disk.exists("accounts/COACH/staff-team.json"))
+    }
+
+    @Test fun otherErrorsKeepTheCachedTeam() = runTest {
+        seedTeam()
+        val team = staffTeam()
+        team.activate(true)
+        team.refresh()
+        val downloaded = team.ready().team
+
+        for (status in listOf(500, 429)) {
+            server.teamStatus = status
+            team.refresh()
+            assertEquals(StaffTeamState.Ready(downloaded, stale = true), team.state.value, "HTTP $status")
+            assertTrue(disk.exists("accounts/COACH/staff-team.json"))
+        }
     }
 
     @Test fun removedPlayerLeavesCacheOnRefresh() = runTest {

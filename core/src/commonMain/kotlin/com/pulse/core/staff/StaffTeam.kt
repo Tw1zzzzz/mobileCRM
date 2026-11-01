@@ -158,15 +158,23 @@ class StaffTeam(
         return team.players.map { StaffMetrics.PlayerDocuments(it.id, team.documents[it.id].orEmpty()) }
     }
 
-    /** What one download brought: null when the roster itself could not be had. */
-    private suspend fun download(): TeamSnapshot? {
+    /** What one download brought. */
+    private sealed interface Outcome {
+        class Downloaded(val snapshot: TeamSnapshot) : Outcome
+        /** The roster could not be had (offline, server error, rate limit): the copy, if any, stays. */
+        data object Failed : Outcome
+        /** The server no longer lets this account see a team (`forbidden`, or unauthorized): no copy may stay. */
+        data object Revoked : Outcome
+    }
+
+    private suspend fun download(): Outcome {
         val roster = try {
             client.send(HttpMethod.Get, "staff/team", Roster.serializer())
         } catch (error: CancellationException) {
             throw error
         } catch (error: Exception) {
             log("staff team: roster failed (${describe(error)})")
-            return null
+            return if (error is ApiException && error.isAccessRevoked) Outcome.Revoked else Outcome.Failed
         }
         val previous = (state.value as? StaffTeamState.Ready)?.team?.documents.orEmpty()
         val gate = Semaphore(PARALLEL_DOWNLOADS)
@@ -179,7 +187,7 @@ class StaffTeam(
         val documents = roster.players.associate { player ->
             player.id to (results[player.id] ?: previous[player.id].orEmpty())
         }
-        return TeamSnapshot(roster.team.name, roster.team.inviteCode, roster.players, documents, now(), missing)
+        return Outcome.Downloaded(TeamSnapshot(roster.team.name, roster.team.inviteCode, roster.players, documents, now(), missing))
     }
 
     /** One player's stored documents among the requested collections; null when the request failed. */
@@ -196,21 +204,33 @@ class StaffTeam(
     }
 
     /** Publishes and saves the result unless the account changed meanwhile. */
-    private fun commit(epochOfRefresh: Long, folderOfRefresh: String, snapshot: TeamSnapshot?) = locked(lock) {
+    private fun commit(epochOfRefresh: Long, folderOfRefresh: String, outcome: Outcome) = locked(lock) {
         if (epoch != epochOfRefresh) return@locked
         completedRefreshes++
-        val current = _state.value
-        if (snapshot == null) {
-            _state.value = if (current is StaffTeamState.Ready) current.copy(stale = true) else StaffTeamState.Failed
-            return@locked
+        when (outcome) {
+            is Outcome.Downloaded -> {
+                try {
+                    scope.files.writeText(path(folderOfRefresh), PulseJson.encodeToString(TeamSnapshot.serializer(), outcome.snapshot))
+                } catch (error: Exception) {
+                    // The copy on screen is fresh anyway; only the offline copy is behind.
+                    log("staff team: copy not saved (${error::class.simpleName})")
+                }
+                _state.value = StaffTeamState.Ready(outcome.snapshot, stale = false)
+            }
+            Outcome.Failed -> {
+                val current = _state.value
+                _state.value = if (current is StaffTeamState.Ready) current.copy(stale = true) else StaffTeamState.Failed
+            }
+            // A removed staff member must not keep the team's data on the phone.
+            Outcome.Revoked -> {
+                try {
+                    scope.files.delete(path(folderOfRefresh))
+                } catch (error: Exception) {
+                    log("staff team: copy not deleted (${error::class.simpleName})")
+                }
+                _state.value = StaffTeamState.Idle
+            }
         }
-        try {
-            scope.files.writeText(path(folderOfRefresh), PulseJson.encodeToString(TeamSnapshot.serializer(), snapshot))
-        } catch (error: Exception) {
-            // The copy on screen is fresh anyway; only the offline copy is behind.
-            log("staff team: copy not saved (${error::class.simpleName})")
-        }
-        _state.value = StaffTeamState.Ready(snapshot, stale = false)
     }
 
     private fun loadCopy(folder: String): TeamSnapshot? {
@@ -224,6 +244,9 @@ class StaffTeam(
     }
 
     private fun path(folder: String) = "$folder/$FILE"
+
+    private val ApiException.isAccessRevoked: Boolean
+        get() = kind == ApiException.Kind.UNAUTHORIZED || (kind == ApiException.Kind.REJECTED && code == FORBIDDEN)
 
     @Serializable
     private data class Roster(val team: TeamInfo, val players: List<StaffPlayer>)
@@ -241,6 +264,7 @@ class StaffTeam(
         val COLLECTIONS = listOf("sleep", "wellbeing", "cognitive", "nutrition", "fitness-state", "screen-time", "faceit", "player-survey")
         const val PARALLEL_DOWNLOADS = 3
         private const val NOT_FOUND = 404
+        private const val FORBIDDEN = "forbidden"
 
         /** Kind, code and HTTP status of an API error; only the type of anything else (its message may quote data). */
         private fun describe(error: Exception): String = when (error) {
