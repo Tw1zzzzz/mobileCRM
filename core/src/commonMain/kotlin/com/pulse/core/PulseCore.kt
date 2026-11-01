@@ -43,6 +43,7 @@ import com.pulse.core.store.NutritionStore
 import com.pulse.core.store.PlayerSurveyStore
 import com.pulse.core.store.ScreenTimeStore
 import com.pulse.core.store.SleepStore
+import com.pulse.core.staff.StaffTeam
 import com.pulse.core.store.WellbeingStore
 import com.pulse.core.sync.SyncEngine
 import com.pulse.core.sync.SyncResult
@@ -113,6 +114,9 @@ class PulseCore(
         LocalAuthService(file("accounts.json", ListSerializer(LocalAuthService.Account.serializer()), global = true), secrets)
     }
     val sync = SyncEngine(api, scope)
+
+    /** A real staff account's team (roster and players' documents) from the server, with an offline copy. */
+    val staffTeam = StaffTeam(api, scope)
     val session = SessionStore(auth, file("session.json", User.serializer(), global = true), scope, requireBetaTerms = isRemote)
 
     val sleep = SleepStore(file(SleepStore.FILE, SleepStore.Saved.serializer()))
@@ -177,6 +181,7 @@ class PulseCore(
         session.beforeLogout = { pushBeforeLogout() }
         sync.applyFile = { folder, file, write -> applyMergedFile(folder, file, write) }
         sync.log = { message -> log(message) }
+        staffTeam.log = { message -> log(message) }
         session.onUserChange = { user ->
             stopRound()
             activate(user, accountChanged = true)
@@ -190,10 +195,14 @@ class PulseCore(
 
     /**
      * Points every store at the account's own folder: demo accounts get seeded data, real accounts start empty.
+     * A real staff account also shows its team's last copy and downloads a fresh one.
      */
     fun activate(user: User?, accountChanged: Boolean) {
         scope.current = user?.let(DataScope::id) ?: "guest"
         reloadStores(user)
+        val staffOnServer = isRemote && user != null && !user.isDemo && user.role.isStaff
+        staffTeam.activate(staffOnServer)
+        if (staffOnServer) background.launch { staffTeam.refresh() }
         onAccountActivated?.invoke(user, accountChanged)
     }
 
