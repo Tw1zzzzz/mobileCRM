@@ -298,6 +298,20 @@ class RealPlayerCardTest {
         rule.onAllNodesWithText("До тренировки").assertCountEquals(1)
     }
 
+    @Test fun testTypeOffersNoMoodOptionOnARealCard() {
+        open(remoteStaffCore(server = server()), orion)
+        waitForText("Дневник сна")
+        rule.onNodeWithText("Все тесты").performClick()
+        listOf("Все тесты", "Когнитивные", "Игровые").forEach { assertTrue(rule.onAllNodesWithText(it).fetchSemanticsNodes().isNotEmpty(), it) }
+        rule.onAllNodesWithText("Настроение").assertCountEquals(0)
+    }
+
+    @Test fun demoCardKeepsTheMoodTestOption() {
+        rule.setMain(testCore(UserRole.STAFF), "player")
+        rule.onNodeWithText("Все тесты").performClick()
+        rule.onNodeWithText("Настроение").assertExists()
+    }
+
     @Test fun gameSourceOffersOnlyAllAndFaceit() {
         open(remoteStaffCore(server = server()), orion)
         waitForText("Дневник сна")

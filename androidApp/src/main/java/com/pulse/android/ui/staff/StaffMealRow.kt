@@ -1,5 +1,6 @@
 package com.pulse.android.ui.staff
 
+import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -22,6 +23,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -39,6 +41,16 @@ import kotlinx.coroutines.withContext
 import kotlin.math.roundToInt
 
 private const val MEAL_NAME_FALLBACK = "Приём пищи"
+private val THUMBNAIL_SIZE = 52.dp
+
+/** The photo at about [targetPx] on its short side: the bounds are read first and the decoder subsamples (30 rows must not hold 30 full-size bitmaps). */
+private fun decodeThumbnail(bytes: ByteArray, targetPx: Int): Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= targetPx && bounds.outHeight / (sample * 2) >= targetPx) sample *= 2
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+}
 
 /**
  * A meal of a team player: name, macros and time, and the photo when the player took one. The photo is downloaded
@@ -48,18 +60,19 @@ private const val MEAL_NAME_FALLBACK = "Приём пищи"
 @Composable
 fun StaffMealRow(entry: StaffViews.FoodEntry) {
     val core = observeCore()
+    val thumbnailPx = with(LocalDensity.current) { THUMBNAIL_SIZE.roundToPx() }
     val photo by produceState<ImageBitmap?>(null, entry.playerId, entry.mealId, entry.hasPhoto) {
         value = if (!entry.hasPhoto) null else withContext(Dispatchers.Default) {
-            core.staffTeam.photo(entry.playerId, entry.mealId)?.let { BitmapFactory.decodeByteArray(it, 0, it.size) }?.asImageBitmap()
+            core.staffTeam.photo(entry.playerId, entry.mealId)?.let { decodeThumbnail(it, thumbnailPx) }?.asImageBitmap()
         }
     }
     val name = entry.name ?: MEAL_NAME_FALLBACK
     Row(Modifier.fillMaxWidth().padding(vertical = 12.dp), horizontalArrangement = Arrangement.spacedBy(14.dp), verticalAlignment = Alignment.CenterVertically) {
         val bitmap = photo
         if (bitmap != null) {
-            Image(bitmap, "Фото: $name", contentScale = ContentScale.Crop, modifier = Modifier.size(52.dp).clip(RoundedCornerShape(14.dp)))
+            Image(bitmap, "Фото: $name", contentScale = ContentScale.Crop, modifier = Modifier.size(THUMBNAIL_SIZE).clip(RoundedCornerShape(14.dp)))
         } else {
-            Box(Modifier.size(52.dp).clip(RoundedCornerShape(16.dp)).background(Palette.track), contentAlignment = Alignment.Center) {
+            Box(Modifier.size(THUMBNAIL_SIZE).clip(RoundedCornerShape(16.dp)).background(Palette.track), contentAlignment = Alignment.Center) {
                 Icon(sfIcon(if (entry.source == MealSource.QUICK) "cup.and.saucer" else "fork.knife"), null, tint = Palette.textSecondary, modifier = Modifier.size(22.dp))
             }
         }

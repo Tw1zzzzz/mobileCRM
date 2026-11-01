@@ -73,7 +73,8 @@ private const val MAX_MEALS = 30
 private const val RECENT_MATCHES = 4
 private const val CHART_LABELS = 4
 
-internal val TEST_TYPE_OPTIONS = listOf("Все тесты", "Когнитивные", "Игровые", "Настроение")
+/** The card's tests are cognitive and before/after-training ones; there are no mood tests to filter by. */
+internal val TEST_TYPE_OPTIONS = listOf("Все тесты", "Когнитивные", "Игровые")
 
 /** Faceit has the matches of this app only; pracks and tournaments are not in the app. */
 internal val GAME_SOURCE_OPTIONS = listOf("Все", "Faceit")
@@ -233,7 +234,6 @@ private fun TestsSection(tests: StaffViews.TestsView, filter: String, tz: String
     val rows = when (filter) {
         "Когнитивные" -> tests.rows.filter { !it.game }
         "Игровые" -> tests.rows.filter { it.game }
-        "Настроение" -> emptyList() // the card's tests are cognitive and before/after-training ones
         else -> tests.rows
     }.take(MAX_TESTS)
     if (rows.isEmpty()) {
