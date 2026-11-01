@@ -66,9 +66,9 @@ export function SleepEnergyCard({ overview, whoLabel }: SleepEnergyCardProps) {
                   <text x="10" y="114">5</text>
                   <text x="10" y="194">0</text>
                 </g>
-                <path d={sleepBarsPath(sleep.daily)} fill="url(#slBar)" opacity="0.9" />
-                <path d={energyLinePath(energy.daily)} fill="none" stroke="#FFAA3C" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-                <path d={energyDotsPath(energy.daily)} fill="#070B17" stroke="#FFAA3C" strokeWidth="2.5" />
+                <path d={sleepBarsPath(sleep.daily)} fill="url(#slBar)" opacity="0.9" className={styles.sleepBars} />
+                <path d={energyLinePath(energy.daily)} pathLength={1} fill="none" stroke="#FFAA3C" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" className={styles.sleepLine} />
+                <path d={energyDotsPath(energy.daily)} fill="#070B17" stroke="#FFAA3C" strokeWidth="2.5" className={styles.sleepDots} />
               </svg>
               <div className={styles.weekdays} aria-hidden="true">
                 {days.map((day, i) => (

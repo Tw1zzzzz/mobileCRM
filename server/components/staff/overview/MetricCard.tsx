@@ -55,9 +55,9 @@ export function MetricCard({ metric, whoLabel }: { metric: WeeklyMetric; whoLabe
               )}
             </div>
             <svg viewBox="0 0 600 140" className={styles.trend} role="img" aria-label={aria}>
-              {shape.area !== "" && <path d={shape.area} fill={colors.fill} />}
-              <path d={shape.line} fill="none" stroke={colors.stroke} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
-              <path d={shape.dots} fill={colors.stroke} />
+              {shape.area !== "" && <path d={shape.area} fill={colors.fill} className={styles.trendArea} />}
+              <path d={shape.line} pathLength={1} fill="none" stroke={colors.stroke} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" className={styles.trendLine} />
+              <path d={shape.dots} fill={colors.stroke} className={styles.trendDots} />
             </svg>
           </>
         )}

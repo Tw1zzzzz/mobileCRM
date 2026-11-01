@@ -259,7 +259,7 @@ describe("team block", () => {
     const markup = renderToStaticMarkup(<TeamManagement team={p.team} confirm={p.confirm} error={null} />);
     expect(text(markup)).toContain("Старый код перестанет работать. Продолжить?");
     expect(markup).toContain('name="kind" value="staff"');
-    expect(markup).toContain('href="/staff/players#team"'); // «Отмена»
+    expect(markup).toContain('href="/staff/team#team"'); // «Отмена»
     expect((markup.match(/Старый код перестанет работать/g) ?? []).length).toBe(1);
   });
 
@@ -443,7 +443,7 @@ describe("actions require staff of that team", () => {
     session.token = (await issueSession(deps, mine.ids.staff)).refresh_token;
 
     const rotated = await redirectOf(() => rotateCodeAction(form({ kind: "player", teamId: other.teamId, next: "https://evil.example" })));
-    expect(rotated).toBe("/staff/players#team");
+    expect(rotated).toBe("/staff/team#team");
     expect((await codesOf(other.teamId)).invite_code).toBe("PBRAVO");
     expect((await codesOf(mine.ids.team)).invite_code).not.toBe("PALPHA");
 
@@ -455,7 +455,7 @@ describe("actions require staff of that team", () => {
     expect(last).toBe("/staff/players?error=last-staff#team");
 
     const removed = await redirectOf(() => removeMemberAction(form({ memberId: mine.ids.vega })));
-    expect(removed).toBe("/staff/players#team");
+    expect(removed).toBe("/staff/team#team");
     expect(await roleOf(mine.ids.vega)).toEqual({ role: "soloPlayer", team_id: null });
   });
 
@@ -464,7 +464,7 @@ describe("actions require staff of that team", () => {
     await addUser("coach", "staff", ids.team);
     const { removeMemberAction } = await import("../app/staff/actions");
     session.token = (await issueSession(deps, ids.staff)).refresh_token;
-    expect(await redirectOf(() => removeMemberAction(form({ memberId: ids.staff })))).toBe("/staff/players#team");
+    expect(await redirectOf(() => removeMemberAction(form({ memberId: ids.staff })))).toBe("/staff/team#team");
     // the next page load goes through the normal guard
     const { requireStaffContext } = await import("../lib/staff/current");
     expect(await redirectOf(() => requireStaffContext())).toBe("/staff/no-access");

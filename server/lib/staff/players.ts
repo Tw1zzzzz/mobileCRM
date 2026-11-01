@@ -73,6 +73,12 @@ export interface PlayersPage {
   error: TeamError | null;
 }
 
+export interface TeamPage {
+  team: TeamData;
+  confirm: TeamConfirm | null;
+  error: TeamError | null;
+}
+
 /** «09:17» in the staff zone. */
 export function clock(instant: Date, tz: string): string {
   return new Intl.DateTimeFormat("ru-RU", { timeZone: tz, hour: "2-digit", minute: "2-digit", hourCycle: "h23" }).format(instant);
@@ -146,6 +152,16 @@ async function loadTeam(deps: Deps, ctx: StaffContext): Promise<TeamData> {
     selfId: ctx.userId,
     staff: members.filter((m) => m.role === "staff").map(entry),
     players: members.filter((m) => m.role === "teamPlayer").map(entry),
+  };
+}
+
+/** The standalone «Команда» page; avoids loading the roster and player cards for team management. */
+export async function loadTeamPage(deps: Deps, ctx: StaffContext, params: SearchParams): Promise<TeamPage> {
+  const team = await loadTeam(deps, ctx);
+  return {
+    team,
+    confirm: parseConfirm(firstOf(params.confirm), team),
+    error: parseError(firstOf(params.error)),
   };
 }
 

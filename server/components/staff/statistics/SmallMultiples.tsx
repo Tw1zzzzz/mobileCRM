@@ -24,10 +24,10 @@ function Multiple({ m }: { m: MultipleView }) {
           <svg viewBox="0 0 300 90" width="100%" role="img" aria-label={m.aria} preserveAspectRatio="none" className={styles.chart}>
             <line x1="0" y1="45" x2="300" y2="45" stroke="#26304A" strokeDasharray="4 4" />
             {m.line !== "" && (
-              <path d={m.line} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              <path d={m.line} pathLength={1} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" className={styles.chartLine} />
             )}
             {m.dots !== "" && (
-              <path d={m.dots} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" />
+              <path d={m.dots} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" className={styles.chartDots} />
             )}
           </svg>
           <div className={styles.foot}>

@@ -128,7 +128,7 @@ export function TeamManagement({ team, confirm, error }: TeamManagementProps) {
   return (
     <section id="team" className={styles.section} aria-labelledby="team-title">
       <h2 id="team-title" className={styles.sectionTitle}>
-        Команда
+        Доступ и участники
       </h2>
       {error !== null && (
         <p className={styles.error} role="alert">

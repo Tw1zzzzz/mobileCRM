@@ -2,7 +2,6 @@ import { CardFrame } from "@/components/staff/card/CardFrame";
 import { Header } from "@/components/staff/Header";
 import { NutritionFeed } from "@/components/staff/players/NutritionFeed";
 import { PeriodChips, Roster } from "@/components/staff/players/Roster";
-import { TeamManagement } from "@/components/staff/players/TeamManagement";
 import { defaultDeps } from "@/lib/deps";
 import { loadCard } from "@/lib/staff/card";
 import { requireStaffContext } from "@/lib/staff/current";
@@ -11,8 +10,7 @@ import type { SearchParams } from "@/lib/staff/overview";
 import { loadPlayers } from "@/lib/staff/players";
 
 /**
- * «Игроки»: today's readiness of the roster, the selected player's card (`?player=&period=&tab=&type=&src=&day=`)
- * and «Команда» (codes, members). Selections and confirmations live in the URL.
+ * «Игроки»: today's readiness of the roster and selected player's card (`?player=&period=&tab=&type=&src=&day=`).
  * `?section=nutrition&who=&days=&photos=&meal=` shows «Питание команды» instead of the roster and the card.
  */
 export default async function PlayersPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
@@ -36,7 +34,6 @@ export default async function PlayersPage({ searchParams }: { searchParams: Prom
       <Header title="Игроки">{selection && <PeriodChips params={selection} />}</Header>
       <Roster roster={page.roster} params={selection} />
       <CardFrame card={card} />
-      <TeamManagement team={page.team} confirm={page.confirm} error={page.error} />
     </>
   );
 }

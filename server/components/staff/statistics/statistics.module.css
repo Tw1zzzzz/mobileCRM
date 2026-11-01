@@ -404,6 +404,12 @@ a.mchipOnGame:hover {
   background: var(--raised);
   border: 1px solid var(--line);
   min-width: 0;
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.multiple:hover {
+  transform: translateY(-2px);
+  border-color: rgba(63, 208, 255, 0.26);
+  box-shadow: 0 12px 32px rgba(0, 8, 26, 0.2);
 }
 .multipleHead {
   display: flex;
@@ -432,6 +438,27 @@ a.mchipOnGame:hover {
   display: block;
   width: 100%;
   height: 90px;
+  overflow: visible;
+}
+.chartLine {
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  animation: stats-chart-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) 80ms forwards;
+}
+.chartDots {
+  opacity: 0;
+  animation: stats-chart-points 340ms ease-out 560ms forwards;
+}
+@keyframes stats-chart-draw {
+  to { stroke-dashoffset: 0; }
+}
+@keyframes stats-chart-points {
+  to { opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .multiple { transition: none; }
+  .chartLine { animation: none; stroke-dashoffset: 0; }
+  .chartDots { animation: none; opacity: 1; }
 }
 .chartEmpty {
   display: flex;

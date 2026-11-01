@@ -10,7 +10,7 @@ import { removeMember, rotateCode } from "@/lib/team/members";
  * one of `ctx`; a team id in the form is never read, and a member id is resolved inside the caller's team.
  */
 
-export const TEAM_PATH = "/staff/players";
+export const TEAM_PATH = "/staff/team";
 
 /** Outcomes shown inline after an action. Anything else is an unexpected error and is not swallowed. */
 export type TeamError = "last-staff" | "failed";
