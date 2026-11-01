@@ -91,9 +91,12 @@ fun PlayerAvatar(nickname: String, size: Dp, fontSize: TextUnit) {
     }
 }
 
-/** Staff: the team roster with search. */
+/** Staff: the team roster with search (the demo team; a real account is pointed to the website). */
 @Composable
-fun PlayersListContent() {
+fun PlayersListContent() = TeamDemoOnly { DemoRosterContent() }
+
+@Composable
+private fun DemoRosterContent() {
     val router = LocalRouter.current
     var query by remember { mutableStateOf("") }
     val trimmed = query.trim().lowercase()
@@ -146,13 +149,18 @@ fun PlayersScreen() {
 fun PlayerDetailScreen(id: Uuid) {
     val core = observeCore()
     val router = LocalRouter.current
-    val player = DemoData.players.firstOrNull { it.id == id }
+    val isDemo = core.showsTeamDemo
+    val player = if (isDemo) DemoData.players.firstOrNull { it.id == id } else null
     var period by remember { mutableIntStateOf(30) }
     var testType by remember { mutableStateOf("Все тесты") }
     var source by remember { mutableStateOf("Все") }
     ScreenScaffold(header = {
         NavHeader(player?.nickname ?: "Игрок", player?.let { "${it.realName} · ${it.gameRole}" }, onBack = { router.pop() })
     }) {
+        if (!isDemo) {
+            StaffTeamEmptyState()
+            return@ScreenScaffold
+        }
         if (player == null) {
             EmptyStateView("person.crop.circle.badge.questionmark", "Игрок не найден", "")
             return@ScreenScaffold

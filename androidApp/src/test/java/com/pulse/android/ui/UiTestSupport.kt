@@ -94,6 +94,26 @@ fun remoteTestCore(requests: MutableList<String> = mutableListOf()): PulseCore {
     return testCore(null, backend = Backend.Remote("https://api.test/v1/"), http = HttpClient(engine))
 }
 
+/** A server staff user as the auth endpoints return it: a real account, not one of the demos. */
+const val TEST_STAFF_JSON = """{"id":"0C1D2E3F-4A5B-4E5F-8A9B-6F1B6A2E1C2D","nickname":"Тренер","email":"coach@team.gg","role":"staff",""" +
+    """"tariff":"free","team":"Pulse Academy","streak_days":0,"faceit_url":null}"""
+
+/** A remote-build core signed in to the Pulse server as a real staff account (a MockEngine server with nothing stored). */
+fun remoteStaffCore(): PulseCore {
+    val session = """{"user":$TEST_STAFF_JSON,"access_token":"A","refresh_token":"R"}"""
+    val engine = MockEngine { request ->
+        val data = when (request.url.encodedPath.removePrefix("/v1/")) {
+            "auth/login" -> session
+            "sync" -> "[]"
+            else -> """{"version":1,"updated_at":"2026-10-20T08:00:00Z"}"""
+        }
+        respond("""{"success":true,"data":$data,"error":null}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+    }
+    val core = testCore(null, backend = Backend.Remote("https://api.test/v1/"), http = HttpClient(engine))
+    runBlocking { core.session.login("coach@team.gg", "test-pass-1") }
+    return core
+}
+
 /** A complete remote sign-up form (all three consents). */
 val remoteForm = RegistrationForm(nickname = "Тестер", email = "tester@example.com", password = "test-pass-1", confirmPassword = "test-pass-1",
     acceptedTerms = true, acceptedPrivacy = true, acceptedBetaTerms = true)

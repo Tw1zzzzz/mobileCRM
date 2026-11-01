@@ -95,7 +95,10 @@ private enum class SortBy(val title: String) { READINESS("Готовность")
 
 /** Team dashboard: KPIs, readiness per player, dynamics, ELO vs K/D and a sortable table. */
 @Composable
-fun TeamAnalyticsContent() {
+fun TeamAnalyticsContent() = TeamDemoOnly { DemoTeamAnalytics() }
+
+@Composable
+private fun DemoTeamAnalytics() {
     val router = LocalRouter.current
     var period by remember { mutableIntStateOf(7) }
     var sort by remember { mutableStateOf(SortBy.READINESS) }
@@ -250,7 +253,10 @@ private fun TableRow(snapshot: PlayerSnapshot, onClick: () -> Unit) {
 
 /** Heat map of factors × game metrics, «сон → K/D» scatter and the strongest relations. */
 @Composable
-fun TeamCorrelationsContent() {
+fun TeamCorrelationsContent() = TeamDemoOnly { DemoTeamCorrelations() }
+
+@Composable
+private fun DemoTeamCorrelations() {
     var selected by remember { mutableStateOf<Uuid?>(null) }
     val players = selected?.let { id -> DemoData.players.filter { it.id == id } } ?: DemoData.players
     val points = TeamAnalytics.sleepVersusKD(players)
@@ -333,7 +339,10 @@ private fun heatColor(value: Double?): Color {
 
 /** «Питание игроков»: what the players eat — dish photos, calories and macros for the week. */
 @Composable
-fun TeamFoodContent() {
+fun TeamFoodContent() = TeamDemoOnly { DemoTeamFood() }
+
+@Composable
+private fun DemoTeamFood() {
     val core = observeCore()
     var player by remember { mutableStateOf<String?>(null) }
     var onlyPhotos by remember { mutableStateOf(false) }

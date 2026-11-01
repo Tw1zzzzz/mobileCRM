@@ -27,8 +27,12 @@ enum class AppTab(val title: String, val icon: ImageVector) {
 
     companion object {
         /** Players and staff get different app versions; staff have nothing to log, so no central «+». */
-        fun tabs(role: UserRole?): List<AppTab> =
-            if (role?.isStaff == true) listOf(TODAY, PLAYERS, ANALYTICS, LINEUPS, PROFILE) else listOf(TODAY, STATE, DIARY, PROFILE)
+        fun tabs(role: UserRole?, showsTeamDemo: Boolean): List<AppTab> = when {
+            role?.isStaff != true -> listOf(TODAY, STATE, DIARY, PROFILE)
+            // The roster and analytics are the seeded demo team: a real staff account has none of it in the app (it is on the website).
+            showsTeamDemo -> listOf(TODAY, PLAYERS, ANALYTICS, LINEUPS, PROFILE)
+            else -> listOf(TODAY, LINEUPS, PROFILE)
+        }
 
         fun showsQuickAdd(role: UserRole?): Boolean = role?.isStaff != true
 

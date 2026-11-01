@@ -40,6 +40,7 @@ import com.pulse.android.ui.components.pulseCard
 import com.pulse.android.ui.main.AppTab
 import com.pulse.android.ui.main.Route
 import com.pulse.android.ui.observeCore
+import com.pulse.android.ui.theme.Metrics
 import com.pulse.android.ui.theme.Palette
 import com.pulse.android.ui.theme.sfIcon
 import com.pulse.android.ui.today.TopPanel
@@ -71,7 +72,7 @@ fun StaffPlayersTab() {
     LaunchedEffect(section) { scroll.scrollTo(0) }
     ScreenScaffold(spacing = 18.dp, scrollState = scroll, header = {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
-            NavHeader("Игроки", "${core.session.user.value?.team ?: "Команда"} · ${DemoData.players.size} в составе")
+            NavHeader("Игроки", "${core.session.user.value?.team ?: "Команда"}" + if (core.showsTeamDemo) " · ${DemoData.players.size} в составе" else "")
             PulseSegmented(PlayersSection.entries, section, { it.title }, height = 38.dp, onSelect = select)
         }
     }) {
@@ -101,20 +102,44 @@ fun StaffAnalyticsTab() {
     }
 }
 
-/** Staff «Сегодня»: team state, who needs attention, today's events. */
+/** Staff «Сегодня»: team state, who needs attention (demo team only), today's events. */
 @Composable
 fun StaffTodayScreen(onNotifications: () -> Unit) {
     val core = observeCore()
     val router = LocalRouter.current
-    val snapshots = TeamAnalytics.snapshots()
-    val readiness = StatisticsMath.mean(snapshots.map { it.readiness }) ?: 0.0
-    val attention = snapshots.filter { it.needsAttention }
     val now = Clock.System.now()
     ScreenScaffold(header = { TopPanel(onNotifications) }) {
         Column(Modifier.padding(horizontal = 4.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(Formatters.dayMonthWeekday(now).uppercase(), color = Palette.cyan, fontSize = 14.sp, fontWeight = FontWeight.SemiBold, letterSpacing = 1.6.sp)
             Text("Команда ${core.session.user.value?.team ?: ""}", color = Palette.textPrimary, autoSize = fit(30.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        // The ring, the counts and the attention list come from the seeded demo team: a real account is pointed to the website.
+        TeamDemoOnly { DemoTeamOverview() }
+        PulseSection("События сегодня", "Календарь", { router.open(Route.Calendar(), AppTab.TODAY) }) {
+            // Players' personal plans are private: staff see team events and player schedules.
+            val events = core.calendar.events(now, null).filter { it.tag != EventTag.Personal }
+            if (events.isEmpty()) {
+                Text("На сегодня событий нет", color = Palette.textSecondary, fontSize = 16.sp, modifier = Modifier.fillMaxWidth().pulseCard())
+            } else {
+                Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 16.dp)) {
+                    events.forEachIndexed { index, event ->
+                        Box(Modifier.pressable { router.open(Route.Event(event.id), AppTab.TODAY) }) { EventRow(event) }
+                        if (index < events.size - 1) DividerLine()
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The demo team's readiness ring, weekly summary and «Требуют внимания» (demo accounts only). */
+@Composable
+private fun DemoTeamOverview() {
+    val router = LocalRouter.current
+    val snapshots = TeamAnalytics.snapshots()
+    val readiness = StatisticsMath.mean(snapshots.map { it.readiness }) ?: 0.0
+    val attention = snapshots.filter { it.needsAttention }
+    Column(verticalArrangement = Arrangement.spacedBy(Metrics.sectionSpacing)) {
         Row(Modifier.pulseCard(18.dp), horizontalArrangement = Arrangement.spacedBy(18.dp), verticalAlignment = Alignment.CenterVertically) {
             ScoreRing(readiness / 10, Formatters.decimal(readiness), "ГОТОВНОСТЬ", 124.dp, 12.dp, 36.sp)
             Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
@@ -142,20 +167,6 @@ fun StaffTodayScreen(onNotifications: () -> Unit) {
                             Icon(sfIcon("chevron.right"), null, tint = Palette.textTertiary, modifier = Modifier.size(14.dp))
                         }
                         if (index < attention.size - 1) DividerLine()
-                    }
-                }
-            }
-        }
-        PulseSection("События сегодня", "Календарь", { router.open(Route.Calendar(), AppTab.TODAY) }) {
-            // Players' personal plans are private: staff see team events and player schedules.
-            val events = core.calendar.events(now, null).filter { it.tag != EventTag.Personal }
-            if (events.isEmpty()) {
-                Text("На сегодня событий нет", color = Palette.textSecondary, fontSize = 16.sp, modifier = Modifier.fillMaxWidth().pulseCard())
-            } else {
-                Column(Modifier.pulseCard(padding = 0.dp).padding(horizontal = 16.dp)) {
-                    events.forEachIndexed { index, event ->
-                        Box(Modifier.pressable { router.open(Route.Event(event.id), AppTab.TODAY) }) { EventRow(event) }
-                        if (index < events.size - 1) DividerLine()
                     }
                 }
             }

@@ -214,13 +214,14 @@ fun StatusPill(text: String, tint: Color = Palette.green, showsDot: Boolean = tr
 
 /** Empty-state placeholder shared by nutrition, calendar, statistics, screen time. */
 @Composable
-fun EmptyStateView(icon: String, title: String, message: String) {
+fun EmptyStateView(icon: String, title: String, message: String, action: (@Composable () -> Unit)? = null) {
     Column(Modifier.pulseCard().padding(vertical = 10.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(14.dp)) {
         Box(Modifier.size(72.dp).clip(RoundedCornerShape(22.dp)).background(Palette.track), contentAlignment = Alignment.Center) {
             Icon(sfIcon(icon), null, tint = Palette.textSecondary, modifier = Modifier.size(32.dp))
         }
         Text(title, color = Palette.textPrimary, fontSize = 22.sp, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center)
         Text(message, color = Palette.textSecondary, fontSize = 16.sp, textAlign = TextAlign.Center)
+        action?.invoke()
     }
 }
 

@@ -147,6 +147,12 @@ class PulseCore(
     val isSyncable: Boolean get() = isRemote && session.user.value?.isDemo == false
 
     /**
+     * The seeded demo team (players, readiness, matches, food, weekly report) may be shown to demo accounts only: a real
+     * staff account sees honest empty states until it has its own team data, never invented players.
+     */
+    val showsTeamDemo: Boolean get() = session.user.value?.isDemo == true
+
+    /**
      * Platform hook for sync diagnostics: each failed collection, photo or round, with the error's kind, code and HTTP
      * status — never document contents, tokens or emails.
      */

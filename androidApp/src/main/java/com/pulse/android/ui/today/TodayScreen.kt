@@ -292,6 +292,8 @@ fun WeeklySummaryCard() {
     val router = LocalRouter.current
     val week = WeekRange.containing(Clock.System.now())
     val isStaff = core.session.isStaff
+    // The team summary is built from the seeded demo team: a real staff account has none (it reads it on the website).
+    if (isStaff && !core.showsTeamDemo) return
     val subtitle = if (isStaff) {
         val report = TeamWeeklyBuilder.demo(week)
         "${week.title} · ${report.readiness?.let { "готовность ${Formatters.decimal(it)}" } ?: "нет данных"} · рисков: ${report.risks.size}"
