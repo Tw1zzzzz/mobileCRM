@@ -226,6 +226,23 @@ class StaffViewsTest {
     }
 
     @Test
+    fun anyRecordKeepsAPlayerFromBeingSilent() {
+        val records = mapOf(
+            "workouts" to mapOf("fitness-state" to """{"workouts":[{"id":"w","kind":"cardio","date":"@T10:00:00Z","minutes":30}]}"""),
+            "balance" to mapOf("wellbeing" to wellbeing(balance = """{"id":"b","day":"@T00:00:00Z","values":{}}""")),
+            "mood" to mapOf("wellbeing" to wellbeing(mood("@", 5, 5))),
+            "game test" to mapOf("cognitive" to cognitiveDoc(games = """{"id":"g","date":"@T10:00:00Z","phase":"afterTraining","focus":5,"fatigue":5,"readiness":5}""")),
+            "screen time" to mapOf("screen-time" to """{"entries":[{"date":"@T00:00:00Z","minutes":120}]}"""),
+            "meal without kcal" to mapOf("nutrition" to """{"meals":[{"id":"m","date":"@T10:00:00Z","name":"x"}]}"""),
+        )
+        fun team(day: String) = snapshot(*records.map { (name, docs) -> Doc(name, docs.mapValues { it.value.replace("@", day) }) }.toTypedArray())
+        assertTrue(StaffViews.todayOverview(team("2026-10-14"), TODAY, TZ).attention.isEmpty())
+        val silent = StaffViews.todayOverview(team("2026-10-10"), TODAY, TZ).attention
+        assertEquals(records.keys, silent.map { it.playerId }.toSet())
+        assertTrue(silent.all { it.text == "Нет данных 5 дн." })
+    }
+
+    @Test
     fun attentionOneReasonPerCauseCombined() {
         // 4h30 of sleep and nothing else: both a low reading and a short night.
         val team = snapshot(Doc("a", mapOf("sleep" to sleepDoc(night(TODAY, 270)))))
@@ -391,10 +408,21 @@ class StaffViewsTest {
     fun cardLoadIsTheRatioOfTheLastTwentyEightDays() {
         val card = assertNotNull(StaffViews.playerCard(snapshot(Doc("nova", novaDocs())), "nova", TODAY, TZ, 7))
         val load = assertNotNull(card.load)
-        assertEquals(860.0, load.acute) // 60 x 7 + 30 x 8 (estimated for HIIT) + 40 x 5 (rating from the document)
-        assertEquals(215.0, load.chronicWeekly)
+        assertEquals(620.0, load.acute) // 60 x 7 + 40 x 5 (rating from the document); the unrated HIIT workout adds nothing
+        assertEquals(155.0, load.chronicWeekly)
         assertEquals(4.0, load.ratio)
         assertEquals(LoadStatus.HIGH, load.status)
+    }
+
+    @Test
+    fun workoutsNobodyRatedGiveNoLoadAndNoRisk() {
+        // A pulse and a type are there, but staff never estimate an effort (it needs the player's age).
+        val docs = mapOf("fitness-state" to """{"workouts":[
+            {"id":"w1","kind":"hiit","date":"2026-10-14T10:00:00Z","minutes":60,"averageHeartRate":185},
+            {"id":"w2","kind":"strength","date":"2026-10-15T10:00:00Z","minutes":90}]}""")
+        assertNull(assertNotNull(StaffViews.playerCard(snapshot(Doc("a", docs)), "a", TODAY, TZ, 7)).load)
+        val week = WeekRange(Instant.parse("2026-10-11T21:00:00Z"), Instant.parse("2026-10-18T21:00:00Z"))
+        assertTrue(StaffViews.weeklyTeam(snapshot(Doc("a", docs)), week, TZ).rows.single().risks.isEmpty())
     }
 
     @Test

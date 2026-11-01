@@ -37,6 +37,9 @@ object TrainingLoadMath {
         }
     }
 
+    /** Load of one workout by session-RPE: perceived effort × minutes. Null when there is no rating (staff never estimate one). */
+    fun ratedLoad(effort: Int?, minutes: Double): Double? = effort?.let { it * minutes }
+
     data class LoadEntry(val date: Instant, val load: Double)
 
     /** Daily load for the last `days` days, oldest first (days without workouts are 0). */

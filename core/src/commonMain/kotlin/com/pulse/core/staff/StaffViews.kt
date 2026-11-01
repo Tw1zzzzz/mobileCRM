@@ -10,26 +10,17 @@ import com.pulse.core.feature.StaffSeries
 import com.pulse.core.feature.StaffStatistics
 import com.pulse.core.model.BalanceCategory
 import com.pulse.core.model.CognitiveTestKind
-import com.pulse.core.model.DailyValue
-import com.pulse.core.model.FitnessMath
 import com.pulse.core.model.GameMatch
 import com.pulse.core.model.GameTestPhase
 import com.pulse.core.model.LoadStatus
 import com.pulse.core.model.MealSource
 import com.pulse.core.model.MindsetProfile
 import com.pulse.core.model.MindsetTrait
-import com.pulse.core.model.TrainingLoadMath
 import com.pulse.core.model.WeekRange
-import com.pulse.core.model.WorkoutKind
 import com.pulse.core.util.Formatters
 import com.pulse.core.util.PulseJson
-import kotlinx.datetime.LocalDate
-import kotlinx.datetime.TimeZone
-import kotlinx.datetime.atStartOfDayIn
-import kotlinx.datetime.daysUntil
 import kotlinx.serialization.KSerializer
 import kotlinx.serialization.SerializationException
-import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
 import kotlinx.serialization.json.JsonObject
@@ -58,9 +49,6 @@ object StaffViews {
     private const val WHEEL_DEFAULT = 5.0
     private const val WEEK_DAYS = 7
     private const val MINUTES_PER_HOUR = 60
-    private const val MAX_WORKOUT_MINUTES = 1440.0
-    private const val RPE_MIN = 1.0
-    private const val RPE_MAX = 10.0
     private val GUID = Regex("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")
 
     // ------------------------------------------------------------ shared pieces
@@ -151,9 +139,9 @@ object StaffViews {
         val overview = StaffMetrics.teamOverview(documentsOf(team), today, tz, "team")
         val readiness = overview.playerReadiness.associate { it.id to it.readiness }
         val attention = team.players.mapNotNull { p ->
-            val index = StaffMetrics.indexDocuments(team.documents[p.id].orEmpty(), tz)
-            val sleep = StaffMetrics.inputsFromIndex(index, today).sleepHours
-            val reasons = attentionReasons(readiness[p.id], sleep, daysSilent(index, today))
+            val docs = team.documents[p.id].orEmpty()
+            val sleep = StaffMetrics.dailyInputs(docs, today, tz).sleepHours
+            val reasons = attentionReasons(readiness[p.id], sleep, StaffActivity.daysSilent(docs, today, tz))
             if (reasons.isEmpty()) null else AttentionItem(p.id, p.nickname, readiness[p.id], reasons)
         }.sortedWith(compareBy<AttentionItem> { it.readiness == null }.thenBy { it.readiness ?: 0 })
         return TodayOverview(overview.teamReadiness, overview.teamReadinessStatus, team.players.size, attention, overview)
@@ -167,13 +155,6 @@ object StaffViews {
         }
         // A player who never had data is not listed: the roster already says «нет данных» for them.
         if (daysSilent != null && daysSilent >= SILENT_DAYS) add(AttentionReason(AttentionKind.NO_DATA, "Нет данных $daysSilent дн."))
-    }
-
-    /** Days from the player's latest day with sleep, mood, energy, a test or a meal up to [today]; null when there is none. */
-    private fun daysSilent(index: StaffMetrics.DayIndex, today: String): Int? {
-        val last = listOf(index.sleepMs.keys, index.mood.keys, index.energy.keys, index.cog.keys, index.kcal.keys)
-            .flatten().filter { it <= today }.maxOrNull() ?: return null
-        return LocalDate.parse(last).daysUntil(LocalDate.parse(today))
     }
 
     // ------------------------------------------------------------ the player card
@@ -288,7 +269,7 @@ object StaffViews {
             ),
             tests = testsView(docs, period, series, tz),
             sleep = sleepView(docs, period, series, tz),
-            load = loadOf(docs, today, tz),
+            load = StaffLoad.of(docs, today, tz),
             food = foodView(player, docs, period, tz),
             wheel = wheelDays(docs, today),
             archetype = archetypeOf(docs["player-survey"]),
@@ -344,50 +325,6 @@ object StaffViews {
             nights[day]?.let { SleepNight(day, it.first, it.second, h, h < SHORT_NIGHT_HOURS) }
         }
         return SleepView(r2(StaffMetrics.mean(hours)), hours.count { it < SHORT_NIGHT_HOURS }, hours.size, rows)
-    }
-
-    // -- load
-
-    private class LoggedWorkout(val id: String, val kind: WorkoutKind, val at: Instant, val minutes: Double, val heartRate: Int, val rpe: Int?)
-
-    private fun workoutsOf(fitness: JsonElement?): List<LoggedWorkout> =
-        records(fitness, "workouts").mapNotNull { w ->
-            val id = text(w["id"])?.takeIf { it.isNotBlank() } ?: return@mapNotNull null
-            LoggedWorkout(
-                id = id,
-                kind = decode(WorkoutKind.serializer(), w["kind"]) ?: return@mapNotNull null,
-                at = parseInstant(w["date"]) ?: return@mapNotNull null,
-                minutes = number(w["minutes"], 0.0, MAX_WORKOUT_MINUTES) ?: return@mapNotNull null,
-                heartRate = number(w["averageHeartRate"], 0.0, Double.MAX_VALUE)?.toInt() ?: 0,
-                rpe = number(w["rpe"], RPE_MIN, RPE_MAX)?.toInt(),
-            )
-        }
-
-    /** The ratings the player gave to Health workouts: a flat `[id, value, id, value, …]` array. */
-    private fun ratingsOf(fitness: JsonElement?): Map<String, Int> =
-        ((fitness as? JsonObject)?.get("ratings") as? JsonArray).orEmpty().chunked(2).mapNotNull { pair ->
-            val id = text(pair[0]) ?: return@mapNotNull null
-            val value = number(pair.getOrNull(1), RPE_MIN, RPE_MAX) ?: return@mapNotNull null
-            id.lowercase() to value.toInt()
-        }.toMap()
-
-    /** Effort as the app counts it: the player's rating, else an estimate from pulse or type (body data is never shared: default age). */
-    private fun effort(w: LoggedWorkout, ratings: Map<String, Int>): Int =
-        w.rpe ?: ratings[w.id.lowercase()]
-            ?: TrainingLoadMath.estimatedRPE(w.kind, w.heartRate, FitnessMath.maxHeartRate(FitnessMath.DEFAULT_AGE))
-
-    /** Acute / chronic load of the 28 days ending [endDay]; null when no workout falls in them. */
-    private fun loadOf(docs: Map<String, JsonElement>, endDay: String, tz: String): LoadView? {
-        val fitness = docs["fitness-state"]
-        val ratings = ratingsOf(fitness)
-        val perDay = HashMap<String, Double>()
-        for (w in workoutsOf(fitness)) perDay.merge(StaffMetrics.dayOf(w.at, tz), effort(w, ratings) * w.minutes, Double::plus)
-        val first = StaffMetrics.shiftDay(endDay, -(TrainingLoadMath.CHRONIC_DAYS - 1))
-        val zone = TimeZone.of(tz)
-        val days = List(TrainingLoadMath.CHRONIC_DAYS) { StaffMetrics.shiftDay(first, it) }
-        if (days.none { it in perDay }) return null
-        val ratio = TrainingLoadMath.ratio(days.map { DailyValue(LocalDate.parse(it).atStartOfDayIn(zone), perDay[it] ?: 0.0) })
-        return LoadView(ratio.acute, ratio.chronicWeekly, ratio.value, ratio.status)
     }
 
     // -- food, wheel, archetype
@@ -742,7 +679,7 @@ object StaffViews {
             previousSleepHours = sleep.previous,
             sleepDelta = sleep.delta,
             mood = r2(meanOver(series.mood, days)),
-            risks = weeklyRisks(readiness.value, sleep.value, loadOf(docs, days.last(), tz)),
+            risks = weeklyRisks(readiness.value, sleep.value, StaffLoad.of(docs, days.last(), tz)),
         )
     }
 
