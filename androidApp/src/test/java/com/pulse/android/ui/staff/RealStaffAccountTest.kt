@@ -274,6 +274,7 @@ class RealStaffAccountTest {
         val overview = StaffViews.todayOverview(team(core), StaffMetrics.dayOf(Clock.System.now(), tz), tz)
         val readiness = requireNotNull(overview.teamReadiness) { "the fixture team has a readiness" }
         rule.setMain(core)
+        waitForText("ГОТОВНОСТЬ")
         rule.onNodeWithText("ГОТОВНОСТЬ").assertExists()
         rule.onNodeWithText("$readiness").assertExists()
         rule.onNodeWithText("Игроков").onSiblings().assertAny(hasText("3"))
@@ -288,6 +289,7 @@ class RealStaffAccountTest {
         val overview = StaffViews.todayOverview(team(core), StaffMetrics.dayOf(Clock.System.now(), tz), tz)
         val item = overview.attention.first { it.nickname == "Мираж" }
         rule.setMain(core)
+        waitForText("ГОТОВНОСТЬ")
         rule.onNodeWithText("Мираж").assertExists()
         rule.onNodeWithText(item.text).assertExists()
         rule.onNodeWithText("Игроков").onSiblings().assertAny(hasText("${overview.attention.size}"))
@@ -298,6 +300,7 @@ class RealStaffAccountTest {
         val core = remoteStaffCore(server = teamServer())
         val rows = StaffViews.roster(team(core), StaffMetrics.dayOf(Clock.System.now(), tz), tz)
         rule.setMain(core, "players")
+        waitForText("Орион")
         rule.onNodeWithText("Pulse Academy · 3 в составе").assertExists()
         rows.forEach { rule.onNodeWithText(it.nickname).assertExists() }
         val first = rows.first()
@@ -320,6 +323,7 @@ class RealStaffAccountTest {
 
     @Test fun realRosterNoDemoNames() {
         rule.setMain(remoteStaffCore(server = teamServer()), "players")
+        waitForText("Орион")
         rule.onNodeWithText("Орион").assertExists()
         assertNoDemoPlayers()
         assertNoWebsitePointer()
@@ -328,6 +332,7 @@ class RealStaffAccountTest {
 
     @Test fun realRosterSearchFiltersByNickname() {
         rule.setMain(remoteStaffCore(server = teamServer()), "players")
+        waitForText("Орион")
         rule.onNode(hasSetTextAction()).performTextInput("ми")
         rule.onNodeWithText("Мираж").assertExists()
         rule.onAllNodesWithText("Орион").assertCountEquals(0)
@@ -346,6 +351,7 @@ class RealStaffAccountTest {
         val server = teamServer()
         val core = remoteStaffCore(server = server)
         rule.setMain(core)
+        waitForText("ГОТОВНОСТЬ")
         rule.onAllNodesWithText("Обновлено", substring = true).assertCountEquals(0)
         server.offline = true
         runBlocking { core.staffTeam.refresh() }
@@ -361,6 +367,7 @@ class RealStaffAccountTest {
         server.offline = true
         runBlocking { core.staffTeam.refresh() }
         rule.setMain(core, "players")
+        waitForText("Вектор")
         rule.onNodeWithText("Обновлено ${Formatters.time(team(core).fetchedAt)}").assertExists()
         rule.onNodeWithText("Вектор").assertExists()
         rule.onNodeWithText("Pulse Academy · 3 в составе").assertExists()
@@ -410,6 +417,7 @@ class RealStaffAccountTest {
 
     @Test fun realTeamScreensFitAndAreAccessible() {
         rule.setMain(remoteStaffCore(server = teamServer()), "players")
+        waitForText("Орион")
         rule.waitForIdle()
         rule.assertTextFits()
         rule.assertAccessible()
@@ -417,12 +425,14 @@ class RealStaffAccountTest {
 
     @Test fun realTeamRosterFitsAtTheLargestFont() {
         rule.setMain(remoteStaffCore(server = teamServer()), "players", fontScale = Metrics.maxFontScale)
+        waitForText("Орион")
         rule.waitForIdle()
         rule.assertTextFits()
     }
 
     @Test fun realTodayFitsAtTheLargestFontAndIsAccessible() {
         rule.setMain(remoteStaffCore(server = teamServer()), fontScale = Metrics.maxFontScale)
+        waitForText("ГОТОВНОСТЬ")
         rule.waitForIdle()
         rule.assertTextFits()
         rule.assertAccessible()

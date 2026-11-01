@@ -288,7 +288,7 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
                     }
                 }
                 Text(teamHint(form.isTeamStaff, remote, form.staffJoinsTeam),
-                    color = if (form.isTeamStaff && !remote) Palette.orange else AuthStyle.placeholder, fontSize = 13.sp)
+                    color = AuthStyle.placeholder, fontSize = 13.sp)
             }
         }
         Column(Modifier.padding(top = 6.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -326,12 +326,11 @@ private fun RegistrationCard(session: SessionStore, onLegal: (LegalDocument) -> 
     }
 }
 
-/** Under the team role: on the server a staff member creates the team; on the phone both wait for the server. */
+/** Under the team role: a staff member gets the team code after signing up (or joins with a staff code); a player gets it from staff. */
 private fun teamHint(isStaff: Boolean, remote: Boolean, joinsTeam: Boolean): String = when {
     remote && isStaff && joinsTeam -> "Код стаффа даёт тренер команды."
-    remote && isStaff -> "После регистрации вы получите код команды — отправьте его игрокам."
+    isStaff -> "После регистрации вы получите код команды — отправьте его игрокам."
     remote -> "Код команды выдаёт стафф."
-    isStaff -> "Данные игроков откроются вместе с сервером команды. Сейчас команду можно посмотреть в демо на экране входа."
     else -> "Код команды сохранится в профиле — привяжем тебя к команде, когда подключится сервер."
 }
 

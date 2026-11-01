@@ -102,8 +102,9 @@ fun rememberTeamRefresh(): TeamRefresh? {
     var pulled by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     if (core.showsTeamDemo || !core.isRemote) return null
-    val loading = core.staffTeam.state.value == StaffTeamState.Loading
-    return TeamRefresh(pulled || loading) {
+    // While the first download shows its own progress card there is no second spinner on top of it.
+    val firstDownload = core.staffTeam.state.value == StaffTeamState.Loading
+    return TeamRefresh(pulled && !firstDownload) {
         if (!pulled) {
             pulled = true
             scope.launch { try { StaffTeamRefresh.start(core).join() } finally { pulled = false } }

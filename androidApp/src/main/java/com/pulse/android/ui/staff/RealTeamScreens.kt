@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -41,7 +42,10 @@ import com.pulse.android.ui.theme.sfIcon
 import com.pulse.android.ui.today.WeeklySummaryCard
 import com.pulse.core.feature.StaffMetrics
 import com.pulse.core.staff.StaffViews
+import com.pulse.core.staff.TeamSnapshot
 import com.pulse.core.util.Formatters
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import kotlinx.datetime.TimeZone
 import kotlin.math.roundToInt
 import kotlin.time.Clock
@@ -55,6 +59,19 @@ private class TeamDay(val today: String, val tz: String)
 private fun teamDay(): TeamDay {
     val tz = TimeZone.currentSystemDefault().id
     return TeamDay(StaffMetrics.dayOf(Clock.System.now(), tz), tz)
+}
+
+/**
+ * [compute] of the team for today in the phone's zone, worked out off the main thread (it reads every player's documents):
+ * null until the first result; a newer snapshot or day keeps showing the previous result until its own is ready.
+ */
+@Composable
+private fun <T : Any> teamComputation(team: TeamSnapshot, compute: (TeamSnapshot, String, String) -> T): T? {
+    val day = teamDay()
+    val result by produceState<T?>(null, team, day.today) {
+        value = withContext(Dispatchers.Default) { compute(team, day.today, day.tz) }
+    }
+    return result
 }
 
 private fun readinessTint(status: StaffMetrics.ReadinessStatus?): Color = when (status) {
@@ -79,10 +96,10 @@ private fun playerRoute(id: String): Route? = runCatching { Uuid.parse(id) }.get
 fun RealTeamOverview() {
     val view = observeCore().realTeamView()
     val players = view.withPlayers
-    val day = teamDay()
-    val overview = remember(players?.team, day.today) { players?.let { StaffViews.todayOverview(it.team, day.today, day.tz) } }
+    val overview = players?.let { teamComputation(it.team, StaffViews::todayOverview) }
     Column(verticalArrangement = Arrangement.spacedBy(Metrics.sectionSpacing)) {
-        if (players == null || overview == null) TeamStateCard(view)
+        if (players == null) TeamStateCard(view)
+        else if (overview == null) TeamLoadingState()
         else {
             StaleNote(players)
             RealTodayRing(overview)
@@ -144,8 +161,11 @@ fun RealRosterContent() {
         TeamStateCard(view)
         return
     }
-    val day = teamDay()
-    val rows = remember(loaded.team, day.today) { StaffViews.roster(loaded.team, day.today, day.tz) }
+    val rows = teamComputation(loaded.team, StaffViews::roster)
+    if (rows == null) {
+        TeamLoadingState()
+        return
+    }
     var query by remember { mutableStateOf("") }
     val trimmed = query.trim().lowercase()
     val shown = if (trimmed.isEmpty()) rows else rows.filter { trimmed in it.nickname.lowercase() }

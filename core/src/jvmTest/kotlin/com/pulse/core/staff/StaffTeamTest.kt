@@ -18,11 +18,13 @@ import io.ktor.http.HttpStatusCode
 import io.ktor.http.content.TextContent
 import io.ktor.http.headersOf
 import kotlinx.coroutines.CompletableDeferred
+import kotlinx.coroutines.CoroutineName
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.CoroutineStart
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.async
+import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.awaitAll
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.joinAll
@@ -183,6 +185,8 @@ private fun staffTeamOf(vararg members: StaffServer.Member) = StaffServer.Team("
 private class AwkwardFiles(private val disk: FileSystem) : FileSystem by disk {
     @Volatile var deletes = true
     @Volatile var holdCopyWrite: CompletableDeferred<Unit>? = null
+    /** The thread that last wrote the team copy. */
+    @Volatile var copyWriter: String? = null
     val copyWriteStarted = CompletableDeferred<Unit>()
 
     override fun delete(path: String) {
@@ -191,6 +195,7 @@ private class AwkwardFiles(private val disk: FileSystem) : FileSystem by disk {
 
     override fun writeText(path: String, text: String) {
         val hold = holdCopyWrite
+        if (path.endsWith(StaffTeam.FILE)) copyWriter = Thread.currentThread().name
         if (hold != null && path.endsWith(StaffTeam.FILE)) {
             copyWriteStarted.complete(Unit)
             runBlocking { hold.await() }
@@ -265,6 +270,24 @@ class StaffTeamTest {
         val documents = team.players()
         assertEquals(listOf(P1, P2), documents.map { it.id })
         assertEquals(mapOf("sleep" to sleep, "wellbeing" to mood), documents[0].docs)
+    }
+
+    @Test fun refreshWorksOnItsOwnDispatcherWhateverTheCallersThread() {
+        seedTeam()
+        val files = AwkwardFiles(disk)
+        val worker = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "staff-worker") }
+        try {
+            val team = StaffTeam(
+                ApiClient(HttpClient(server.engine()), url, TokenStore(MemorySecretStore()).also { it.tokens = AuthTokens("token-$COACH", "refresh-$COACH") }),
+                DataScope(files).also { it.current = "COACH" }, worker.asCoroutineDispatcher()
+            )
+            team.activate(true)
+            runBlocking(CoroutineName("caller")) { team.refresh() }
+            assertEquals("staff-worker", files.copyWriter?.substringBefore(" @"), "the copy is encoded and written off the caller's thread")
+            assertIs<StaffTeamState.Ready>(team.state.value)
+        } finally {
+            worker.shutdownNow()
+        }
     }
 
     @Test fun documentsOutsideTheRequestAreDropped() = runTest {

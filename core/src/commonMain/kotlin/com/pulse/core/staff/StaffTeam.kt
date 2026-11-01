@@ -10,6 +10,8 @@ import com.pulse.core.util.PulseJson
 import io.ktor.http.HttpMethod
 import io.ktor.http.encodeURLPathPart
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
 import kotlinx.coroutines.coroutineScope
@@ -23,6 +25,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.Semaphore
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.sync.withPermit
+import kotlinx.coroutines.withContext
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.JsonElement
 import kotlinx.serialization.json.JsonNull
@@ -71,6 +74,8 @@ sealed interface StaffTeamState {
 class StaffTeam(
     private val client: ApiClient,
     private val scope: DataScope,
+    /** Where a refresh works (decoding every player's documents, writing the copy): never the caller's, usually the UI's, thread. */
+    private val dispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val now: () -> Instant = { Clock.System.now() }
 ) {
     private val _state = MutableStateFlow<StaffTeamState>(StaffTeamState.Idle)
@@ -123,8 +128,11 @@ class StaffTeam(
      * Downloads the roster, then each player's documents (at most [PARALLEL_DOWNLOADS] at a time), and replaces the
      * copy. Never throws for a network or server error: with a copy on screen it is kept and marked stale, otherwise
      * the state becomes [StaffTeamState.Failed]. A refresh already running for the same account is awaited, not repeated.
+     * The work runs on [dispatcher], whichever context the caller is in.
      */
-    suspend fun refresh() {
+    suspend fun refresh() = withContext(dispatcher) { refreshOnWorker() }
+
+    private suspend fun refreshOnWorker() {
         val (ticketEpoch, ticketDone) = locked(lock) { epoch to completedRefreshes }
         refreshLock.withLock {
             // Null: switched off, or the refresh that was running while this call waited already did the work.
