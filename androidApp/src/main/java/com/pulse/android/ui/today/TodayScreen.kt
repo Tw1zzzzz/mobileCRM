@@ -19,8 +19,10 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -78,6 +80,11 @@ import kotlin.time.Clock
 fun TodayScreen(onNotifications: () -> Unit) {
     val core = observeCore()
     val router = LocalRouter.current
+    val game = core.game
+    val gameState = game.state.value
+    LaunchedEffect(game.isConnected, gameState.nickname) {
+        if (game.isConnected && gameState.faceit == null) game.refresh()
+    }
     val now = Clock.System.now()
     val user = core.session.user.value
     val night = core.sleep.displayNight(now)
@@ -86,7 +93,11 @@ fun TodayScreen(onNotifications: () -> Unit) {
         if (!core.survey.isComplete) SurveyReminderCard()
         formIndex()?.let { FormDayCard(it) { router.open(Route.Statistics, AppTab.TODAY) } }
         PulseSection("Игра") {
-            if (core.game.hasData) GameSummaryCard { router.open(Route.GameStats, AppTab.TODAY) } else FaceitPromptCard()
+            when {
+                game.hasData -> GameSummaryCard { router.open(Route.GameStats, AppTab.TODAY) }
+                game.isConnected -> FaceitLoadingCard()
+                else -> FaceitPromptCard()
+            }
         }
         PulseSection("Восстановление") {
             val fitness = core.fitness
@@ -114,6 +125,26 @@ fun TodayScreen(onNotifications: () -> Unit) {
         }
         PulseSection("Неделя") { WeeklySummaryCard() }
         PulseSection("План на сегодня") { PlanCard() }
+    }
+}
+
+@Composable
+private fun FaceitLoadingCard() {
+    val core = observeCore()
+    val state = core.game.state.value
+    Row(
+        Modifier.fillMaxWidth().pulseCard(padding = 16.dp),
+        horizontalArrangement = Arrangement.spacedBy(14.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        CircularProgressIndicator(color = Palette.cyan, modifier = Modifier.size(22.dp), strokeWidth = 2.dp)
+        Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+            Text("Faceit подключён", color = Palette.textPrimary, fontSize = 17.sp, fontWeight = FontWeight.SemiBold)
+            Text(
+                state.error ?: "Загружаем данные${state.nickname?.let { " · $it" } ?: ""}…",
+                color = Palette.textSecondary, fontSize = 14.sp
+            )
+        }
     }
 }
 

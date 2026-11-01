@@ -21,6 +21,7 @@ import {
 import { deleteImageCore, saveNoteCore, uploadImageCore } from "@/lib/staff/notes-actions";
 import { removeMemberCore, rotateCodeCore, teamHref } from "@/lib/staff/team-management";
 import { deleteCalendarEvent, saveCalendarEvent } from "@/lib/staff/calendar";
+import { deleteStaffLineup, saveStaffLineup, toggleStaffLineupFavorite } from "@/lib/staff/lineups";
 import { revalidatePath } from "next/cache";
 
 const SignInFields = z.object({ email: z.string().trim().min(1), password: z.string().min(1) });
@@ -141,6 +142,47 @@ export async function deleteCalendarEventAction(form: FormData): Promise<void> {
   const deleted = await deleteCalendarEvent(defaultDeps(), ctx, id);
   revalidatePath("/staff/calendar");
   redirect(deleted ? "/staff/calendar" : "/staff/calendar?error=not-found");
+}
+
+// ---- Team lineups and scripts ----
+function lineupReturn(form: FormData, entry?: string, notice?: string, error?: string): string {
+  const query = new URLSearchParams();
+  for (const key of ["q", "map", "type", "side"] as const) {
+    const value = field(form, key)?.trim();
+    if (value && value !== "all") query.set(key, value.slice(0, 100));
+  }
+  if (field(form, "fav") === "1") query.set("fav", "1");
+  if (entry) query.set("entry", entry);
+  if (notice) query.set("notice", notice);
+  if (error) query.set("error", error);
+  const suffix = query.toString();
+  return `/staff/lineups${suffix ? `?${suffix}` : ""}`;
+}
+
+export async function saveStaffLineupAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const result = await saveStaffLineup(defaultDeps(), ctx, form);
+  if (!result) redirect(lineupReturn(form, field(form, "id") || undefined, undefined, "invalid"));
+  revalidatePath("/staff/lineups");
+  redirect(lineupReturn(form, result.id, result.created ? "created" : "saved"));
+}
+
+export async function deleteStaffLineupAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const id = field(form, "id");
+  if (!id || !z.string().uuid().safeParse(id).success) redirect(lineupReturn(form, undefined, undefined, "not-found"));
+  const deleted = await deleteStaffLineup(defaultDeps(), ctx, id);
+  revalidatePath("/staff/lineups");
+  redirect(lineupReturn(form, undefined, deleted ? "deleted" : undefined, deleted ? undefined : "not-found"));
+}
+
+export async function toggleStaffLineupFavoriteAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const id = field(form, "id");
+  if (!id || !z.string().uuid().safeParse(id).success) redirect(lineupReturn(form, undefined, undefined, "not-found"));
+  const found = await toggleStaffLineupFavorite(defaultDeps(), ctx, id);
+  revalidatePath("/staff/lineups");
+  redirect(lineupReturn(form, id, undefined, found ? undefined : "not-found"));
 }
 
 // ---- «Игроки → карточка → Профиль»: notes and images ----

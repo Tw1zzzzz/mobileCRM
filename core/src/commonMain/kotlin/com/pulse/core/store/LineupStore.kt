@@ -12,6 +12,7 @@ import com.pulse.core.model.User
 import com.pulse.core.model.UserRole
 import com.pulse.core.storage.JsonFileStorage
 import com.pulse.core.util.addingDays
+import kotlinx.serialization.Serializable
 import kotlin.time.Clock
 import kotlin.time.Instant
 import kotlin.uuid.Uuid
@@ -19,17 +20,31 @@ import kotlin.uuid.Uuid
 /** «База знаний» / «Дневник CS2»: lineups, scripts and notes («lineups.json»). */
 class LineupStore(
     private val storage: JsonFileStorage<List<Lineup>>?,
-    seed: List<Lineup> = demo()
+    seed: List<Lineup> = demo(),
+    private val teamStorage: JsonFileStorage<List<Lineup>>? = null,
+    private val pendingStorage: JsonFileStorage<PendingTeamLineupChanges>? = null
 ) : PulseStore<List<Lineup>>(seed.sortedByDescending { it.createdAt }) {
 
+    private var localEntries: List<Lineup> = seed.sortedByDescending { it.createdAt }
+    private var teamEntries: List<Lineup> = emptyList()
+    private var teamSyncEnabled = false
+    var onTeamChange: (() -> Unit)? = null
+
     init {
-        storage?.load()?.let { current = addingDemoVariations(it).sortedByDescending { l -> l.createdAt } }
+        localEntries = storage?.load()?.let(::addingDemoVariations)?.sortedByDescending { it.createdAt } ?: localEntries
+        teamEntries = teamStorage?.load().orEmpty().sortedByDescending { it.createdAt }
+        publish()
     }
 
     val lineups get() = current
 
-    fun reload(isDemo: Boolean) {
-        current = (storage?.load()?.let(::addingDemoVariations) ?: if (isDemo) demo() else emptyList()).sortedByDescending { it.createdAt }
+    fun reload(isDemo: Boolean, isTeamMember: Boolean = false) {
+        teamSyncEnabled = !isDemo && isTeamMember
+        localEntries = (storage?.load()?.let(::addingDemoVariations) ?: if (isDemo) demo() else emptyList()).sortedByDescending { it.createdAt }
+        teamEntries = if (teamSyncEnabled) teamStorage?.load().orEmpty().sortedByDescending { it.createdAt } else emptyList()
+        if (!teamSyncEnabled) pendingStorage?.clear()
+        else localEntries.filter { it.visibility == LineupVisibility.TEAM && it.type != LineupType.NOTE }.forEach(::queueUpsert)
+        publish()
     }
 
     fun filtered(map: CSMap?, type: LineupType?): List<Lineup> = current.filter { (map == null || it.map == map) && (type == null || it.type == type) }
@@ -56,22 +71,90 @@ class LineupStore(
     fun lineup(id: Uuid): Lineup? = current.firstOrNull { it.id == id }
 
     fun upsert(lineup: Lineup) {
-        current = (current.filter { it.id != lineup.id } + lineup).sortedByDescending { it.createdAt }
-        storage?.save(current)
+        if (teamSyncEnabled && (teamEntries.any { it.id == lineup.id } || (lineup.visibility == LineupVisibility.TEAM && lineup.type != LineupType.NOTE))) {
+            val shared = lineup.copy(visibility = LineupVisibility.TEAM)
+            teamEntries = (teamEntries.filterNot { it.id == shared.id } + shared).sortedByDescending { it.createdAt }
+            teamStorage?.save(teamEntries)
+            queueUpsert(shared)
+            publish()
+            onTeamChange?.invoke()
+        } else {
+            localEntries = (localEntries.filterNot { it.id == lineup.id } + lineup).sortedByDescending { it.createdAt }
+            storage?.save(localEntries)
+            publish()
+        }
     }
 
     fun delete(id: Uuid) {
-        current = current.filter { it.id != id }
-        storage?.save(current)
+        if (teamSyncEnabled && teamEntries.any { it.id == id }) {
+            teamEntries = teamEntries.filterNot { it.id == id }
+            teamStorage?.save(teamEntries)
+            localEntries = localEntries.filterNot { it.id == id }
+            storage?.save(localEntries)
+            queueDelete(id.toString())
+            publish()
+            onTeamChange?.invoke()
+        } else {
+            localEntries = localEntries.filterNot { it.id == id }
+            storage?.save(localEntries)
+            publish()
+        }
     }
 
     fun resetToDemo() {
-        current = demo()
-        storage?.save(current)
+        localEntries = demo()
+        storage?.save(localEntries)
+        publish()
+    }
+
+    /** Receives canonical team entries while retaining changes queued offline on this device. */
+    fun applyServerTeamLineups(entries: List<Lineup>) {
+        if (!teamSyncEnabled) return
+        val pending = pendingTeamChanges()
+        val removed = pending.filterValues { it == null }.keys.mapNotNull { runCatching { Uuid.parse(it) }.getOrNull() }.toSet()
+        val remoteIds = entries.map { it.id }.toSet()
+        val cleanedLocal = localEntries.filterNot { it.id in remoteIds || it.id in removed }
+        if (cleanedLocal != localEntries) {
+            localEntries = cleanedLocal
+            storage?.save(localEntries)
+        }
+        val combined = (entries.filter { it.visibility == LineupVisibility.TEAM } + pending.values.filterNotNull()).associateBy { it.id }
+        teamEntries = combined.values.filterNot { it.id in removed }.sortedByDescending { it.createdAt }
+        teamStorage?.save(teamEntries)
+        publish()
+    }
+
+    fun pendingTeamChanges(): Map<String, Lineup?> = pendingStorage?.load()?.let { it.upserts + it.deletes.associateWith { null } }.orEmpty()
+
+    fun acknowledgeTeamChange(id: String, sent: Lineup?) {
+        val pending = pendingStorage?.load() ?: return
+        val next = if (sent == null && id in pending.deletes) pending.copy(deletes = pending.deletes - id)
+            else if (sent != null && pending.upserts[id] == sent) pending.copy(upserts = pending.upserts - id)
+            else pending
+        if (next != pending) pendingStorage.save(next)
+    }
+
+    private fun queueUpsert(lineup: Lineup) {
+        val storage = pendingStorage ?: return
+        val pending = storage.load() ?: PendingTeamLineupChanges()
+        storage.save(pending.copy(upserts = pending.upserts + (lineup.id.toString() to lineup), deletes = pending.deletes - lineup.id.toString()))
+    }
+
+    private fun queueDelete(id: String) {
+        val storage = pendingStorage ?: return
+        val pending = storage.load() ?: PendingTeamLineupChanges()
+        storage.save(pending.copy(upserts = pending.upserts - id, deletes = pending.deletes + id))
+    }
+
+    private fun publish() {
+        val teamIds = teamEntries.map { it.id }.toSet()
+        current = (localEntries.filterNot { it.id in teamIds } + teamEntries).distinctBy { it.id }.sortedByDescending { it.createdAt }
     }
 
     companion object {
         const val FILE = "lineups.json"
+        const val TEAM_FILE = "team-lineups.json"
+        const val PENDING_TEAM_FILE = "team-lineups-pending.json"
 
         /** Privacy: staff see team entries only; team players see team + their own; solo players have a personal diary. */
         fun visible(items: List<Lineup>, user: User?): List<Lineup> {
@@ -140,3 +223,9 @@ class LineupStore(
         )
     }
 }
+
+@Serializable
+data class PendingTeamLineupChanges(
+    val upserts: Map<String, Lineup> = emptyMap(),
+    val deletes: Set<String> = emptySet()
+)

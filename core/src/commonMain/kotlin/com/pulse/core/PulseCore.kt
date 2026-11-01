@@ -40,6 +40,7 @@ import com.pulse.core.store.GameGoalsStore
 import com.pulse.core.store.GameStore
 import com.pulse.core.store.HealthDataProvider
 import com.pulse.core.store.LineupStore
+import com.pulse.core.store.PendingTeamLineupChanges
 import com.pulse.core.store.MockFoodAnalyzer
 import com.pulse.core.store.NutritionStore
 import com.pulse.core.store.PlayerSurveyStore
@@ -50,6 +51,7 @@ import com.pulse.core.store.WellbeingStore
 import com.pulse.core.sync.SyncEngine
 import com.pulse.core.sync.SyncResult
 import com.pulse.core.sync.TeamCalendarSync
+import com.pulse.core.sync.TeamLineupSync
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -136,7 +138,12 @@ class PulseCore(
     private val teamCalendarSync = TeamCalendarSync(api, calendar)
     val fitness = FitnessStore(file(FitnessStore.FILE, FitnessStore.Saved.serializer()), health)
     val screenTime = ScreenTimeStore(file(ScreenTimeStore.FILE, ScreenTimeStore.Saved.serializer()))
-    val lineups = LineupStore(file(LineupStore.FILE, ListSerializer(Lineup.serializer())))
+    val lineups = LineupStore(
+        file(LineupStore.FILE, ListSerializer(Lineup.serializer())),
+        teamStorage = file(LineupStore.TEAM_FILE, ListSerializer(Lineup.serializer())),
+        pendingStorage = file(LineupStore.PENDING_TEAM_FILE, PendingTeamLineupChanges.serializer())
+    )
+    private val teamLineupSync = TeamLineupSync(api, lineups)
     val gameGoals = GameGoalsStore(file(GameGoalsStore.FILE, GameGoals.serializer()))
     val game = GameStore(
         file(GameStore.FILE, GameStore.Saved.serializer()), secrets, faceitKey, serverProxyAvailable = isRemote
@@ -152,6 +159,12 @@ class PulseCore(
 
     init {
         teamCalendarSync.onCalendarChanged = { onCalendarChanged?.invoke() }
+        teamLineupSync.log = { message -> log(message) }
+        lineups.onTeamChange = {
+            if (isSyncable && session.user.value?.role?.let { it.isStaff || it == com.pulse.core.model.UserRole.TEAM_PLAYER } == true) {
+                background.launch { step { teamLineupSync.sync() } }
+            }
+        }
     }
 
     private val _syncStatus = MutableStateFlow<SyncStatus>(SyncStatus.Idle)
@@ -246,7 +259,7 @@ class PulseCore(
             )
             FitnessStore.FILE -> fitness.reload(isDemo)
             ScreenTimeStore.FILE -> screenTime.reload(isDemo)
-            LineupStore.FILE -> lineups.reload(isDemo)
+            LineupStore.FILE -> lineups.reload(isDemo, isTeamMember = isRemote && user?.role?.let { it.isStaff || it == com.pulse.core.model.UserRole.TEAM_PLAYER } == true)
             GameGoalsStore.FILE -> gameGoals.reload(isDemo)
             GameStore.FILE -> game.reload(isDemo)
             PlayerSurveyStore.FILE -> survey.reload(user)
@@ -291,7 +304,10 @@ class PulseCore(
             val teamCalendar = if (user?.role?.isStaff == true || user?.role == com.pulse.core.model.UserRole.TEAM_PLAYER) {
                 step { teamCalendarSync.sync() }
             } else NOTHING
-            val downloaded = mergeResults(pulled, teamCalendar)
+            val teamLineups = if (user?.role?.isStaff == true || user?.role == com.pulse.core.model.UserRole.TEAM_PLAYER) {
+                step { teamLineupSync.sync() }
+            } else NOTHING
+            val downloaded = mergeResults(pulled, mergeResults(teamCalendar, teamLineups))
             afterPull(downloaded)
             val pushed = step { sync.pushPending(folder) }
             val result = mergeResults(downloaded, pushed)
@@ -371,7 +387,10 @@ class PulseCore(
             val sharedCalendar = if (user?.role?.isStaff == true || user?.role == com.pulse.core.model.UserRole.TEAM_PLAYER) {
                 step { teamCalendarSync.sync() }
             } else NOTHING
-            mergeResults(sharedCalendar, step { sync.pushPending(folder) })
+            val sharedLineups = if (user?.role?.isStaff == true || user?.role == com.pulse.core.model.UserRole.TEAM_PLAYER) {
+                step { teamLineupSync.sync() }
+            } else NOTHING
+            mergeResults(mergeResults(sharedCalendar, sharedLineups), step { sync.pushPending(folder) })
         }
     }
 

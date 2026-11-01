@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item android:drawable="@color/pulse_background" />
-    <item android:width="184dp" android:height="184dp" android:gravity="center">
-        <bitmap android:src="@drawable/pulse_splash_logo" android:gravity="fill" android:filter="true" />
+    <item android:width="248dp" android:height="124dp" android:gravity="center">
+        <bitmap android:src="@drawable/pulse_splash_wordmark" android:gravity="fill" android:filter="true" />
     </item>
 </layer-list>
