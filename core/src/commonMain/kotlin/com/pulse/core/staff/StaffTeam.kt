@@ -11,6 +11,9 @@ import io.ktor.http.HttpMethod
 import io.ktor.http.encodeURLPathPart
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.async
@@ -63,6 +66,11 @@ sealed interface StaffTeamState {
     data class Ready(val team: TeamSnapshot, val stale: Boolean) : StaffTeamState
     /** The download failed and there is no copy. */
     data object Failed : StaffTeamState
+    /**
+     * The server no longer lets this account see a team (removed from it, or the session was refused): no copy stays on
+     * the phone. The repository stays enabled, so a [StaffTeam.refresh] works again once the owner invites the account back.
+     */
+    data object NoAccess : StaffTeamState
 }
 
 /**
@@ -95,11 +103,23 @@ class StaffTeam(
     private val refreshLock = Mutex()
     private val running = MutableStateFlow<Job?>(null)
 
+    /** Reads the saved copy at activation, off the caller's thread. */
+    private val copyReader = CoroutineScope(SupervisorJob() + dispatcher)
+    /** The read of the copy that the latest [activate] started; null when it started none. Guarded by [lock]. */
+    private var copyLoad: Job? = null
+
+    /** Thumbnails of meal photos for the account's life, least recently used first. Guarded by [lock]. */
+    private val photos = object : LinkedHashMap<String, ByteArray>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<String, ByteArray>) = size > PHOTO_CACHE_SIZE
+    }
+    private val photoGate = Semaphore(PARALLEL_PHOTOS)
+
     /**
      * The active account changed (sign-in, sign-out, switch): shows that account's copy from the phone, if it has one,
      * and stops a refresh that belongs to the previous account. [enabled] is true for a real staff account only; for
-     * any other account a leftover copy in its folder is deleted. The lock is held only to switch state: the copy is
-     * read and deleted outside it, so a refresh writing a large file never makes this wait.
+     * any other account a leftover copy in its folder is deleted. The state switches before this returns, but the saved
+     * copy is read and decoded on the worker [dispatcher] and published a moment later (see [awaitCopyLoaded]); a
+     * [refresh] waits for it. The lock is held only to switch state, so a refresh writing a large file never makes this wait.
      */
     fun activate(enabled: Boolean) {
         running.value?.cancel()
@@ -110,6 +130,9 @@ class StaffTeam(
             completedRefreshes = 0
             this.enabled = on
             folder = accountFolder
+            photos.clear()
+            copyLoad?.cancel()
+            copyLoad = null
             _state.value = StaffTeamState.Idle
             epoch
         }
@@ -117,11 +140,19 @@ class StaffTeam(
             removeCopy(accountFolder)
             return
         }
-        val copy = loadCopy(accountFolder) ?: return
-        locked(lock) {
-            // A refresh started meanwhile (Loading) or another switch has the last word.
-            if (epoch == mine && _state.value == StaffTeamState.Idle) _state.value = StaffTeamState.Ready(copy, stale = true)
+        val load = copyReader.launch {
+            val copy = loadCopy(accountFolder) ?: return@launch
+            locked(lock) {
+                // A refresh started meanwhile (Loading) or another switch has the last word.
+                if (epoch == mine && _state.value == StaffTeamState.Idle) _state.value = StaffTeamState.Ready(copy, stale = true)
+            }
         }
+        locked(lock) { if (epoch == mine) copyLoad = load }
+    }
+
+    /** Returns once the copy that the latest [activate] reads from the phone is on screen (or there was none to show). */
+    suspend fun awaitCopyLoaded() {
+        locked(lock) { copyLoad }?.join()
     }
 
     /**
@@ -133,6 +164,8 @@ class StaffTeam(
     suspend fun refresh() = withContext(dispatcher) { refreshOnWorker() }
 
     private suspend fun refreshOnWorker() {
+        // The saved copy first: without it a failed download would show nothing while a copy exists.
+        awaitCopyLoaded()
         val (ticketEpoch, ticketDone) = locked(lock) { epoch to completedRefreshes }
         refreshLock.withLock {
             // Null: switched off, or the refresh that was running while this call waited already did the work.
@@ -158,16 +191,24 @@ class StaffTeam(
         }
     }
 
-    /** The meal's photo (`GET /staff/players/{id}/photos/{meal_id}`), or null: no photo, no network, not allowed. */
+    /**
+     * The meal's photo (`GET /staff/players/{id}/photos/{meal_id}`), or null: no photo, no network, not allowed. The last
+     * [PHOTO_CACHE_SIZE] photos are kept for the account (cleared by [activate]), at most [PARALLEL_PHOTOS] are downloaded
+     * at a time. A missing photo is not remembered: the player may take it later.
+     */
     suspend fun photo(playerId: String, mealId: String): ByteArray? {
-        val before = locked(lock) { if (enabled) epoch else null } ?: return null
+        val key = "$playerId/$mealId"
+        val (before, cached) = locked(lock) { if (enabled) epoch to photos[key] else null } ?: return null
+        if (cached != null) return cached
         val bytes = try {
-            client.getBytes("staff/players/${playerId.encodeURLPathPart()}/photos/${mealId.encodeURLPathPart()}")
+            photoGate.withPermit {
+                client.getBytes("staff/players/${playerId.encodeURLPathPart()}/photos/${mealId.encodeURLPathPart()}")
+            }
         } catch (error: ApiException) {
             if (error.status != NOT_FOUND) log("staff team: photo failed (${describe(error)})")
             return null
         }
-        return bytes.takeIf { locked(lock) { epoch == before } }
+        return bytes.takeIf { locked(lock) { (epoch == before).also { same -> if (same) photos[key] = bytes } } }
     }
 
     /** Every player of the current copy with their documents, for the Kotlin twins of the site's staff formulas. */
@@ -240,7 +281,7 @@ class StaffTeam(
             _state.value = when (outcome) {
                 is Outcome.Downloaded -> StaffTeamState.Ready(outcome.snapshot, stale = false)
                 Outcome.Failed -> (_state.value as? StaffTeamState.Ready)?.copy(stale = true) ?: StaffTeamState.Failed
-                Outcome.Revoked -> StaffTeamState.Idle
+                Outcome.Revoked -> StaffTeamState.NoAccess
             }
         }
     }
@@ -301,6 +342,8 @@ class StaffTeam(
         /** The collections asked for per player (`body-profile` and `lineups` are never among them). */
         val COLLECTIONS = listOf("sleep", "wellbeing", "cognitive", "nutrition", "fitness-state", "screen-time", "faceit", "player-survey")
         const val PARALLEL_DOWNLOADS = 3
+        const val PARALLEL_PHOTOS = 3
+        const val PHOTO_CACHE_SIZE = 60
         private const val NOT_FOUND = 404
         private const val FORBIDDEN = "forbidden"
 

@@ -105,6 +105,10 @@ private class StaffServer {
     @Volatile var documentsDelayMillis = 0L
     private val active = AtomicInteger()
     val maxActive = AtomicInteger()
+    /** Time each photo request takes, and how many ran at the same time at most. */
+    @Volatile var photoDelayMillis = 0L
+    private val photosActive = AtomicInteger()
+    val maxPhotosActive = AtomicInteger()
 
     fun count(request: String) = requests.count { it == request }
 
@@ -159,7 +163,16 @@ private class StaffServer {
         val parts = path.removePrefix("staff/players/").split('/')
         val player = parts[0]
         if (team.players.none { it.id == player }) return Answer.Json(404, fail("not_found"))
-        if (parts[1] == "photos") return photos["$player/${parts[2]}"]?.let(Answer::Bytes) ?: Answer.Json(404, fail("not_found"))
+        if (parts[1] == "photos") {
+            val running = photosActive.incrementAndGet()
+            maxPhotosActive.updateAndGet { maxOf(it, running) }
+            try {
+                if (photoDelayMillis > 0) delay(photoDelayMillis)
+            } finally {
+                photosActive.decrementAndGet()
+            }
+            return photos["$player/${parts[2]}"]?.let(Answer::Bytes) ?: Answer.Json(404, fail("not_found"))
+        }
         requests += "documents $player"
         collectionQueries += collections.orEmpty()
         val now = active.incrementAndGet()
@@ -188,6 +201,18 @@ private class AwkwardFiles(private val disk: FileSystem) : FileSystem by disk {
     /** The thread that last wrote the team copy. */
     @Volatile var copyWriter: String? = null
     val copyWriteStarted = CompletableDeferred<Unit>()
+    /** The thread that last read the team copy, and a gate that holds that read back. */
+    @Volatile var copyReader: String? = null
+    @Volatile var holdCopyRead: CompletableDeferred<Unit>? = null
+    val copyReadStarted = CompletableDeferred<Unit>()
+
+    override fun readText(path: String): String? {
+        if (!path.endsWith(StaffTeam.FILE)) return disk.readText(path)
+        copyReader = Thread.currentThread().name
+        copyReadStarted.complete(Unit)
+        holdCopyRead?.let { runBlocking { it.await() } }
+        return disk.readText(path)
+    }
 
     override fun delete(path: String) {
         if (deletes) disk.delete(path)
@@ -358,6 +383,7 @@ class StaffTeamTest {
         clock = Instant.parse("2026-11-01T12:00:00Z")
         val second = staffTeam()
         second.activate(true)
+        second.awaitCopyLoaded()
         assertEquals(StaffTeamState.Ready(downloaded, stale = true), second.state.value)
         assertEquals(listOf(P1, P2), second.players().map { it.id })
 
@@ -395,7 +421,7 @@ class StaffTeamTest {
 
         team.refresh()
 
-        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertEquals(StaffTeamState.NoAccess, team.state.value)
     }
 
     @Test fun removedStaffLosesCachedTeam() = runTest {
@@ -409,7 +435,7 @@ class StaffTeamTest {
         server.teams.remove(COACH)
         team.refresh()
 
-        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertEquals(StaffTeamState.NoAccess, team.state.value, "not a loading card forever")
         assertTrue(team.players().isEmpty())
         assertFalse(disk.exists("accounts/COACH/staff-team.json"), "nothing of the team stays on the phone")
         val restarted = staffTeam()
@@ -426,7 +452,7 @@ class StaffTeamTest {
         server.rejectTokens = true
         team.refresh()
 
-        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertEquals(StaffTeamState.NoAccess, team.state.value)
         assertFalse(disk.exists("accounts/COACH/staff-team.json"))
     }
 
@@ -470,7 +496,7 @@ class StaffTeamTest {
         server.teams.remove(COACH)
         team.refresh()
 
-        assertEquals(StaffTeamState.Idle, team.state.value)
+        assertEquals(StaffTeamState.NoAccess, team.state.value)
         assertFalse(assertNotNull(disk.readText("accounts/COACH/staff-team.json")).contains(P1), "the team's data is gone from the file")
         assertTrue(messages.any { it.contains("not deleted") }, "${messages.toList()}")
         val restarted = staffTeam(dataScope = awkward)
@@ -516,6 +542,7 @@ class StaffTeamTest {
         // …and from the disk copy: a restart does not bring Raven back.
         val restarted = staffTeam()
         restarted.activate(true)
+        restarted.awaitCopyLoaded()
         assertEquals(listOf(P1), restarted.ready().team.players.map { it.id })
         assertFalse(P2 in restarted.ready().team.documents)
     }
@@ -591,8 +618,182 @@ class StaffTeamTest {
         assertContentEquals(bytes, team.photo(P1, "meal-1"))
         assertNull(team.photo(P1, "no-such-meal"), "404: the meal has no photo")
         assertNull(team.photo("99999999-9999-4999-8999-999999999999", "meal-1"), "not in this team")
+        server.photos["$P1/meal-3"] = bytes
         server.staffOffline = true
-        assertNull(team.photo(P1, "meal-1"), "offline")
+        assertNull(team.photo(P1, "meal-3"), "offline")
+    }
+
+    @Test fun retryAfterReinviteLoadsTeam() = runTest {
+        seedTeam()
+        val team = staffTeam()
+        team.activate(true)
+        team.refresh()
+        val team0 = server.teams.remove(COACH)
+        team.refresh()
+        assertEquals(StaffTeamState.NoAccess, team.state.value)
+
+        // The owner invites the coach again: the repository is still enabled, a retry loads the team.
+        server.teams[COACH] = assertNotNull(team0)
+        team.refresh()
+
+        assertFalse(team.ready().stale)
+        assertEquals(listOf(P1, P2), team.ready().team.players.map { it.id })
+    }
+
+    @Test fun noAccessIsClearedByActivate() = runTest {
+        val team = staffTeam()
+        team.activate(true)
+        team.refresh()
+        assertEquals(StaffTeamState.NoAccess, team.state.value)
+
+        team.activate(true)
+
+        assertEquals(StaffTeamState.Idle, team.state.value)
+    }
+
+    @Test fun activateReturnsWithoutReadingTheCopyOnTheCallersThread() {
+        seedTeam()
+        runBlocking { val first = staffTeam(); first.activate(true); first.refresh() }
+        val files = AwkwardFiles(disk)
+        val worker = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "staff-worker") }
+        try {
+            val team = StaffTeam(
+                ApiClient(HttpClient(server.engine()), url, TokenStore(MemorySecretStore()).also { it.tokens = AuthTokens("token-$COACH", "refresh-$COACH") }),
+                DataScope(files).also { it.current = "COACH" }, worker.asCoroutineDispatcher()
+            )
+            val hold = CompletableDeferred<Unit>()
+            files.holdCopyRead = hold
+
+            Thread.currentThread().name = "caller"
+            team.activate(true)
+
+            // The read is held back and activate has returned: it did not read on this thread.
+            assertEquals(StaffTeamState.Idle, team.state.value)
+            runBlocking { files.copyReadStarted.await() }
+            assertEquals("staff-worker", files.copyReader?.substringBefore(" @"))
+            hold.complete(Unit)
+            runBlocking { team.awaitCopyLoaded() }
+            assertTrue(assertIs<StaffTeamState.Ready>(team.state.value).stale)
+        } finally {
+            worker.shutdownNow()
+        }
+    }
+
+    @Test fun aRefreshWaitsForTheCopyAndKeepsItWhenOffline() = runTest {
+        seedTeam()
+        val first = staffTeam()
+        first.activate(true)
+        first.refresh()
+        val downloaded = first.ready().team
+        server.staffOffline = true
+        val second = staffTeam()
+
+        second.activate(true)
+        second.refresh()
+
+        assertEquals(StaffTeamState.Ready(downloaded, stale = true), second.state.value, "the copy is not lost to a refresh racing its load")
+    }
+
+    @Test fun aCopyOfThePreviousAccountIsNeverPublishedAfterASwitch() {
+        seedTeam()
+        runBlocking { val first = staffTeam(); first.activate(true); first.refresh() }
+        val files = AwkwardFiles(disk)
+        val worker = java.util.concurrent.Executors.newSingleThreadExecutor { Thread(it, "staff-worker") }
+        try {
+            val dataScope = DataScope(files).also { it.current = "COACH" }
+            val team = StaffTeam(
+                ApiClient(HttpClient(server.engine()), url, TokenStore(MemorySecretStore()).also { it.tokens = AuthTokens("token-$COACH", "refresh-$COACH") }),
+                dataScope, worker.asCoroutineDispatcher()
+            )
+            val hold = CompletableDeferred<Unit>()
+            files.holdCopyRead = hold
+            team.activate(true)
+            runBlocking { files.copyReadStarted.await() }
+
+            dataScope.current = "OTHER"
+            team.activate(false)
+            hold.complete(Unit)
+            runBlocking { team.awaitCopyLoaded() }
+
+            assertEquals(StaffTeamState.Idle, team.state.value)
+        } finally {
+            worker.shutdownNow()
+        }
+    }
+
+    @Test fun aPhotoIsDownloadedOnceAndThenServedFromTheCache() = runTest {
+        seedTeam()
+        val bytes = byteArrayOf(1, 2, 3)
+        server.photos["$P1/meal-1"] = bytes
+        val team = staffTeam()
+        team.activate(true)
+
+        assertContentEquals(bytes, team.photo(P1, "meal-1"))
+        server.photos.clear()
+        assertContentEquals(bytes, team.photo(P1, "meal-1"), "the second ask never reaches the server")
+        assertEquals(1, server.requests.count { it.contains("photos/meal-1") })
+        assertNull(team.photo(P1, "meal-2"))
+        assertNull(team.photo(P1, "meal-2"), "a missing photo is not cached: it may be uploaded later")
+        assertEquals(2, server.requests.count { it.contains("photos/meal-2") })
+    }
+
+    @Test fun thePhotoCacheKeepsTheSixtyNewestAndDropsTheLeastRecentlyUsed() = runTest {
+        seedTeam()
+        for (i in 1..61) server.photos["$P1/m$i"] = byteArrayOf(i.toByte())
+        val team = staffTeam()
+        team.activate(true)
+        for (i in 1..60) team.photo(P1, "m$i")
+        team.photo(P1, "m1") // m1 is used again: m2 is now the least recently used
+        team.photo(P1, "m61")
+        server.requests.clear()
+
+        team.photo(P1, "m1")
+        assertTrue(server.requests.isEmpty(), "m1 stayed")
+        team.photo(P1, "m2")
+        assertEquals(listOf("GET staff/players/$P1/photos/m2"), server.requests.toList(), "m2 was evicted")
+    }
+
+    @Test fun thePhotoCacheIsClearedWhenTheAccountChanges() = runTest {
+        seedTeam()
+        server.photos["$P1/meal-1"] = byteArrayOf(1)
+        val team = staffTeam()
+        team.activate(true)
+        team.photo(P1, "meal-1")
+
+        team.activate(true)
+        team.photo(P1, "meal-1")
+
+        assertEquals(2, server.requests.count { it.contains("photos/meal-1") }, "the next account never sees the previous one's photo")
+    }
+
+    @Test fun aPhotoOfThePreviousAccountIsNotCachedForTheNext() = runTest {
+        seedTeam()
+        server.photos["$P1/meal-1"] = byteArrayOf(1)
+        server.photoDelayMillis = 200
+        val team = staffTeam()
+        team.activate(true)
+        val late = async(Dispatchers.Default) { team.photo(P1, "meal-1") }
+        while (server.requests.none { it.contains("photos/meal-1") }) delay(5)
+
+        team.activate(true)
+        assertNull(late.await(), "dropped as before")
+        server.photoDelayMillis = 0
+        team.photo(P1, "meal-1")
+
+        assertEquals(2, server.requests.count { it.contains("photos/meal-1") })
+    }
+
+    @Test fun atMostThreePhotosAreDownloadedAtOnce() = runBlocking {
+        seedTeam()
+        for (i in 1..9) server.photos["$P1/m$i"] = byteArrayOf(i.toByte())
+        server.photoDelayMillis = 30
+        val team = staffTeam()
+        team.activate(true)
+
+        val all = (1..9).map { i -> async(Dispatchers.Default) { team.photo(P1, "m$i") } }.awaitAll()
+
+        assertTrue(all.all { it != null })
+        assertTrue(server.maxPhotosActive.get() in 2..3, "peak ${server.maxPhotosActive.get()}")
     }
 
     @Test fun demoAccountNeverCallsServer() = runTest {
