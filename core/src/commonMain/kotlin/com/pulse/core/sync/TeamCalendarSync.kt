@@ -106,7 +106,11 @@ class TeamCalendarSync(
                         refuse(id, event?.title ?: titles[id.lowercase()] ?: "событие", error)
                         changed = true
                     }
-                    else -> throw error
+                    else -> {
+                        // Whatever was sent or refused so far shows the server's state even though the round ends here.
+                        if (changed) runCatching { apply(fetch()) }.onFailure { if (it !is ApiException) throw it }
+                        throw error
+                    }
                 }
             }
             calendar.acknowledgeSharedChange(id, event)

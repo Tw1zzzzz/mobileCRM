@@ -49,7 +49,11 @@ class TeamLineupSync(
                         refuse(id, lineup?.title ?: titles[id.lowercase()] ?: "запись", error)
                         changed = true
                     }
-                    else -> throw error
+                    else -> {
+                        // Whatever was sent or refused so far shows the server's state even though the round ends here.
+                        if (changed) runCatching { lineups.applyServerTeamLineups(fetch().lineups) }.onFailure { if (it !is ApiException) throw it }
+                        throw error
+                    }
                 }
             }
             lineups.acknowledgeTeamChange(id, lineup)

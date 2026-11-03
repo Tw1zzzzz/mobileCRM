@@ -186,6 +186,23 @@ class TeamCalendarSyncTest {
         assertEquals(listOf("GET calendar"), server.lines())
     }
 
+    @Test fun aRefusalThenATransientErrorStillShowsTheServersVersion() = runTest {
+        val id = Uuid.random()
+        server.calendar[id.toString()] = serverEvent(id, "Серверное")
+        sync.sync()
+        calendar.upsert(event("Моя правка", id = id))
+        val later = event("Следующее")
+        calendar.upsert(later)
+        server.refusals = mapOf(id.toString() to 403)
+        server.failures = mapOf("POST calendar" to 503)
+
+        assertFailsWith<ApiException> { sync.sync() }
+
+        assertEquals("Серверное", calendar.event(id)?.title, "the refused edit is replaced right away")
+        assertEquals(setOf(later.id.toString()), pendingIds(), "the transient change stays queued")
+        assertEquals(listOf("Не удалось сохранить «Моя правка»: нет прав"), notices.texts)
+    }
+
     @Test fun aRefusedDeleteBringsTheEventBack() = runTest {
         val id = Uuid.random()
         server.calendar[id.toString()] = serverEvent(id, "Нельзя удалять")

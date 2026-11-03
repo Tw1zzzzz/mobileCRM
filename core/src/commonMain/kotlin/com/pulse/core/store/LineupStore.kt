@@ -43,7 +43,7 @@ class LineupStore(
         localEntries = (storage?.load()?.let(::addingDemoVariations) ?: if (isDemo) demo() else emptyList()).sortedByDescending { it.createdAt }
         teamEntries = if (teamSyncEnabled) teamStorage?.load().orEmpty().sortedByDescending { it.createdAt } else emptyList()
         if (!teamSyncEnabled) pendingStorage?.clear()
-        else localEntries.filter { it.visibility == LineupVisibility.TEAM && it.type != LineupType.NOTE }.forEach(::queueUpsert)
+        else localEntries.filter { it.visibility == LineupVisibility.TEAM }.forEach(::queueUpsert)
         publish()
     }
 
@@ -71,7 +71,7 @@ class LineupStore(
     fun lineup(id: Uuid): Lineup? = current.firstOrNull { it.id == id }
 
     fun upsert(lineup: Lineup) {
-        if (teamSyncEnabled && (teamEntries.any { it.id == lineup.id } || (lineup.visibility == LineupVisibility.TEAM && lineup.type != LineupType.NOTE))) {
+        if (teamSyncEnabled && (teamEntries.any { it.id == lineup.id } || lineup.visibility == LineupVisibility.TEAM)) {
             val shared = lineup.copy(visibility = LineupVisibility.TEAM)
             teamEntries = (teamEntries.filterNot { it.id == shared.id } + shared).sortedByDescending { it.createdAt }
             teamStorage?.save(teamEntries)

@@ -135,6 +135,52 @@ class TeamLineupSyncTest {
         assertTrue(notices.texts.isEmpty())
     }
 
+    @Test fun aNewTeamVisibleNoteIsPushedAndAppearsInTheTeamFeed() = runTest {
+        val note = lineup("Разбор Train", LineupType.NOTE).copy(variations = emptyList())
+        lineups.upsert(note)
+        assertEquals(setOf(note.id.toString()), pendingIds())
+
+        sync.sync()
+
+        assertEquals("note", server.bodiesOf("POST lineups").single().getValue("type").jsonPrimitive.content)
+        assertTrue(note.id.toString() in server.lineups)
+        assertEquals(emptySet(), pendingIds())
+        assertEquals(LineupType.NOTE, lineups.lineup(note.id)?.type)
+        // it is the team's copy now: a reload keeps it and it is not queued again
+        lineups.reload(isDemo = false, isTeamMember = true)
+        assertEquals(emptySet(), pendingIds())
+        assertEquals("Разбор Train", lineups.lineup(note.id)?.title)
+    }
+
+    @Test fun aPersonalNoteStaysOnThePhone() = runTest {
+        val note = lineup("Личный разбор", LineupType.NOTE).copy(visibility = LineupVisibility.PERSONAL, variations = emptyList())
+        lineups.upsert(note)
+
+        sync.sync()
+
+        assertEquals(emptySet(), pendingIds())
+        assertEquals(listOf("GET lineups"), server.lines())
+        assertEquals("Личный разбор", lineups.lineup(note.id)?.title)
+    }
+
+    @Test fun aRefusalThenATransientErrorStillShowsTheServersVersion() = runTest {
+        val id = Uuid.random()
+        server.lineups[id.toString()] = serverLineup(id, "Серверная")
+        sync.sync()
+        val edited = lineups.lineup(id)!!.copy(title = "Моя правка")
+        val later = lineup("Следующая")
+        lineups.upsert(edited)
+        lineups.upsert(later)
+        server.refusals = mapOf(id.toString() to 403)
+        server.failures = mapOf("POST lineups" to 503)
+
+        assertFailsWith<ApiException> { sync.sync() }
+
+        assertEquals("Серверная", lineups.lineup(id)?.title, "the refused edit is replaced right away")
+        assertEquals(setOf(later.id.toString()), pendingIds(), "the transient change stays queued")
+        assertEquals(listOf("Не удалось сохранить «Моя правка»: нет прав"), notices.texts)
+    }
+
     @Test fun aRefusedChangeDoesNotBlockTheNextOneAndLeavesANotice() = runTest {
         val refused = lineup("Запрещённая")
         val fine = lineup("Хорошая")
