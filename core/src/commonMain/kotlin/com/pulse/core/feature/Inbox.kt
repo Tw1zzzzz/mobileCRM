@@ -25,10 +25,12 @@ object NotificationInbox {
         val sleptLastNight: Boolean = false,
         val isSleeping: Boolean = false,
         /** «Health Connect» on Android, «Apple Health» on iOS. */
-        val healthName: String = "Health Connect"
+        val healthName: String = "Health Connect",
+        /** Changes the server refused (team calendar, team lineups); real accounts only. */
+        val notices: List<Item> = emptyList()
     )
 
-    fun items(context: Context): List<Item> = if (context.isDemo) demoItems(context.healthName) else derived(context)
+    fun items(context: Context): List<Item> = if (context.isDemo) demoItems(context.healthName) else context.notices + derived(context)
 
     /** Reminders from the account's state; ids include the day so a dismissed card comes back tomorrow. */
     fun derived(context: Context): List<Item> {

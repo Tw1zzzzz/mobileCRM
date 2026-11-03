@@ -51,6 +51,8 @@ import com.pulse.core.store.WellbeingStore
 import com.pulse.core.sync.SyncEngine
 import com.pulse.core.sync.SyncResult
 import com.pulse.core.sync.TeamCalendarSync
+import com.pulse.core.sync.TeamSyncNotice
+import com.pulse.core.sync.TeamSyncNotices
 import com.pulse.core.sync.TeamLineupSync
 import io.ktor.client.HttpClient
 import kotlinx.coroutines.CancellationException
@@ -135,7 +137,11 @@ class PulseCore(
         JsonFileStorage("team-calendar-pending.json", PendingTeamCalendarChanges.serializer(), scope, ledger = null, notifyOnChange = false),
         JsonFileStorage("team-calendar-team.json", String.serializer(), scope, ledger = null, notifyOnChange = false)
     )
-    private val teamCalendarSync = TeamCalendarSync(api, calendar)
+    /** Team changes the server refused, shown once in the bell's inbox. */
+    val teamNotices = TeamSyncNotices(
+        JsonFileStorage("team-sync-notices.json", ListSerializer(TeamSyncNotice.serializer()), scope, ledger = null, notifyOnChange = false)
+    )
+    private val teamCalendarSync = TeamCalendarSync(api, calendar, teamNotices)
     val fitness = FitnessStore(file(FitnessStore.FILE, FitnessStore.Saved.serializer()), health)
     val screenTime = ScreenTimeStore(file(ScreenTimeStore.FILE, ScreenTimeStore.Saved.serializer()))
     val lineups = LineupStore(
@@ -143,7 +149,7 @@ class PulseCore(
         teamStorage = JsonFileStorage(LineupStore.TEAM_FILE, ListSerializer(Lineup.serializer()), scope, ledger = null, notifyOnChange = false),
         pendingStorage = JsonFileStorage(LineupStore.PENDING_TEAM_FILE, PendingTeamLineupChanges.serializer(), scope, ledger = null, notifyOnChange = false)
     )
-    private val teamLineupSync = TeamLineupSync(api, lineups)
+    private val teamLineupSync = TeamLineupSync(api, lineups, teamNotices)
     val gameGoals = GameGoalsStore(file(GameGoalsStore.FILE, GameGoals.serializer()))
     val game = GameStore(
         file(GameStore.FILE, GameStore.Saved.serializer()), secrets, faceitKey, serverProxyAvailable = isRemote
@@ -159,6 +165,7 @@ class PulseCore(
 
     init {
         teamCalendarSync.onCalendarChanged = { onCalendarChanged?.invoke() }
+        teamCalendarSync.log = { message -> log(message) }
         teamLineupSync.log = { message -> log(message) }
         lineups.onTeamChange = {
             if (isSyncable && session.user.value?.role?.let { it.isStaff || it == com.pulse.core.model.UserRole.TEAM_PLAYER } == true) {
@@ -242,6 +249,7 @@ class PulseCore(
     /** Every store re-reads the active account's folder. */
     private fun reloadStores(user: User?) {
         for (file in storeFiles) reloadStore(file, user)
+        teamNotices.reload()
     }
 
     /** The store kept in [file] re-reads it from the active account's folder. */
@@ -545,7 +553,8 @@ class PulseCore(
             // Sleep is attributed to the wake-up day, so last night = a session ending today.
             sleptLastNight = sleep.minutes(now) != null,
             isSleeping = sleep.isSleeping,
-            healthName = fitness.healthName
+            healthName = fitness.healthName,
+            notices = teamNotices.items()
         )
     )
 
