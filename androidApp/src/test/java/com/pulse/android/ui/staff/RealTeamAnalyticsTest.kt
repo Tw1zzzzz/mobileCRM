@@ -195,6 +195,30 @@ class RealTeamAnalyticsTest {
         rule.onAllNodesWithText("%", substring = true).assertCountEquals(0)
     }
 
+    @Test fun realAnalyticsSaysWhenFaceitDidNotAnswerForALinkedPlayer() {
+        val core = remoteStaffCore(server = server(faceit = emptyMap()))
+        rule.setMain(core, "analytics")
+        waitForText("Faceit не ответил для 1 игрока")
+        // Next to the win rate and under the ELO / K/D scatter.
+        assertTrue(rule.onAllNodesWithText("Faceit не ответил для 1 игрока").fetchSemanticsNodes().size >= 2)
+    }
+
+    @Test fun realAnalyticsSaysNothingWhenFaceitAnswered() {
+        val core = remoteStaffCore(server = server(), faceitKey = "app-key")
+        rule.setMain(core, "analytics")
+        waitForText("Win-rate команды")
+        rule.waitUntil(timeoutMillis = 10_000) { rule.onAllNodesWithText("%", substring = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodesWithText("Faceit не ответил", substring = true).assertCountEquals(0)
+    }
+
+    @Test fun realCorrelationsSayWhenFaceitDidNotAnswer() {
+        val core = remoteStaffCore(server = server(faceit = emptyMap()))
+        rule.setMain(core, "analytics")
+        rule.onNodeWithText("Корреляции").performClick()
+        waitForText("Карта связей")
+        waitForText("Faceit не ответил для 1 игрока")
+    }
+
     @Test fun realAnalyticsPeriodSwitchComputesAgain() {
         val core = remoteStaffCore(server = server(), faceitKey = "app-key")
         val matches = matchesOf(core)

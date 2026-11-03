@@ -119,7 +119,11 @@ class StaffServerFixture(
     /** "playerId/mealId" → the meal's photo (JPEG); a meal without one answers 404. */
     var photos: Map<String, ByteArray> = emptyMap(),
     /** Faceit player id → the Faceit answer for that player's matches (`{"items":[...]}`); an id not listed answers 404. */
-    var faceitMatches: Map<String, String> = emptyMap()
+    var faceitMatches: Map<String, String> = emptyMap(),
+    /** The server refuses the staff endpoints (the account was removed from the team): 403 `forbidden`. */
+    @Volatile var forbidden: Boolean = false,
+    /** Players whose documents fail with a server error (the roster still answers). */
+    @Volatile var failDocuments: Set<String> = emptySet()
 ) {
     /** Paths the app asked for, in arrival order. */
     val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
@@ -184,6 +188,10 @@ fun remoteStaffCore(
         val data = when {
             path == "auth/login" -> session
             path == "sync" -> "[]"
+            path.startsWith("staff/") && server.forbidden ->
+                return@MockEngine respond("""{"success":false,"data":null,"error":{"code":"forbidden","message":null}}""", HttpStatusCode.Forbidden, headersOf(HttpHeaders.ContentType, "application/json"))
+            path.startsWith("staff/players/") && path.substringAfter("staff/players/").substringBefore('/') in server.failDocuments ->
+                return@MockEngine respond("""{"success":false,"data":null,"error":{"code":"server_error","message":null}}""", HttpStatusCode.InternalServerError, headersOf(HttpHeaders.ContentType, "application/json"))
             path.startsWith("staff/") -> { server.requests += path; server.answer(path) }
             else -> """{"version":1,"updated_at":"2026-10-20T08:00:00Z"}"""
         }

@@ -405,6 +405,63 @@ class RealStaffAccountTest {
         waitForText("Вектор")
     }
 
+    @Test fun aPlayerWhoseDocumentsFailedIsNamedOnTheStaleLine() {
+        val core = remoteStaffCore(server = teamServer().also { it.failDocuments = setOf(mirage) })
+        val ready = core.staffTeam.state.value as StaffTeamState.Ready
+        assertTrue(!ready.stale && ready.team.missing == setOf(mirage), "a partial download is a fresh one")
+        rule.setMain(core)
+        waitForText("ГОТОВНОСТЬ")
+        rule.onNodeWithText("Обновлено ${Formatters.time(ready.team.fetchedAt)} · не загрузились: Мираж").assertExists()
+    }
+
+    @Test fun theRosterMarksOnlyThePlayersWhoseDataDidNotUpdate() {
+        val core = remoteStaffCore(server = teamServer().also { it.failDocuments = setOf(mirage) })
+        rule.setMain(core, "players")
+        waitForText("Вектор")
+        rule.onAllNodesWithText("данные не обновились").assertCountEquals(1)
+        rule.onNodeWithText("Обновлено ${Formatters.time(team(core).fetchedAt)} · не загрузились: Мираж").assertExists()
+    }
+
+    @Test fun aCompleteDownloadShowsNoNoteAtAll() {
+        rule.setMain(remoteStaffCore(server = teamServer()), "players")
+        waitForText("Вектор")
+        rule.onAllNodesWithText("данные не обновились").assertCountEquals(0)
+        rule.onAllNodesWithText("не загрузились", substring = true).assertCountEquals(0)
+    }
+
+    @Test fun removedStaffSeesTheNoAccessCardAndNotAnEndlessLoading() {
+        val server = teamServer().also { it.forbidden = true }
+        val core = remoteStaffCore(server = server)
+        assertEquals(StaffTeamState.NoAccess, core.staffTeam.state.value)
+        rule.setMain(core, "players")
+        waitForText("Нет доступа к команде")
+        rule.onNodeWithText("Вас нет в составе команды. Попросите владельца команды пригласить вас снова.").assertExists()
+        rule.onNodeWithText("Повторить").assertExists()
+        rule.onAllNodesWithText("Загружаем команду…").assertCountEquals(0)
+        assertNoWebsitePointer()
+        assertNoDemoPlayers()
+    }
+
+    @Test fun retryAfterReinviteLoadsTheTeam() {
+        val server = teamServer().also { it.forbidden = true }
+        val core = remoteStaffCore(server = server)
+        rule.setMain(core, "players")
+        waitForText("Нет доступа к команде")
+        server.forbidden = false
+        rule.onNodeWithText("Повторить").performClick()
+        waitForText("Вектор")
+        rule.onAllNodesWithText("Нет доступа к команде").assertCountEquals(0)
+    }
+
+    @Test fun openingATabRetriesARevokedAccount() {
+        val server = teamServer().also { it.forbidden = true }
+        val core = remoteStaffCore(server = server)
+        assertEquals(StaffTeamState.NoAccess, core.staffTeam.state.value)
+        server.forbidden = false
+        rule.setMain(core, "players")
+        waitForText("Вектор")
+    }
+
     @Test fun profileCountsRealPlayers() {
         rule.setMain(remoteStaffCore(server = teamServer()), "profile")
         rule.onNodeWithText("игроков").onSiblings().assertAny(hasText("3"))

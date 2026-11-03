@@ -44,8 +44,10 @@ sealed interface RealTeamView {
     data object Loading : RealTeamView
     /** The download failed and there is no copy. */
     data object Failed : RealTeamView
-    /** No team on a server: a build without one, or access that was taken away. */
+    /** No team on a server: a build without one. */
     data object NoServerTeam : RealTeamView
+    /** The server no longer shows this account a team (removed from it); a retry works once the owner invites it again. */
+    data object NoAccess : RealTeamView
     /** The team ([TeamSnapshot.players] may be empty); [stale]: the copy is not from the last refresh (offline). */
     data class Loaded(val team: TeamSnapshot, val stale: Boolean) : RealTeamView
 }
@@ -55,6 +57,7 @@ fun PulseCore.realTeamView(): RealTeamView = when (val state = staffTeam.state.v
     is StaffTeamState.Ready -> RealTeamView.Loaded(state.team, state.stale)
     StaffTeamState.Loading -> RealTeamView.Loading
     StaffTeamState.Failed -> RealTeamView.Failed
+    StaffTeamState.NoAccess -> RealTeamView.NoAccess
     // A server build starts the download the moment the account is activated; a local build has no team to download.
     StaffTeamState.Idle -> if (isRemote) RealTeamView.Loading else RealTeamView.NoServerTeam
 }
@@ -64,7 +67,7 @@ val PulseCore.teamPlayerCount: Int?
     get() = if (showsTeamDemo) com.pulse.core.demo.DemoData.players.size else when (val view = realTeamView()) {
         is RealTeamView.Loaded -> view.team.players.size
         RealTeamView.NoServerTeam -> 0
-        RealTeamView.Loading, RealTeamView.Failed -> null
+        RealTeamView.Loading, RealTeamView.Failed, RealTeamView.NoAccess -> null
     }
 
 /** Under «Игроки»: «{team} · {N} в составе»; just the team's name while the number is not known. */
@@ -82,10 +85,10 @@ object StaffTeamRefresh {
 
     fun start(core: PulseCore): Job = scope.launch { core.staffTeam.refresh() }
 
-    /** A copy past [STALE_AFTER], or no copy after a failure; a running download or a team that is not loaded is left alone. */
+    /** A copy past [STALE_AFTER], or no copy after a failure or a revoked access (it may have been given back); a running download or a team that is not loaded is left alone. */
     fun isOld(state: StaffTeamState, now: Instant): Boolean = when (state) {
         is StaffTeamState.Ready -> now - state.team.fetchedAt > STALE_AFTER
-        StaffTeamState.Failed -> true
+        StaffTeamState.Failed, StaffTeamState.NoAccess -> true
         StaffTeamState.Idle, StaffTeamState.Loading -> false
     }
 
@@ -127,10 +130,22 @@ fun updatedAtText(fetchedAt: Instant, now: Instant = Clock.System.now()): String
     return "Обновлено $time"
 }
 
+/**
+ * The line a screen shows under a team that is not entirely up to date, or null when it is: the time of the copy when it
+ * is [stale], and who could not be downloaded in that refresh — a partial download looks fresh but is not
+ * («Обновлено 14:05 · не загрузились: Орион, Мираж»).
+ */
+fun staleLine(team: TeamSnapshot, stale: Boolean, now: Instant = Clock.System.now()): String? {
+    val names = team.players.filter { it.id in team.missing }.map { it.nickname }
+    if (!stale && names.isEmpty()) return null
+    val updated = updatedAtText(team.fetchedAt, now)
+    return if (names.isEmpty()) updated else "$updated · не загрузились: ${names.joinToString(", ")}"
+}
+
 @Composable
 fun StaleNote(view: RealTeamView.Loaded) {
-    if (!view.stale) return
-    Text(updatedAtText(view.team.fetchedAt), color = Palette.textTertiary, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 4.dp))
+    val line = staleLine(view.team, view.stale) ?: return
+    Text(line, color = Palette.textTertiary, fontSize = 13.sp, modifier = Modifier.padding(horizontal = 4.dp))
 }
 
 /** The team is being downloaded for the first time. */
@@ -152,6 +167,16 @@ fun TeamLoadFailedState() {
     )
 }
 
+/** The server does not show this account a team any more. No website wording: only the owner can fix it. */
+@Composable
+fun TeamNoAccessState() {
+    val core = observeCore()
+    EmptyStateView(
+        "lock.fill", "Нет доступа к команде", "Вас нет в составе команды. Попросите владельца команды пригласить вас снова.",
+        action = { ChipButton("Повторить", isSelected = true) { StaffTeamRefresh.start(core) } }
+    )
+}
+
 /** The loaded team when it has players to list; null while loading, on failure and for an empty team. */
 val RealTeamView.withPlayers: RealTeamView.Loaded? get() = (this as? RealTeamView.Loaded)?.takeIf { it.team.players.isNotEmpty() }
 
@@ -161,6 +186,7 @@ fun TeamStateCard(view: RealTeamView) {
     when (view) {
         RealTeamView.Loading -> TeamLoadingState()
         RealTeamView.Failed -> TeamLoadFailedState()
+        RealTeamView.NoAccess -> TeamNoAccessState()
         RealTeamView.NoServerTeam -> TeamEmptyRoster()
         is RealTeamView.Loaded -> Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             StaleNote(view)

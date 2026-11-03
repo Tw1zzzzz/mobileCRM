@@ -93,7 +93,9 @@ fun StaffAnalyticsTab() {
     // Both sections share the Faceit matches of the team for as long as the tab is open.
     val matches = rememberTeamMatches()
     val refresh = rememberRealTeamRefresh()
-    ScreenScaffold(spacing = 22.dp, scrollState = scroll, isRefreshing = refresh?.isRefreshing ?: false, onRefresh = refresh?.refresh, header = {
+    // Pulling the tab also asks Faceit again for the players it failed for.
+    val onRefresh = refresh?.let { pulled -> { matches.refresh(); pulled.refresh() } }
+    ScreenScaffold(spacing = 22.dp, scrollState = scroll, isRefreshing = refresh?.isRefreshing ?: false, onRefresh = onRefresh, header = {
         Column(verticalArrangement = Arrangement.spacedBy(14.dp)) {
             NavHeader("Аналитика", "Состояние и игра команды")
             PulseSegmented(AnalyticsSection.entries, section, { it.title }, height = 38.dp, onSelect = select)

@@ -100,6 +100,7 @@ fun RealPlayerDetailScreen(id: Uuid) {
             }
             view == RealTeamView.Loading -> TeamLoadingState()
             view == RealTeamView.Failed -> TeamLoadFailedState()
+            view == RealTeamView.NoAccess -> TeamNoAccessState()
             else -> EmptyStateView("person.crop.circle.badge.questionmark", "Игрок не найден", "")
         }
     }

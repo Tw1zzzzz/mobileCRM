@@ -178,13 +178,13 @@ fun RealRosterContent() {
         }
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (shown.isEmpty()) EmptyStateView("person.3", "Никого не нашли", "Проверь ник")
-            shown.forEach { RealRosterRow(it, now) }
+            shown.forEach { RealRosterRow(it, now, it.id in loaded.team.missing) }
         }
     }
 }
 
 @Composable
-private fun RealRosterRow(row: StaffViews.RosterRow, now: kotlin.time.Instant) {
+private fun RealRosterRow(row: StaffViews.RosterRow, now: kotlin.time.Instant, notUpdated: Boolean) {
     val router = LocalRouter.current
     val route = playerRoute(row.id)
     val open = if (route != null) Modifier.pressable { router.open(route) } else Modifier
@@ -197,6 +197,8 @@ private fun RealRosterRow(row: StaffViews.RosterRow, now: kotlin.time.Instant) {
                     "Активность: ${row.lastActivity?.let { Formatters.relative(it, now) } ?: NO_DATA}",
                     color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis
                 )
+                // The last refresh did not bring this player's documents: the numbers below are from an earlier one.
+                if (notUpdated) Text("данные не обновились", color = Palette.orange, fontSize = 12.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
             }
             ReadinessBadge(row.readiness, row.status)
         }

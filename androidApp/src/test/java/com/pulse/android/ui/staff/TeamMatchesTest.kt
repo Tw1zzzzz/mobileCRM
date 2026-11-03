@@ -22,7 +22,7 @@ class TeamMatchesTest {
             running.decrementAndGet()
             emptyList()
         })
-        assertEquals(links.keys, matches.of(links).keys)
+        assertEquals(links.keys, matches.of(links).matches.keys)
         assertTrue(peak.get() in 2..3, "peak ${peak.get()}")
     }
 
@@ -40,9 +40,38 @@ class TeamMatchesTest {
         val matches = TeamMatches({ id ->
             if (id == "faceit1" && attempts.incrementAndGet() == 1) null else emptyList()
         })
-        assertEquals(links.keys - "player1", matches.of(links).keys)
-        assertEquals(links.keys, matches.of(links).keys)
+        val first = matches.of(links)
+        assertEquals(links.keys - "player1", first.matches.keys)
+        assertEquals(setOf("player1"), first.failed, "the result says whom Faceit did not answer for")
+        val second = matches.of(links)
+        assertEquals(links.keys, second.matches.keys)
+        assertEquals(emptySet(), second.failed)
         assertEquals(2, attempts.get())
+    }
+
+    @Test fun everyAskReRequestsTheFailedPlayersOnly() = runBlocking {
+        val asked = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val matches = TeamMatches({ id -> asked += id; if (id == "faceit2") null else emptyList() })
+        matches.of(links)
+        asked.clear()
+        val again = matches.of(links)
+        assertEquals(listOf("faceit2"), asked.toList(), "answered players come from the cache, the failed one is asked again")
+        assertEquals(setOf("player2"), again.failed)
+    }
+
+    @Test fun theFailedTextCountsPlayers() {
+        assertEquals(null, faceitFailedText(0))
+        assertEquals("Faceit не ответил для 1 игрока", faceitFailedText(1))
+        assertEquals("Faceit не ответил для 2 игроков", faceitFailedText(2))
+        assertEquals("Faceit не ответил для 11 игроков", faceitFailedText(11))
+        assertEquals("Faceit не ответил для 21 игрока", faceitFailedText(21))
+    }
+
+    @Test fun refreshingAsksTheFailedPlayersAgain() {
+        val matches = TeamMatches({ emptyList() })
+        val before = matches.generation
+        matches.refresh()
+        assertEquals(before + 1, matches.generation)
     }
 
     @Test fun onlyLinkedPlayersAreAsked() = runBlocking {

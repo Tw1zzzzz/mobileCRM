@@ -84,6 +84,7 @@ fun RealTeamScreenContent(content: @Composable (RealTeamView.Loaded) -> Unit) {
         }
         RealTeamView.Loading -> TeamLoadingState()
         RealTeamView.Failed -> TeamLoadFailedState()
+        RealTeamView.NoAccess -> TeamNoAccessState()
         RealTeamView.NoServerTeam -> TeamNoDataState()
     }
 }
@@ -128,7 +129,7 @@ private fun RealDashboard(team: TeamSnapshot, matches: TeamMatches) {
     val day = teamDay()
     val played by rememberTeamMatchesState(matches, team)
     val computed by produceState<TeamDashboard?>(null, team, period, day.today, played) {
-        value = withContext(Dispatchers.Default) { dashboard(team, day.today, day.tz, period, played.orEmpty()) }
+        value = withContext(Dispatchers.Default) { dashboard(team, day.today, day.tz, period, played?.matches.orEmpty()) }
     }
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         WeeklySummaryCard()
@@ -140,16 +141,17 @@ private fun RealDashboard(team: TeamSnapshot, matches: TeamMatches) {
             TeamLoadingState()
             return@Column
         }
-        Kpis(board.view, played != null)
+        val failed = played?.failed?.size ?: 0
+        Kpis(board.view, played != null, failed)
         PulseSection("Готовность по игрокам") { ReadinessBars(board.view.playerReadiness) }
         PulseSection("Динамика готовности") { TrendCard(board.view.trend) }
-        PulseSection("ELO и K/D") { EloChart(board.dots, board.view.period.days.size) }
+        PulseSection("ELO и K/D") { EloChart(board.dots, board.view.period.days.size, failed) }
         PulseSection("Таблица") { PlayersTable(board, sort) { sort = it } }
     }
 }
 
 @Composable
-private fun Kpis(view: StaffViews.TeamAnalyticsView, gamesKnown: Boolean) {
+private fun Kpis(view: StaffViews.TeamAnalyticsView, gamesKnown: Boolean, faceitFailed: Int) {
     val winRate = view.winRate.value
     val winRateText = when {
         !gamesKnown -> "…"
@@ -164,19 +166,27 @@ private fun Kpis(view: StaffViews.TeamAnalyticsView, gamesKnown: Boolean) {
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             Kpi("Средний сон", view.sleep.value?.let { Formatters.duration((it * MINUTES_PER_HOUR).roundToInt()) },
                 view.sleep.delta, { "${Formatters.signed((it * MINUTES_PER_HOUR).roundToInt())} мин" }, Palette.purple, Modifier.weight(1f))
-            Kpi("Win-rate команды", winRateText, view.winRate.delta.takeIf { gamesKnown }, { "${Formatters.signed(it.roundToInt())}%" }, Palette.orange, Modifier.weight(1f))
+            Kpi("Win-rate команды", winRateText, view.winRate.delta.takeIf { gamesKnown }, { "${Formatters.signed(it.roundToInt())}%" }, Palette.orange, Modifier.weight(1f), faceitFailedText(faceitFailed))
         }
     }
 }
 
 /** [value] null is «нет данных»; [delta] is the change against the period before it. */
 @Composable
-private fun Kpi(title: String, value: String?, delta: Double?, format: (Double) -> String, tint: Color, modifier: Modifier) {
+private fun Kpi(title: String, value: String?, delta: Double?, format: (Double) -> String, tint: Color, modifier: Modifier, note: String? = null) {
     Column(modifier.pulseCard(14.dp, Metrics.tileRadius), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(title, color = Palette.textSecondary, autoSize = fit(13.sp), maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(value ?: NO_DATA, color = if (value == null) Palette.textTertiary else tint, autoSize = fit(19.sp), fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(delta?.let(format) ?: " ", color = if ((delta ?: 0.0) >= 0) Palette.green else Palette.orange, fontSize = 12.sp, fontWeight = FontWeight.SemiBold)
+        if (note != null) Text(note, color = Palette.orange, fontSize = 11.sp)
     }
+}
+
+/** «Faceit не ответил для N игроков»: the figures above it are built without those players. */
+@Composable
+private fun FaceitFailedNote(failed: Int) {
+    val text = faceitFailedText(failed) ?: return
+    Text(text, color = Palette.orange, fontSize = 12.sp)
 }
 
 @Composable
@@ -242,7 +252,7 @@ private fun TrendCard(trend: List<StaffViews.TrendPoint>) {
 private fun shortDay(day: String): String = Formatters.dayMonthShort(LocalDate.parse(day).atStartOfDayIn(TimeZone.currentSystemDefault()))
 
 @Composable
-private fun EloChart(dots: List<EloDot>, days: Int) {
+private fun EloChart(dots: List<EloDot>, days: Int, faceitFailed: Int) {
     Column(Modifier.pulseCard(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (dots.isEmpty()) {
             Text(NO_DATA, color = Palette.textTertiary, fontSize = 15.sp)
@@ -256,6 +266,7 @@ private fun EloChart(dots: List<EloDot>, days: Int) {
             )
         }
         Text("По горизонтали K/D за $days дней, по вертикали текущий ELO", color = Palette.textTertiary, fontSize = 12.sp)
+        FaceitFailedNote(faceitFailed)
     }
 }
 
@@ -332,7 +343,7 @@ private fun RealCorrelations(team: TeamSnapshot, matches: TeamMatches) {
     val played by rememberTeamMatchesState(matches, team)
     val games = played
     val computed by produceState<StaffViews.TeamCorrelations?>(null, team, selected, day.today, games) {
-        value = games?.let { withContext(Dispatchers.Default) { StaffViews.teamCorrelations(team, it, day.today, day.tz, CORRELATION_DAYS, selected) } }
+        value = games?.let { withContext(Dispatchers.Default) { StaffViews.teamCorrelations(team, it.matches, day.today, day.tz, CORRELATION_DAYS, selected) } }
     }
     Column(verticalArrangement = Arrangement.spacedBy(22.dp)) {
         Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -344,10 +355,14 @@ private fun RealCorrelations(team: TeamSnapshot, matches: TeamMatches) {
             TeamLoadingState()
             return@Column
         }
+        val failed = games?.failed?.size ?: 0
         PulseSection("Карта связей") { RealHeatmap(result) }
-        PulseSection("Сон → K/D") { SleepKdCard(result.sleepKd) }
+        PulseSection("Сон → K/D") { SleepKdCard(result.sleepKd, failed) }
         PulseSection("Главные связи") {
-            if (result.links.isEmpty()) NoDataCard() else CorrelationsSection(result.links.take(LINKS_SHOWN))
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                if (result.links.isEmpty()) NoDataCard() else CorrelationsSection(result.links.take(LINKS_SHOWN))
+                FaceitFailedNote(failed)
+            }
         }
         Text("Коэффициент Пирсона от −1 до +1 по дням с матчами. Положительное значение — показатели растут вместе, отрицательное — один растёт, другой падает. Связь не означает причину.",
             color = Palette.textTertiary, fontSize = 13.sp)
@@ -396,7 +411,7 @@ private fun RealHeatmap(result: StaffViews.TeamCorrelations) {
 private val FACTOR_WIDTH = 96.dp
 
 @Composable
-private fun SleepKdCard(scatter: StaffViews.SleepKdScatter) {
+private fun SleepKdCard(scatter: StaffViews.SleepKdScatter, faceitFailed: Int) {
     val points = scatter.points
     Column(Modifier.pulseCard(18.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
         if (points.isEmpty()) {
@@ -421,5 +436,6 @@ private fun SleepKdCard(scatter: StaffViews.SleepKdScatter) {
             Text("r = ${scatter.r?.let(::signedCoefficient) ?: NO_DATA} · ${Formatters.plural(points.size, "матч", "матча", "матчей")}",
                 color = Palette.textSecondary, fontSize = 12.sp, fontWeight = FontWeight.SemiBold, fontFamily = FontFamily.Monospace, textAlign = TextAlign.End, modifier = Modifier.weight(1f))
         }
+        FaceitFailedNote(faceitFailed)
     }
 }
