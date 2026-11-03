@@ -140,8 +140,8 @@ class PulseCore(
     val screenTime = ScreenTimeStore(file(ScreenTimeStore.FILE, ScreenTimeStore.Saved.serializer()))
     val lineups = LineupStore(
         file(LineupStore.FILE, ListSerializer(Lineup.serializer())),
-        teamStorage = file(LineupStore.TEAM_FILE, ListSerializer(Lineup.serializer())),
-        pendingStorage = file(LineupStore.PENDING_TEAM_FILE, PendingTeamLineupChanges.serializer())
+        teamStorage = JsonFileStorage(LineupStore.TEAM_FILE, ListSerializer(Lineup.serializer()), scope, ledger = null, notifyOnChange = false),
+        pendingStorage = JsonFileStorage(LineupStore.PENDING_TEAM_FILE, PendingTeamLineupChanges.serializer(), scope, ledger = null, notifyOnChange = false)
     )
     private val teamLineupSync = TeamLineupSync(api, lineups)
     val gameGoals = GameGoalsStore(file(GameGoalsStore.FILE, GameGoals.serializer()))
