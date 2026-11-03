@@ -235,7 +235,8 @@ describe("team block", () => {
     const markup = renderToStaticMarkup(<TeamManagement team={p.team} confirm={null} error={null} />);
     const words = text(markup);
     expect(markup).toContain('id="team"');
-    expect(words).toContain("Команда");
+    // the page title «Команда» lives in the /staff/team page header; the block carries its own heading
+    expect(words).toContain("Доступ и участники");
     expect(words).toContain("PALPHA");
     expect(words).toContain("SALPHA");
     expect(words).toContain("Код игрока");
@@ -448,11 +449,11 @@ describe("actions require staff of that team", () => {
     expect((await codesOf(mine.ids.team)).invite_code).not.toBe("PALPHA");
 
     const foreign = await redirectOf(() => removeMemberAction(form({ memberId: theirPlayer, next: "https://evil.example" })));
-    expect(foreign).toBe("/staff/players?error=failed#team");
+    expect(foreign).toBe("/staff/team?error=failed#team");
     expect(await roleOf(theirPlayer)).toEqual({ role: "teamPlayer", team_id: other.teamId });
 
     const last = await redirectOf(() => removeMemberAction(form({ memberId: mine.ids.staff })));
-    expect(last).toBe("/staff/players?error=last-staff#team");
+    expect(last).toBe("/staff/team?error=last-staff#team");
 
     const removed = await redirectOf(() => removeMemberAction(form({ memberId: mine.ids.vega })));
     expect(removed).toBe("/staff/team#team");

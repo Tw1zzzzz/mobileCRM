@@ -475,7 +475,17 @@ describe("players cannot read notes", () => {
     const v1 = sources.filter((f) => relative(ROOT, f).startsWith(join("app", "v1")));
     const api = v1.filter((f) => !relative(ROOT, f).startsWith(staffApiDir));
     expect(api.length).toBeGreaterThan(5);
-    for (const file of api) expect(readFileSync(file, "utf8"), relative(ROOT, file)).not.toMatch(/staff\/|\/staff|notes/);
+    //    The team-shared lineups are a team-member API (players too): exactly `@/lib/staff/lineups` may be named, and
+    //    only by `app/v1/lineups/**`; nothing else under staff, and never notes.
+    const LINEUPS_MODULE = /@\/lib\/staff\/lineups(?=["'])/g;
+    const lineupsDir = join("app", "v1", "lineups");
+    for (const file of api) {
+      const rel = relative(ROOT, file);
+      const source = readFileSync(file, "utf8");
+      expect(source, rel).not.toMatch(/notes/);
+      const allowed = rel.startsWith(lineupsDir) ? source.replace(LINEUPS_MODULE, "") : source;
+      expect(allowed, rel).not.toMatch(/staff\/|\/staff/);
+    }
     const staffApi = v1.filter((f) => relative(ROOT, f).startsWith(staffApiDir));
     expect(staffApi.length).toBeGreaterThan(0);
     for (const file of staffApi) expect(readFileSync(file, "utf8"), relative(ROOT, file)).not.toMatch(/notes/);
