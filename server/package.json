@@ -8,6 +8,7 @@
     "build": "npm run db:migrate && next build",
     "start": "next start",
     "db:migrate": "tsx db/migrate.ts",
+    "seed:local": "tsx --env-file=.env.local scripts/seed-local.ts",
     "test": "vitest run"
   },
   "dependencies": {
