@@ -1,3 +1,4 @@
+import type { Sql, TransactionSql } from "postgres";
 import { z } from "zod";
 import { requireUser } from "@/lib/auth/tokens";
 import type { Deps } from "@/lib/deps";
@@ -6,13 +7,13 @@ import { rateLimit } from "@/lib/rateLimit";
 import type { StaffContext } from "@/lib/staff/access";
 
 export const LINEUP_MAPS = ["mirage", "inferno", "nuke", "ancient", "anubis", "dust2", "train"] as const;
-export const LINEUP_TYPES = ["smoke", "flash", "molotov", "grenade", "script"] as const;
+export const LINEUP_TYPES = ["smoke", "flash", "molotov", "grenade", "script", "note"] as const;
 export const LINEUP_SIDES = ["t", "ct"] as const;
 export type LineupMap = (typeof LINEUP_MAPS)[number];
 export type StaffLineupType = (typeof LINEUP_TYPES)[number];
 export type LineupSide = (typeof LINEUP_SIDES)[number];
 
-const API_LINEUP_TYPES = LINEUP_TYPES;
+type Queryable = Sql | TransactionSql;
 const MAX_LINEUPS_REQUESTS_PER_MINUTE = 120;
 const MAX_LINEUP_BYTES = 64_000;
 
@@ -127,9 +128,11 @@ function field(form: FormData, name: string): string {
 }
 
 export async function saveStaffLineup(deps: Deps, ctx: StaffContext, form: FormData): Promise<{ id: string; created: boolean } | null> {
+  const type = field(form, "type");
   const parsed = FormFields.safeParse({
-    id: field(form, "id"), title: field(form, "title"), map: field(form, "map"), side: field(form, "side"),
-    type: field(form, "type"), details: field(form, "details"), videoUrl: field(form, "videoUrl"),
+    // A note is not thrown from a side: the form may leave it out.
+    id: field(form, "id"), title: field(form, "title"), map: field(form, "map"), side: field(form, "side") || (type === "note" ? "t" : ""),
+    type, details: field(form, "details"), videoUrl: field(form, "videoUrl"),
   });
   if (!parsed.success || !validVideoUrl(parsed.data.videoUrl)) return null;
   const input = parsed.data;
@@ -168,26 +171,44 @@ export async function toggleStaffLineupFavorite(deps: Deps, ctx: StaffContext, i
   });
 }
 
+/** Apps print ids in capitals (Swift heritage); the database stores and answers in lower case. */
+const AnyCaseUuid = z.string().uuid().transform((value) => value.toLowerCase());
+
+/**
+ * The app sends the API's snake_case keys (`video_url`, `is_favorite`); an earlier server read camelCase ones.
+ * Both are accepted and the answer is snake_case, which is what the app decodes.
+ */
+function withSnakeCaseAliases(raw: unknown): unknown {
+  if (typeof raw !== "object" || raw === null || Array.isArray(raw)) return raw;
+  const body = raw as Record<string, unknown>;
+  const variations = Array.isArray(body.variations)
+    ? body.variations.map((variation) => typeof variation === "object" && variation !== null && !Array.isArray(variation)
+        ? { ...variation, videoURL: (variation as Record<string, unknown>).videoURL ?? (variation as Record<string, unknown>).video_url }
+        : variation)
+    : body.variations;
+  return { ...body, videoURL: body.videoURL ?? body.video_url, isFavorite: body.isFavorite ?? body.is_favorite, variations };
+}
+
 const VariationInput = z.object({
-  id: z.string().uuid().optional(),
+  id: AnyCaseUuid.optional(),
   position: z.string().trim().max(240),
   technique: z.enum(["standard", "jump", "run", "runJump", "walk", "rightClick"]),
   aim: z.string().trim().max(400),
   videoURL: z.string().trim().max(2048).nullable().optional(),
 });
-const TeamLineupInput = z.object({
-  id: z.string().uuid(),
+const TeamLineupInput = z.preprocess(withSnakeCaseAliases, z.object({
+  id: AnyCaseUuid,
   title: z.string().trim().min(1).max(120),
   map: z.enum(LINEUP_MAPS),
   side: z.enum(LINEUP_SIDES),
-  type: z.enum(API_LINEUP_TYPES),
+  type: z.enum(LINEUP_TYPES),
   details: z.string().trim().max(4000),
   videoURL: z.string().trim().max(2048).nullable().optional(),
   visibility: z.literal("team"),
   isFavorite: z.boolean().default(false),
   variations: z.array(VariationInput).max(20).default([]),
-});
-const TeamLineupFavoriteInput = z.object({ isFavorite: z.boolean() });
+}));
+const TeamLineupFavoriteInput = z.preprocess(withSnakeCaseAliases, z.object({ isFavorite: z.boolean() }));
 
 interface TeamMemberContext extends StaffContext { role: "staff" | "teamPlayer"; nickname: string }
 
@@ -203,8 +224,8 @@ async function teamMemberContext(req: Request, deps: Deps): Promise<TeamMemberCo
   return { userId, teamId: row.team_id, teamName: row.team_name, role: row.role, nickname: row.nickname };
 }
 
-async function teamLineupRows(deps: Deps, ctx: TeamMemberContext, id?: string) {
-  return deps.sql<{
+async function teamLineupRows(db: Queryable, ctx: TeamMemberContext, id?: string) {
+  return db<{
     id: string; title: string; map: LineupMap; side: LineupSide; type: string; details: string; video_url: string | null;
     variations: unknown; author: string; created_at: Date; favorite: boolean;
   }[]>`
@@ -216,74 +237,110 @@ async function teamLineupRows(deps: Deps, ctx: TeamMemberContext, id?: string) {
     order by l.updated_at desc, l.id limit 500`;
 }
 
+/** Variations as stored by this and the earlier server version (`videoURL`), answered with snake_case keys. */
+function apiVariations(stored: unknown): unknown[] {
+  if (!Array.isArray(stored)) return [];
+  return stored.map((entry) => {
+    const variation = (entry ?? {}) as Record<string, unknown>;
+    return {
+      ...(typeof variation.id === "string" ? { id: variation.id.toLowerCase() } : {}),
+      position: variation.position ?? "", technique: variation.technique ?? "standard", aim: variation.aim ?? "",
+      video_url: variation.video_url ?? variation.videoURL ?? null,
+    };
+  });
+}
+
 function apiLineup(row: Awaited<ReturnType<typeof teamLineupRows>>[number]) {
   return {
     id: row.id, title: row.title, map: row.map, side: row.side, type: row.type, details: row.details,
-    videoURL: row.video_url, author: row.author, createdAt: row.created_at.toISOString(), visibility: "team",
-    isFavorite: row.favorite, variations: Array.isArray(row.variations) ? row.variations : [],
+    video_url: row.video_url, author: row.author, created_at: row.created_at.toISOString(), visibility: "team",
+    is_favorite: row.favorite, variations: apiVariations(row.variations),
   };
 }
 
 /** Team-shared site lineups for staff and confirmed team players. */
 export async function getTeamLineups(req: Request, deps: Deps): Promise<Response> {
   const ctx = await teamMemberContext(req, deps);
-  const rows = await teamLineupRows(deps, ctx);
+  const rows = await teamLineupRows(deps.sql, ctx);
   return ok({ lineups: rows.map(apiLineup) });
 }
+
+const forbiddenEdit = () => new ApiError("forbidden", "Only the author or staff can edit this lineup", 403);
 
 /** A team member may add their own shared entry; staff may manage every entry for their team. */
 export async function putTeamLineup(req: Request, deps: Deps, rawId?: string): Promise<Response> {
   const ctx = await teamMemberContext(req, deps);
   const body = await parseBody(req, TeamLineupInput, MAX_LINEUP_BYTES);
-  if ((rawId !== undefined && (!z.string().uuid().safeParse(rawId).success || body.id !== rawId)) || !z.string().uuid().safeParse(body.id).success) {
+  if (rawId !== undefined && (!z.string().uuid().safeParse(rawId).success || body.id !== rawId.toLowerCase())) {
     throw new ApiError("validation_failed", "Invalid lineup id", 422);
   }
-  if (body.videoURL && !validVideoUrl(body.videoURL)) throw new ApiError("validation_failed", "Invalid video URL", 422);
+  const videoUrl = body.videoURL || null;
+  if (videoUrl && !validVideoUrl(videoUrl)) throw new ApiError("validation_failed", "Invalid video URL", 422);
   if (body.variations.some((variation) => variation.videoURL && !validVideoUrl(variation.videoURL))) throw new ApiError("validation_failed", "Invalid variation video URL", 422);
-  const [existing] = await deps.sql<{ id: string; created_by: string | null }[]>`
-    select id, created_by from staff_lineups where id = ${body.id} and team_id = ${ctx.teamId}`;
-  if (existing && ctx.role !== "staff" && existing.created_by !== ctx.userId) throw new ApiError("forbidden", "Only the author or staff can edit this lineup", 403);
+  const variations = body.variations.map((variation) => ({
+    id: variation.id ?? crypto.randomUUID(), position: variation.position, technique: variation.technique, aim: variation.aim,
+    video_url: variation.videoURL || null,
+  }));
   const now = deps.now();
-  if (existing) {
-    await deps.sql`
-      update staff_lineups set title = ${body.title}, map = ${body.map}, side = ${body.side}, type = ${body.type},
-        details = ${body.details}, video_url = ${body.videoURL ?? null}, variations = ${deps.sql.json(body.variations)}, updated_at = ${now}
-      where id = ${body.id} and team_id = ${ctx.teamId}`;
-  } else {
-    const inserted = await deps.sql<{ id: string }[]>`
-      insert into staff_lineups (id, team_id, created_by, title, map, side, type, details, video_url, variations, created_at, updated_at)
-      values (${body.id}, ${ctx.teamId}, ${ctx.userId}, ${body.title}, ${body.map}, ${body.side}, ${body.type}, ${body.details},
-        ${body.videoURL ?? null}, ${deps.sql.json(body.variations)}, ${now}, ${now})
-      on conflict (id) do nothing returning id`;
-    if (!inserted.length) throw new ApiError("forbidden", "This lineup id is unavailable", 403);
-  }
-  if (body.isFavorite) {
-    await deps.sql`insert into staff_lineup_favorites (lineup_id, staff_user_id) values (${body.id}, ${ctx.userId}) on conflict do nothing`;
-  } else {
-    await deps.sql`delete from staff_lineup_favorites where lineup_id = ${body.id} and staff_user_id = ${ctx.userId}`;
-  }
-  const [saved] = await teamLineupRows(deps, ctx, body.id);
-  return ok({ lineup: apiLineup(saved) }, existing ? 200 : 201);
+  const { saved, created } = await deps.sql.begin(async (tx) => {
+    // The author check and the write share one transaction and one row lock: a lineup cannot change hands in between.
+    const lock = () => tx<{ id: string; created_by: string | null }[]>`
+      select id, created_by from staff_lineups where id = ${body.id} and team_id = ${ctx.teamId} for update`;
+    let [existing] = await lock();
+    let isNew = false;
+    if (!existing) {
+      const inserted = await tx<{ id: string }[]>`
+        insert into staff_lineups (id, team_id, created_by, title, map, side, type, details, video_url, variations, created_at, updated_at)
+        values (${body.id}, ${ctx.teamId}, ${ctx.userId}, ${body.title}, ${body.map}, ${body.side}, ${body.type}, ${body.details},
+          ${videoUrl}, ${tx.json(variations)}, ${now}, ${now})
+        on conflict (id) do nothing returning id`;
+      isNew = inserted.length > 0;
+      if (!isNew) {
+        // A concurrent request with the same id won the insert: this one becomes an edit, unless the id is another team's.
+        [existing] = await lock();
+        if (!existing) throw new ApiError("forbidden", "This lineup id is unavailable", 403);
+      }
+    }
+    if (existing) {
+      if (ctx.role !== "staff" && existing.created_by !== ctx.userId) throw forbiddenEdit();
+      await tx`
+        update staff_lineups set title = ${body.title}, map = ${body.map}, side = ${body.side}, type = ${body.type},
+          details = ${body.details}, video_url = ${videoUrl}, variations = ${tx.json(variations)}, updated_at = ${now}
+        where id = ${body.id} and team_id = ${ctx.teamId}`;
+    }
+    if (body.isFavorite) {
+      await tx`insert into staff_lineup_favorites (lineup_id, staff_user_id) values (${body.id}, ${ctx.userId}) on conflict do nothing`;
+    } else {
+      await tx`delete from staff_lineup_favorites where lineup_id = ${body.id} and staff_user_id = ${ctx.userId}`;
+    }
+    const [row] = await teamLineupRows(tx, ctx, body.id);
+    return { saved: row, created: isNew };
+  });
+  return ok({ lineup: apiLineup(saved) }, created ? 201 : 200);
 }
 
 export async function deleteTeamLineup(req: Request, deps: Deps, id: string): Promise<Response> {
   const ctx = await teamMemberContext(req, deps);
   if (!z.string().uuid().safeParse(id).success) throw new ApiError("not_found", "No such lineup", 404);
-  const rows = await deps.sql<{ created_by: string | null }[]>`
-    select created_by from staff_lineups where id = ${id} and team_id = ${ctx.teamId}`;
-  if (!rows.length) throw new ApiError("not_found", "No such lineup", 404);
-  if (ctx.role !== "staff" && rows[0].created_by !== ctx.userId) throw new ApiError("forbidden", "Only the author or staff can delete this lineup", 403);
-  await deps.sql`delete from staff_lineups where id = ${id} and team_id = ${ctx.teamId}`;
+  const lineupId = id.toLowerCase();
+  await deps.sql.begin(async (tx) => {
+    const [row] = await tx<{ created_by: string | null }[]>`
+      select created_by from staff_lineups where id = ${lineupId} and team_id = ${ctx.teamId} for update`;
+    if (!row) throw new ApiError("not_found", "No such lineup", 404);
+    if (ctx.role !== "staff" && row.created_by !== ctx.userId) throw new ApiError("forbidden", "Only the author or staff can delete this lineup", 403);
+    await tx`delete from staff_lineups where id = ${lineupId} and team_id = ${ctx.teamId}`;
+  });
   return ok({ deleted: true });
 }
 
 export async function setTeamLineupFavorite(req: Request, deps: Deps, id: string): Promise<Response> {
   const ctx = await teamMemberContext(req, deps);
   if (!z.string().uuid().safeParse(id).success) throw new ApiError("not_found", "No such lineup", 404);
+  const lineupId = id.toLowerCase();
   const body = await parseBody(req, TeamLineupFavoriteInput, 1024);
-  const [lineup] = await deps.sql<{ id: string }[]>`select id from staff_lineups where id = ${id} and team_id = ${ctx.teamId}`;
+  const [lineup] = await deps.sql<{ id: string }[]>`select id from staff_lineups where id = ${lineupId} and team_id = ${ctx.teamId}`;
   if (!lineup) throw new ApiError("not_found", "No such lineup", 404);
-  if (body.isFavorite) await deps.sql`insert into staff_lineup_favorites (lineup_id, staff_user_id) values (${id}, ${ctx.userId}) on conflict do nothing`;
-  else await deps.sql`delete from staff_lineup_favorites where lineup_id = ${id} and staff_user_id = ${ctx.userId}`;
-  return ok({ isFavorite: body.isFavorite });
+  if (body.isFavorite) await deps.sql`insert into staff_lineup_favorites (lineup_id, staff_user_id) values (${lineupId}, ${ctx.userId}) on conflict do nothing`;
+  else await deps.sql`delete from staff_lineup_favorites where lineup_id = ${lineupId} and staff_user_id = ${ctx.userId}`;
+  return ok({ is_favorite: body.isFavorite, isFavorite: body.isFavorite });
 }

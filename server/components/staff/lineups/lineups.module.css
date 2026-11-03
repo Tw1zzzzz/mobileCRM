@@ -44,6 +44,7 @@
 .type_molotov { --type:#ff9a5a; }
 .type_grenade { --type:#7fe0ff; }
 .type_script { --type:#c9a6ff; }
+.type_note { --type:#e3a8ff; }
 .entryText { display:flex; min-width:0; flex:1; flex-direction:column; gap:4px; }
 .entryTitle { overflow:hidden; font-size:12px; font-weight:750; text-overflow:ellipsis; white-space:nowrap; }
 .entryMeta { overflow:hidden; color:#8390ae; font-size:10px; text-overflow:ellipsis; white-space:nowrap; }

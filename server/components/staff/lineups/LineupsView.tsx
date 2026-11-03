@@ -20,9 +20,9 @@ const MAP_NAMES: Record<LineupMap, string> = {
   mirage: "Mirage", inferno: "Inferno", nuke: "Nuke", ancient: "Ancient", anubis: "Anubis", dust2: "Dust II", train: "Train",
 };
 const TYPE_NAMES: Record<StaffLineupType, string> = {
-  smoke: "Смок", flash: "Флешка", molotov: "Молотов", grenade: "HE", script: "Скрипт",
+  smoke: "Смок", flash: "Флешка", molotov: "Молотов", grenade: "HE", script: "Скрипт", note: "Заметка",
 };
-const TYPE_SYMBOLS: Record<StaffLineupType, string> = { smoke: "◌", flash: "✳", molotov: "♨", grenade: "◉", script: "☷" };
+const TYPE_SYMBOLS: Record<StaffLineupType, string> = { smoke: "◌", flash: "✳", molotov: "♨", grenade: "◉", script: "☷", note: "✎" };
 
 function href(filters: LineupFilter, change: Partial<LineupFilter> = {}): string {
   const next = { ...filters, ...change };
@@ -107,7 +107,7 @@ function Detail({ entry, filters }: { entry: StaffLineup; filters: LineupFilter 
         </form>
       </div>
       <section className={styles.steps}>
-        <div className={styles.sectionTitle}><span className={styles.sectionNumber}>01</span><div><h3>{entry.type === "script" ? "Шаги скрипта" : "Как бросать"}</h3><p>Порядок действий для раунда</p></div></div>
+        <div className={styles.sectionTitle}><span className={styles.sectionNumber}>01</span><div><h3>{entry.type === "script" ? "Шаги скрипта" : entry.type === "note" ? "Текст заметки" : "Как бросать"}</h3><p>Порядок действий для раунда</p></div></div>
         {steps.length ? <ol>{steps.map((step, index) => <li key={`${index}-${step}`}><span>{String(index + 1).padStart(2, "0")}</span><p>{step}</p></li>)}</ol> : <p className={styles.emptyDetails}>Подробности пока не добавлены.</p>}
       </section>
       {entry.videoUrl && <a className={styles.videoLink} href={entry.videoUrl} target="_blank" rel="noreferrer"><span>▶</span><span><strong>Открыть видео</strong><small>Перейти к демонстрации раскидки</small></span><span aria-hidden="true">↗</span></a>}
