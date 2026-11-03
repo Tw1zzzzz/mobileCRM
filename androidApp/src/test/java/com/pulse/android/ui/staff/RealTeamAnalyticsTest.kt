@@ -173,13 +173,12 @@ class RealTeamAnalyticsTest {
         rule.onAllNodes(SemanticsMatcher("old 0..10 scale") { node -> node.config.getOrNull(SemanticsProperties.Text)?.any { it.text.endsWith("/ 10") } == true }).assertCountEquals(0)
     }
 
-    @Test fun realAnalyticsWithoutAKeyHasNoWinRate() {
-        val server = server()
+    @Test fun realAnalyticsWithoutFaceitMatchesHasNoWinRate() {
+        val server = server(faceit = emptyMap())
         val core = remoteStaffCore(server = server)
         rule.setMain(core, "analytics")
         waitForText("Win-rate команды")
         rule.waitForIdle()
-        assertEquals(emptyList(), server.faceitRequests)
         rule.onAllNodesWithText("%", substring = true).assertCountEquals(0)
         assertTrue(rule.onAllNodesWithText(noData).fetchSemanticsNodes().isNotEmpty())
         rule.onNodeWithText("Готовность команды").assertExists()
@@ -216,7 +215,7 @@ class RealTeamAnalyticsTest {
         rule.onNodeWithText("30 дней").performClick()
         rule.onNodeWithText("Корреляции").performClick()
         rule.waitForIdle()
-        assertEquals(listOf("data/v4/players/$faceitId/games/cs2/stats"), server.faceitRequests)
+        assertEquals(listOf("faceit/players/$faceitId/games/cs2/stats"), server.faceitRequests)
     }
 
     @Test fun realAnalyticsShowsEloAndTheTable() {
@@ -281,7 +280,7 @@ class RealTeamAnalyticsTest {
     }
 
     @Test fun realCorrelationsWithoutGamesSayNoData() {
-        val core = remoteStaffCore(server = server(), faceitKey = null)
+        val core = remoteStaffCore(server = server(faceit = emptyMap()))
         rule.setMain(core, "analytics")
         rule.onNodeWithText("Корреляции").performClick()
         waitForText("Карта связей")

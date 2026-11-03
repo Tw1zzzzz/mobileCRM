@@ -193,7 +193,7 @@ class RealPlayerCardTest {
         rule.onNodeWithText("Mirage", substring = true).assertExists()
         rule.onNodeWithText("Inferno", substring = true).assertExists()
         rule.onAllNodesWithText("Nuke", substring = true).assertCountEquals(0) // 60 days ago: outside the 30-day period
-        assertEquals(listOf("data/v4/players/$faceitId/games/cs2/stats"), server.faceitRequests)
+        assertEquals(listOf("faceit/players/$faceitId/games/cs2/stats"), server.faceitRequests)
         // Two matches in the period: one win.
         rule.onNodeWithText("50%").assertExists()
         rule.onNodeWithText("Игровая статистика · 30 дней", ignoreCase = true).assertExists()
@@ -243,12 +243,12 @@ class RealPlayerCardTest {
         rule.onAllNodes(hasText(noData)).fetchSemanticsNodes().let { assertTrue(it.isNotEmpty()) }
     }
 
-    @Test fun cardWithoutAKeyNeverAsksFaceit() {
+    @Test fun cardNeedsNoKeyOnTheDeviceBecauseTheServerProxiesFaceit() {
         val server = server(faceit = mapOf(faceitId to """{"items":[]}"""))
         open(remoteStaffCore(server = server), orion)
         waitForText("Последние матчи")
-        rule.waitForIdle()
-        assertEquals(emptyList(), server.faceitRequests)
+        rule.waitUntil(timeoutMillis = 10_000) { server.faceitRequests.isNotEmpty() }
+        assertEquals(listOf("faceit/players/$faceitId/games/cs2/stats"), server.faceitRequests)
     }
 
     @Test fun demoIdOnRealAccountIsNotFound() {

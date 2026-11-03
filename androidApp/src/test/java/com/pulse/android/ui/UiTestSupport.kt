@@ -124,7 +124,7 @@ class StaffServerFixture(
     /** Paths the app asked for, in arrival order. */
     val requests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
-    /** Faceit Data API paths the app asked for, in arrival order. */
+    /** Pulse proxy paths (`faceit/...`) the app asked for, in arrival order: remote builds never call Faceit directly. */
     val faceitRequests: MutableList<String> = java.util.Collections.synchronizedList(mutableListOf())
 
     internal fun photo(path: String): ByteArray? {
@@ -134,7 +134,7 @@ class StaffServerFixture(
 
     internal fun faceit(path: String): String? {
         if (offline) throw java.io.IOException("offline")
-        return faceitMatches[path.removePrefix("data/v4/players/").substringBefore('/')]
+        return faceitMatches[path.removePrefix("faceit/players/").substringBefore('/')]
     }
 
     internal suspend fun answer(path: String): String {
@@ -167,13 +167,14 @@ fun remoteStaffCore(
 ): PulseCore {
     val session = """{"user":${testStaffJson(inviteCode)},"access_token":"A","refresh_token":"R"}"""
     val engine = MockEngine { request ->
-        if (request.url.host == "open.faceit.com") {
-            val path = request.url.encodedPath.removePrefix("/")
+        check(request.url.host != "open.faceit.com") { "a remote build reads Faceit through the Pulse proxy only" }
+        val path = request.url.encodedPath.removePrefix("/v1/")
+        if (path.startsWith("faceit/")) {
             server.faceitRequests += path
             val body = server.faceit(path)
-            return@MockEngine respond(body ?: "{}", if (body != null) HttpStatusCode.OK else HttpStatusCode.NotFound, headersOf(HttpHeaders.ContentType, "application/json"))
+            return@MockEngine if (body != null) respond("""{"success":true,"data":$body,"error":null}""", HttpStatusCode.OK, headersOf(HttpHeaders.ContentType, "application/json"))
+            else respond("""{"success":false,"data":null,"error":{"code":"not_found","message":null}}""", HttpStatusCode.NotFound, headersOf(HttpHeaders.ContentType, "application/json"))
         }
-        val path = request.url.encodedPath.removePrefix("/v1/")
         if (path.startsWith("staff/players/") && "/photos/" in path) {
             server.requests += path
             val bytes = server.photo(path)

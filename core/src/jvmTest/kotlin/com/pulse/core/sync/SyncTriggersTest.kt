@@ -141,6 +141,9 @@ private class TriggerServer {
                 buildJsonObject { put("collection", name); put("version", stored.version); put("updated_at", stored.updatedAt.toString()) }
             }))
         }
+        // The team feeds of a team player: nothing shared yet.
+        path == "calendar" && method == HttpMethod.Get -> 200 to ok("""{"team_id":"0c1d2e3f-4a5b-4e5f-8a9b-6f1b6a2e1c2d","events":[],"players":[]}""")
+        path == "lineups" && method == HttpMethod.Get -> 200 to ok("""{"lineups":[]}""")
         method == HttpMethod.Get -> documents[path.removePrefix("sync/")].also { beforeGet?.invoke(path.removePrefix("sync/")) }?.let { stored ->
             200 to ok(buildJsonObject {
                 put("collection", path.removePrefix("sync/"))
@@ -487,7 +490,7 @@ class SyncTriggersTest {
         server.beforeGet = { collection -> if (collection == "wellbeing") core.sleep.startSleep() }
         val result = core.syncNow()
         assertFalse(result.failed)
-        assertEquals(listOf("sleep.json", "wellbeing.json"), result.downloaded)
+        assertEquals(listOf("sleep.json", "wellbeing.json"), result.downloaded.filter { it.endsWith(".json") })
         // The save started from the merged store: the other phone's night survives locally and on the server.
         assertEquals(listOf(theirs.id), core.sleep.sessions.map { it.id })
         assertNotNull(core.sleep.activeStart)

@@ -195,7 +195,7 @@ class NutritionWellbeingCognitiveCalendarTests {
 
     @Test fun calendarFiltersAndUpserts() {
         val today = Clock.System.now()
-        val store = CalendarStore(null, listOf(
+        val store = CalendarStore(null, seed = listOf(
             event("Тренировка", today, EventTag.Team), event("Пробежка", today, EventTag.Personal),
             event("Матч", today.addingDays(1), EventTag.Team)
         ))
