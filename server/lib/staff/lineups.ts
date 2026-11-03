@@ -5,6 +5,7 @@ import type { Deps } from "@/lib/deps";
 import { ApiError, ok, parseBody } from "@/lib/http";
 import { rateLimit } from "@/lib/rateLimit";
 import type { StaffContext } from "@/lib/staff/access";
+import { STAFF_TIME_ZONE, dayOf, type Day } from "@/lib/staff/metrics";
 
 export const LINEUP_MAPS = ["mirage", "inferno", "nuke", "ancient", "anubis", "dust2", "train"] as const;
 export const LINEUP_TYPES = ["smoke", "flash", "molotov", "grenade", "script", "note"] as const;
@@ -40,18 +41,39 @@ export type LineupFilter = {
 };
 
 export type LineupError = "invalid" | "not-found" | "save-failed";
+/** The create / edit dialog the URL asks for: `?form=lineup`, `?form=script` or `?form=edit` (the selected entry). */
+export type LineupFormMode = "lineup" | "script" | "edit";
+const FORM_MODES: readonly LineupFormMode[] = ["lineup", "script", "edit"];
+
+/** The four counters of the page: the whole team's base, and this staff member's favourites. */
+export interface LineupStats {
+  total: number;
+  /** Smoke, flash, molotov and HE entries. */
+  lineups: number;
+  scripts: number;
+  favorites: number;
+}
+
+export type LineupNotice = "created" | "saved" | "deleted";
+
 export interface StaffLineupsPage {
   filters: LineupFilter;
   entries: StaffLineup[];
   selected: StaffLineup | null;
   totalForTeam: number;
+  stats: LineupStats;
+  /** Entries per map under the other filters (the map chip's number); `all` is their sum. */
+  mapCounts: Record<LineupMap | "all", number>;
+  /** The current calendar day in the staff time zone, to word «сегодня» / «вчера». */
+  today: Day;
+  form: LineupFormMode | null;
   hasMore: boolean;
   error: LineupError | null;
-  notice: "created" | "saved" | "deleted" | null;
+  notice: LineupNotice | null;
 }
 
 const ERRORS: readonly LineupError[] = ["invalid", "not-found", "save-failed"];
-const NOTICES: readonly NonNullable<StaffLineupsPage["notice"]>[] = ["created", "saved", "deleted"];
+const NOTICES: readonly LineupNotice[] = ["created", "saved", "deleted"];
 const first = (value: string | string[] | undefined) => Array.isArray(value) ? value[0] : value;
 const enumValue = <T extends readonly string[]>(raw: string | undefined, values: T): T[number] | "all" =>
   raw && (values as readonly string[]).includes(raw) ? raw as T[number] : "all";
@@ -67,7 +89,7 @@ function validVideoUrl(value: string): boolean {
 export async function loadStaffLineups(
   deps: Deps,
   ctx: StaffContext,
-  params: { q?: string | string[]; map?: string | string[]; type?: string | string[]; side?: string | string[]; fav?: string | string[]; entry?: string | string[]; error?: string | string[]; notice?: string | string[] },
+  params: { q?: string | string[]; map?: string | string[]; type?: string | string[]; side?: string | string[]; fav?: string | string[]; entry?: string | string[]; form?: string | string[]; error?: string | string[]; notice?: string | string[] },
 ): Promise<StaffLineupsPage> {
   const rawQ = first(params.q) ?? "";
   const filters: LineupFilter = {
@@ -78,26 +100,47 @@ export async function loadStaffLineups(
     favorites: first(params.fav) === "1",
     entry: first(params.entry) ?? null,
   };
-  const [{ count }] = await deps.sql<{ count: number }[]>`
-    select count(*)::int as count from staff_lineups where team_id = ${ctx.teamId}`;
-  const rows = await deps.sql<{
-    id: string; title: string; map: LineupMap; side: LineupSide; type: StaffLineupType; details: string;
-    video_url: string | null; author: string | null; created_at: Date; favorite: boolean;
-  }[]>`
-    select l.id, l.title, l.map, l.side, l.type, l.details, l.video_url,
-      coalesce(u.nickname, 'Бывший участник') as author, l.created_at,
-      (f.lineup_id is not null) as favorite
-    from staff_lineups l
-    left join users u on u.id = l.created_by
-    left join staff_lineup_favorites f on f.lineup_id = l.id and f.staff_user_id = ${ctx.userId}
-    where l.team_id = ${ctx.teamId}
-      and (${filters.map} = 'all' or l.map = ${filters.map})
+  // Every filter but the map: the map chips count what each map would show under the rest.
+  const otherFilters = deps.sql`
+    l.team_id = ${ctx.teamId}
       and (${filters.type} = 'all' or l.type = ${filters.type})
       and (${filters.side} = 'all' or l.side = ${filters.side})
       and (${filters.favorites} = false or f.lineup_id is not null)
-      and (${filters.q} = '' or strpos(lower(l.title || ' ' || l.map || ' ' || l.details), lower(${filters.q})) > 0)
-    order by l.updated_at desc, l.id
-    limit 501`;
+      and (${filters.q} = '' or strpos(lower(l.title || ' ' || l.map || ' ' || l.details), lower(${filters.q})) > 0)`;
+  const [[stats], mapRows, rows] = await Promise.all([
+    deps.sql<LineupStats[]>`
+      select count(*)::int as total,
+        (count(*) filter (where l.type in ('smoke', 'flash', 'molotov', 'grenade')))::int as lineups,
+        (count(*) filter (where l.type = 'script'))::int as scripts,
+        (count(*) filter (where f.lineup_id is not null))::int as favorites
+      from staff_lineups l
+      left join staff_lineup_favorites f on f.lineup_id = l.id and f.staff_user_id = ${ctx.userId}
+      where l.team_id = ${ctx.teamId}`,
+    deps.sql<{ map: LineupMap; count: number }[]>`
+      select l.map, count(*)::int as count
+      from staff_lineups l
+      left join staff_lineup_favorites f on f.lineup_id = l.id and f.staff_user_id = ${ctx.userId}
+      where ${otherFilters}
+      group by l.map`,
+    deps.sql<{
+      id: string; title: string; map: LineupMap; side: LineupSide; type: StaffLineupType; details: string;
+      video_url: string | null; author: string | null; created_at: Date; favorite: boolean;
+    }[]>`
+      select l.id, l.title, l.map, l.side, l.type, l.details, l.video_url,
+        coalesce(u.nickname, 'Бывший участник') as author, l.created_at,
+        (f.lineup_id is not null) as favorite
+      from staff_lineups l
+      left join users u on u.id = l.created_by
+      left join staff_lineup_favorites f on f.lineup_id = l.id and f.staff_user_id = ${ctx.userId}
+      where ${otherFilters} and (${filters.map} = 'all' or l.map = ${filters.map})
+      order by l.updated_at desc, l.id
+      limit 501`,
+  ]);
+  const mapCounts = Object.fromEntries([...LINEUP_MAPS.map((map) => [map, 0]), ["all", 0]]) as Record<LineupMap | "all", number>;
+  for (const row of mapRows) {
+    mapCounts[row.map] = row.count;
+    mapCounts.all += row.count;
+  }
   const entries = rows.slice(0, 500).map((row) => ({
     id: row.id, title: row.title, map: row.map, side: row.side, type: row.type, details: row.details,
     videoUrl: row.video_url, author: row.author ?? "Бывший участник", createdAt: row.created_at, favorite: row.favorite,
@@ -105,8 +148,11 @@ export async function loadStaffLineups(
   const selected = (filters.entry ? entries.find((entry) => entry.id === filters.entry) : null) ?? entries[0] ?? null;
   const rawError = first(params.error);
   const rawNotice = first(params.notice);
+  const rawForm = first(params.form);
+  const form = FORM_MODES.find((mode) => mode === rawForm && (mode !== "edit" || selected !== null)) ?? null;
   return {
-    filters, entries, selected, totalForTeam: count, hasMore: rows.length > 500,
+    filters, entries, selected, totalForTeam: stats.total, stats, mapCounts, today: dayOf(deps.now(), STAFF_TIME_ZONE), form,
+    hasMore: rows.length > 500,
     error: ERRORS.find((value) => value === rawError) ?? null,
     notice: NOTICES.find((value) => value === rawNotice) ?? null,
   };

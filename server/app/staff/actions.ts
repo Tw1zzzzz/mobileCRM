@@ -145,14 +145,21 @@ export async function deleteCalendarEventAction(form: FormData): Promise<void> {
 }
 
 // ---- Team lineups and scripts ----
-function lineupReturn(form: FormData, entry?: string, notice?: string, error?: string): string {
+/**
+ * Where a lineup action sends the person back to. `prefix` names the form's filter fields: the save form calls its
+ * own `map`, `type` and `side` fields by those names, so its filters travel as `return_map` and the like.
+ */
+function lineupReturn(form: FormData, prefix: "" | "return_", entry?: string, notice?: string, error?: string): string {
   const query = new URLSearchParams();
   for (const key of ["q", "map", "type", "side"] as const) {
-    const value = (field(form, `return_${key}`) || field(form, key) || "").trim();
+    const value = (field(form, `${prefix}${key}`) ?? "").trim();
     if (value && value !== "all") query.set(key, value.slice(0, 100));
   }
-  if (field(form, "return_fav") === "1" || field(form, "fav") === "1") query.set("fav", "1");
+  if (field(form, `${prefix}fav`) === "1") query.set("fav", "1");
   if (entry) query.set("entry", entry);
+  // A refused save reopens the dialog it came from.
+  const dialog = field(form, "return_form");
+  if (error && (dialog === "lineup" || dialog === "script" || dialog === "edit")) query.set("form", dialog);
   if (notice) query.set("notice", notice);
   if (error) query.set("error", error);
   const suffix = query.toString();
@@ -162,27 +169,30 @@ function lineupReturn(form: FormData, entry?: string, notice?: string, error?: s
 export async function saveStaffLineupAction(form: FormData): Promise<void> {
   const ctx = await requireStaffContext();
   const result = await saveStaffLineup(defaultDeps(), ctx, form);
-  if (!result) redirect(lineupReturn(form, field(form, "id") || undefined, undefined, "invalid"));
+  if (!result) redirect(lineupReturn(form, "return_", field(form, "id") || undefined, undefined, "invalid"));
   revalidatePath("/staff/lineups");
-  redirect(lineupReturn(form, result.id, result.created ? "created" : "saved"));
+  redirect(lineupReturn(form, "return_", result.id, result.created ? "created" : "saved"));
 }
 
 export async function deleteStaffLineupAction(form: FormData): Promise<void> {
   const ctx = await requireStaffContext();
   const id = field(form, "id");
-  if (!id || !z.string().uuid().safeParse(id).success) redirect(lineupReturn(form, undefined, undefined, "not-found"));
+  if (!id || !z.string().uuid().safeParse(id).success) redirect(lineupReturn(form, "", undefined, undefined, "not-found"));
   const deleted = await deleteStaffLineup(defaultDeps(), ctx, id);
   revalidatePath("/staff/lineups");
-  redirect(lineupReturn(form, undefined, deleted ? "deleted" : undefined, deleted ? undefined : "not-found"));
+  redirect(lineupReturn(form, "", undefined, deleted ? "deleted" : undefined, deleted ? undefined : "not-found"));
 }
 
 export async function toggleStaffLineupFavoriteAction(form: FormData): Promise<void> {
   const ctx = await requireStaffContext();
   const id = field(form, "id");
-  if (!id || !z.string().uuid().safeParse(id).success) redirect(lineupReturn(form, undefined, undefined, "not-found"));
+  if (!id || !z.string().uuid().safeParse(id).success) redirect(lineupReturn(form, "", undefined, undefined, "not-found"));
   const found = await toggleStaffLineupFavorite(defaultDeps(), ctx, id);
   revalidatePath("/staff/lineups");
-  redirect(lineupReturn(form, id, undefined, found ? undefined : "not-found"));
+  // A star on a card keeps the entry that is open in the detail panel; without one the toggled entry opens.
+  const kept = field(form, "selected");
+  const open = z.string().uuid().safeParse(kept).success ? kept : id;
+  redirect(lineupReturn(form, "", open, undefined, found ? undefined : "not-found"));
 }
 
 // ---- «Игроки → карточка → Профиль»: notes and images ----
