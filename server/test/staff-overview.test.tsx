@@ -4,7 +4,9 @@ import fixture from "./fixtures/staff-metrics.json";
 import { EmptyTeam } from "@/components/staff/overview/EmptyTeam";
 import { OverviewView } from "@/components/staff/overview/OverviewView";
 import { ReadinessBadge } from "@/components/staff/overview/ReadinessBadge";
+import { TodayCard } from "@/components/staff/overview/TodayCard";
 import { teamOverview, type OverviewData, type PlayerDocuments } from "@/lib/staff/metrics";
+import type { TodayEvent } from "@/lib/staff/overview-today";
 import { DEFAULT_SHOW, type OverviewFilters, type ShowKey } from "@/lib/staff/overview";
 
 const TODAY = "2026-10-15";
@@ -174,5 +176,55 @@ describe("empty team", () => {
     expect(t).toContain("В команде пока нет игроков");
     expect(t).toContain("K7M2QX");
     expect(t).toContain("Отправьте этот код игрокам");
+  });
+});
+
+describe("card links", () => {
+  it("everyCardOpensItsSection", () => {
+    const markup = view("team");
+    const links: [string, string][] = [
+      ["Открыть настроение подробно", "/staff/statistics"],
+      ["Открыть сон подробно", "/staff/statistics"],
+      ["Открыть: Готовность", "/staff/players"],
+      ["Открыть: Когнитивная форма", "/staff/statistics"],
+      ["Открыть: Питание, ккал в день", "/staff/players?section=nutrition"],
+    ];
+    for (const [label, href] of links) {
+      // attribute order is the framework's business, not the test's
+      const anchor = markup.match(new RegExp(`<a(?=[^>]*aria-label="${label}")[^>]*>`))?.[0] ?? "";
+      expect(anchor, label).toContain(`href="${href}"`);
+    }
+  });
+
+  it("aCardWithoutDataStillLinks", () => {
+    expect(view("p3")).toContain('aria-label="Открыть сон подробно"');
+  });
+});
+
+describe("today card", () => {
+  const training: TodayEvent = { title: "Разбор игры", time: "12:00", tag: "team", playerName: null };
+  const review: TodayEvent = { title: "Созвон с тренером", time: "19:30", tag: "player", playerName: "alpha" };
+  const render = (events: TodayEvent[]) => renderToStaticMarkup(<TodayCard events={events} />);
+
+  it("showsTheFirstTwoEventsOfTheDayAndLinksToTheCalendar", () => {
+    const markup = render([training, review]);
+    expect(markup).toContain('href="/staff/calendar"');
+    expect(text(markup)).toContain("Разбор игры 12:00");
+    expect(text(markup)).toContain("Созвон с тренером 19:30 · #alpha");
+  });
+
+  it("oneEventShowsItsTag", () => {
+    expect(text(render([training]))).toContain("Разбор игры 12:00 #командный");
+  });
+
+  it("moreThanTwoEventsAreCounted", () => {
+    expect(text(render([training, review, training, review]))).toContain("· ещё 2");
+  });
+
+  it("noEventsSaysSoInsteadOfInventingOne", () => {
+    const markup = render([]);
+    expect(text(markup)).toContain("Сегодня событий нет");
+    expect(text(markup)).toContain("Открыть календарь");
+    expect(markup).not.toMatch(/\d\d:\d\d/);
   });
 });

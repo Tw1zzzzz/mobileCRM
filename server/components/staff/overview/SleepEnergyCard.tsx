@@ -1,6 +1,7 @@
 import { DAY_X, dayLabelLeft, energyDotsPath, energyLinePath, sleepBarsPath } from "@/lib/staff/overview-charts";
 import { NO_DATA, arrow, fmt1, hm, weekdayCapital, weekdayShort } from "@/lib/staff/overview-format";
 import type { OverviewData } from "@/lib/staff/metrics";
+import { OpenLink } from "./OpenLink";
 import { Pill } from "./Pill";
 import styles from "./overview.module.css";
 
@@ -33,7 +34,10 @@ export function SleepEnergyCard({ overview, whoLabel }: SleepEnergyCardProps) {
           <h3 className={styles.cardTitle}>Сон и энергия</h3>
           <span className={styles.cardSub}>7 дней · {whoLabel}</span>
         </div>
-        <Pill pill={sleep.pill} />
+        <div className={styles.cardTools}>
+          <Pill pill={sleep.pill} />
+          <OpenLink href="/staff/statistics" label="Открыть сон подробно" />
+        </div>
       </div>
       <div className={styles.cardBody}>
         {hasChart ? (

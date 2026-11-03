@@ -1,6 +1,7 @@
 import { trend } from "@/lib/staff/overview-charts";
 import { NO_DATA, arrow, kcal, whole } from "@/lib/staff/overview-format";
 import type { MetricKey, WeeklyMetric } from "@/lib/staff/metrics";
+import { OpenLink } from "./OpenLink";
 import { Pill } from "./Pill";
 import styles from "./overview.module.css";
 
@@ -8,6 +9,13 @@ const TITLES: Record<MetricKey, string> = {
   readiness: "Готовность",
   cognitive: "Когнитивная форма",
   nutrition: "Питание, ккал в день",
+};
+
+/** Where each metric is read in detail: the roster for readiness, «Статистика» for cognition, the team's meals. */
+const HREFS: Record<MetricKey, string> = {
+  readiness: "/staff/players",
+  cognitive: "/staff/statistics",
+  nutrition: "/staff/players?section=nutrition",
 };
 
 const FORMAT: Record<MetricKey, (value: number) => string> = {
@@ -37,7 +45,10 @@ export function MetricCard({ metric, whoLabel }: { metric: WeeklyMetric; whoLabe
           <h3 className={styles.cardTitle}>{title}</h3>
           <span className={styles.cardSub}>7 дней · {whoLabel}</span>
         </div>
-        <Pill pill={metric.pill} />
+        <div className={styles.cardTools}>
+          <Pill pill={metric.pill} />
+          <OpenLink href={HREFS[metric.key]} label={`Открыть: ${title}`} />
+        </div>
       </div>
       <div className={styles.cardBody}>
         {metric.value === null ? (

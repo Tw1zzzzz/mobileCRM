@@ -53,6 +53,58 @@
   color: var(--muted);
 }
 
+/* ---- calendar card in the page header ---- */
+
+.today {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px 18px;
+  border-radius: 14px;
+  background: rgba(23, 31, 52, 0.85);
+  border: 1px solid rgba(120, 150, 220, 0.14);
+  text-decoration: none;
+  color: var(--text) !important;
+  min-width: 0;
+  flex: 0 1 380px;
+}
+a.today:hover {
+  border-color: rgba(63, 208, 255, 0.45);
+  color: var(--text) !important;
+}
+a.today:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.todayText {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.todayTitle {
+  font-size: 14px;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todayTime {
+  font-weight: 500;
+  color: var(--cyan-soft);
+}
+.todaySub {
+  font-size: 13px;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.todaySubTime {
+  color: var(--text-soft);
+}
+
 /* ---- filters ---- */
 
 .chips {
@@ -139,6 +191,33 @@ a.chipOn:hover {
   gap: 16px;
   flex: 1 1 auto;
   min-width: 0;
+}
+
+.cardTools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.iconBtn {
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 150, 220, 0.16);
+  background: transparent;
+  color: var(--text-soft) !important;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  text-decoration: none;
+}
+a.iconBtn:hover {
+  background: var(--raised-hover);
+  color: #fff !important;
+}
+a.iconBtn:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
 }
 
 .pill {
@@ -315,7 +394,7 @@ a.chipOn:hover {
   padding: 16px 12px 8px;
 }
 .chart svg {
-  display: block;
+  /* inline, as on the board: the line box leaves the few pixels under the chart that the weekday labels sit in */
   width: 100%;
   height: auto;
 }

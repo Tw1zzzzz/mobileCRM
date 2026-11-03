@@ -1,6 +1,7 @@
 import { donutArcs } from "@/lib/staff/overview-charts";
 import { NO_DATA, fmt1, records } from "@/lib/staff/overview-format";
 import type { OverviewData } from "@/lib/staff/metrics";
+import { OpenLink } from "./OpenLink";
 import { Pill } from "./Pill";
 import styles from "./overview.module.css";
 
@@ -26,7 +27,10 @@ export function MoodCard({ mood, whoLabel, isTeam }: MoodCardProps) {
             {records(mood.count)} за 7 дней · {whoLabel}
           </span>
         </div>
-        <Pill pill={mood.pill} />
+        <div className={styles.cardTools}>
+          <Pill pill={mood.pill} />
+          <OpenLink href="/staff/statistics" label="Открыть настроение подробно" />
+        </div>
       </div>
       {mood.average === null ? (
         <div className={styles.cardBody}>
