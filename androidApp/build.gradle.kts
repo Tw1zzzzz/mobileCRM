@@ -12,18 +12,18 @@ val releaseSigning: Properties? =
         .takeIf { it.isFile }
         ?.let { file -> Properties().apply { file.inputStream().use { load(it) } } }
 
-// Faceit Data API client-side key: `faceit.apiKey` in local.properties (git-ignored) or PULSE_FACEIT_API_KEY.
-// Without it players enter their own key in the app.
-val faceitKey: String? = System.getenv("PULSE_FACEIT_API_KEY")
-    ?: rootProject.file("local.properties").takeIf { it.isFile }
-        ?.let { file -> Properties().apply { file.inputStream().use { load(it) } }.getProperty("faceit.apiKey") }
-
 // Pulse API base URL (e.g. https://api.example.com/v1/): `pulse.apiBaseUrl` in local.properties or PULSE_API_BASE_URL.
 // Empty (default) = local build with on-device accounts.
 val apiBaseUrl: String = System.getenv("PULSE_API_BASE_URL")
     ?: rootProject.file("local.properties").takeIf { it.isFile }
         ?.let { file -> Properties().apply { file.inputStream().use { load(it) } }.getProperty("pulse.apiBaseUrl") }
     ?: ""
+
+// Faceit Data API key for LOCAL builds only: `faceit.apiKey` in local.properties (git-ignored) or PULSE_FACEIT_API_KEY.
+// A build with a server never ships a key: it reaches Faceit through the server's /v1/faceit proxy (FACEIT_API_KEY on Vercel).
+val faceitKey: String? = if (apiBaseUrl.isNotBlank()) null else System.getenv("PULSE_FACEIT_API_KEY")
+    ?: rootProject.file("local.properties").takeIf { it.isFile }
+        ?.let { file -> Properties().apply { file.inputStream().use { load(it) } }.getProperty("faceit.apiKey") }
 
 android {
     namespace = "com.pulse.android"
