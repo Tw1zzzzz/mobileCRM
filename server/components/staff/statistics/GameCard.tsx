@@ -7,7 +7,7 @@ export function GameCard({ game }: { game: GameCardView }) {
     <section className={styles.card}>
       <div className={styles.cardTitles}>
         <h2 className={styles.cardTitle}>Игровые показатели за период</h2>
-        <span className={styles.sub}>Матчи Faceit</span>
+        <span className={styles.sub}>Матчи Faceit, пракки и турниры</span>
       </div>
       <dl className={styles.stats}>
         {game.tiles.map((tile) => (

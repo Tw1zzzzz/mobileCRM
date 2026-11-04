@@ -199,12 +199,12 @@ describe("«Игра» tab", () => {
     expect(empty["K/D"]).toBe("нет данных");
     expect(empty["Убийства"]).toBe("нет данных");
     expect(empty["Win-Rate"]).toBe("нет данных");
-    expect(text(none.markup)).toContain("В выбранном периоде матчей Faceit нет");
+    expect(text(none.markup)).toContain("В выбранном периоде игр нет");
     expect(empty["Всего матчей"]).toBe("0"); // a real count: Faceit answered, there were no matches
     expect(Object.values(empty).filter((v) => /NaN|Infinity|^0$/.test(v))).toEqual(["0"]);
   });
 
-  it("disabledSourcesAreNotLinks", async () => {
+  it("theSourceFilterListsTheBoardsFourSources", async () => {
     const t = await seedCardTeam(deps);
     await connect(t.ids.vega, FACEIT_IDS.vega);
     const faceit = fakeFaceit({ [FACEIT_IDS.vega]: GAME_ITEMS });
@@ -217,11 +217,10 @@ describe("«Игра» tab", () => {
     }));
     expect(options).toEqual([
       { value: "all", label: "Все", disabled: false, selected: false },
+      { value: "pracc", label: "Пракки", disabled: false, selected: false },
       { value: "faceit", label: "Faceit", disabled: false, selected: true },
-      { value: "prak", label: "Пракки (скоро)", disabled: true, selected: false },
-      { value: "tour", label: "Турниры (скоро)", disabled: true, selected: false },
+      { value: "tournament", label: "Турниры", disabled: false, selected: false },
     ]);
-    expect(markup).not.toMatch(/href="[^"]*src=(prak|tour)/);
     // the form carries the rest of the selection but not the source itself
     const form = markup.slice(markup.lastIndexOf("<form", markup.indexOf('id="f-src"')), markup.indexOf('id="f-src"'));
     const hidden = [...form.matchAll(/<input type="hidden" name="([^"]*)" value="([^"]*)"/g)].map((m) => [m[1], m[2]]);
@@ -234,7 +233,7 @@ describe("«Игра» tab", () => {
       expect(other, tab).toContain('id="f-type"');
     }
 
-    // a URL naming a source that is not built falls back to «Все»
+    // a URL naming an unknown source falls back to «Все»
     const fallback = await open(t, { player: t.ids.vega, tab: "game", src: "prak" }, faceit);
     expect(fallback.data.params.src).toBe("all");
     expect(fallback.markup).toMatch(/<option value="all"[^>]*selected/);

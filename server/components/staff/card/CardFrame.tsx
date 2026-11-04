@@ -28,12 +28,12 @@ const TYPE_OPTIONS: readonly { value: TestType; label: string }[] = [
   { value: "game", label: "Игровые до/после" },
 ];
 
-/** The board's «Источник игр»; practices and tournaments arrive with plan C, so they are listed but disabled. */
-const SOURCE_OPTIONS: readonly { value: GameSource | "prak" | "tour"; label: string; disabled?: boolean }[] = [
+/** The board's «Источник игр»: «Все / Пракки / Faceit / Турниры». */
+const SOURCE_OPTIONS: readonly { value: GameSource; label: string }[] = [
   { value: "all", label: "Все" },
+  { value: "pracc", label: "Пракки" },
   { value: "faceit", label: "Faceit" },
-  { value: "prak", label: "Пракки (скоро)", disabled: true },
-  { value: "tour", label: "Турниры (скоро)", disabled: true },
+  { value: "tournament", label: "Турниры" },
 ];
 
 /** A tab whose body is built in a later step. */

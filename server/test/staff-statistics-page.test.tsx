@@ -83,8 +83,7 @@ describe("«Статистика» page", () => {
     expect(words).toContain("Слева состояние, справа игра. Выбрано 6 из 8");
     expect(words).toContain("Сбросить выбор");
     expect(words).toContain("Состояние");
-    expect(words).toContain("Игра · Faceit");
-    expect(words).not.toContain("пракки");
+    expect(words).toContain("Игра · Faceit, пракки, турниры");
     expect(words).not.toContain("Можно выбрать до 8 метрик");
     // selected chips are pressed and link to the selection without them; the others add themselves
     expect(defaults).not.toContain("aria-pressed");

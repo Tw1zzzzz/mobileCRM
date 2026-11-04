@@ -2,13 +2,15 @@
  * The card's Faceit tabs: «Игра» (tiles) and «Корреляции» (state × game matrix), as ready-to-render text.
  *
  * Pure functions over a `FaceitResult` (already loaded by `loadCard`). Numbers come from `gameSummary` /
- * `matchDaily` (`lib/staff/game.ts`) and `correlate` / `keyLinks` (`lib/staff/statistics.ts`); this file only
+ * `linesDaily` (`lib/staff/game-lines.ts`) and `gameSummary` (`lib/staff/game.ts`) and `correlate` / `keyLinks` (`lib/staff/statistics.ts`); this file only
  * formats them the board's way (`Players.dc.html`). A value without data is «нет данных», never 0.
  */
 import { MATCH_LIMIT } from "@/lib/faceit/client";
 import type { FaceitResult } from "@/lib/faceit/cache";
 import { monthDay } from "@/lib/staff/card-format";
-import { gameSummary, matchDaily, type GameTiles } from "@/lib/staff/game";
+import { NO_SITE_GAMES, type SiteGameRow, type SiteGames } from "@/lib/staff/card-site";
+import { gameSummary, type GameTiles } from "@/lib/staff/game";
+import { faceitLines, linesDaily, linesSummary } from "@/lib/staff/game-lines";
 import { dayOf, roundHalfUp, type Day } from "@/lib/staff/metrics";
 import { NO_DATA, whole } from "@/lib/staff/overview-format";
 import { clock } from "@/lib/staff/players";
@@ -24,6 +26,7 @@ export const FACEIT_MESSAGES = {
 } as const;
 
 export const NO_MATCHES = "В выбранном периоде матчей Faceit нет";
+export const NO_GAMES = "В выбранном периоде игр нет";
 export const TOO_FEW_PAIRS = "мало данных";
 
 /** What the Faceit tabs say about the data itself. */
@@ -53,8 +56,12 @@ export interface TileGroup {
 export interface GameView extends FaceitInfo {
   /** Empty when there are no matches to show (a Faceit problem). */
   groups: TileGroup[];
-  /** Set when Faceit answered but the period has no match. */
+  /** Set when the sources answered but the period has no match. */
   emptyPeriod: string | null;
+  /** The player's hand-entered games of the period, newest first; empty for the Faceit source. */
+  games: SiteGameRow[];
+  /** More hand-entered games than `games` lists. */
+  gamesTotal: number;
 }
 
 export interface CorrCell {
@@ -187,18 +194,36 @@ const GROUPS: readonly (readonly [title: string, specs: readonly TileSpec[]])[] 
   ["Матчи, раунды, пистолетки", ROUND_TILES],
 ];
 
-/** The «Игра» tab for the period's matches. */
-export function gameView(result: FaceitResult, period: Period, today: Day, tz: string): GameView {
-  const info = faceitInfo(result, period, today, tz);
-  if (result.status !== "ok") return { ...info, groups: [], emptyPeriod: null };
-  const summary = gameSummary(result.matches, period.from, period.to, tz);
+/**
+ * The «Игра» tab for the period. `faceit` is null for a site-only source, `site` is null for the Faceit source;
+ * «Все» has both. Faceit alone keeps the Faceit tiles; with hand-entered games the tiles come from both lists.
+ */
+export function gameView(
+  faceit: FaceitResult | null,
+  site: SiteGames | null,
+  period: Period,
+  today: Day,
+  tz: string,
+): GameView {
+  const info = faceit === null ? { notice: null, coverage: null } : faceitInfo(faceit, period, today, tz);
+  const heldSite = site ?? NO_SITE_GAMES;
+  const games = { games: heldSite.rows, gamesTotal: heldSite.total };
+  const matches = faceit?.status === "ok" ? faceit.matches : null;
+  if (faceit !== null && matches === null && heldSite.lines.length === 0) {
+    return { ...info, groups: [], emptyPeriod: null, ...games };
+  }
+  const summary =
+    site === null || (heldSite.lines.length === 0 && matches !== null)
+      ? gameSummary(matches ?? [], period.from, period.to, tz)
+      : linesSummary([...faceitLines(matches ?? [], period.from, period.to, tz), ...heldSite.lines]);
   return {
     ...info,
     groups: GROUPS.map(([title, specs]) => ({
       title,
       tiles: specs.map(([label, value]) => ({ label, value: value(summary) })),
     })),
-    emptyPeriod: summary.matches === 0 ? NO_MATCHES : null,
+    emptyPeriod: summary.matches === 0 ? (site === null ? NO_MATCHES : NO_GAMES) : null,
+    ...games,
   };
 }
 
@@ -245,14 +270,24 @@ function noteOf(matrix: CorrelationMatrix): string | null {
 
 /**
  * The «Корреляции» tab: r of each state series with each game series over the days both have (Pearson, at least
- * three paired days, else «мало данных»). The game side is the per-day mean over that day's matches.
+ * three paired days, else «мало данных»). The game side is the per-day mean over that day's matches and
+ * hand-entered maps, for the sources the filter names (`faceit` / `site` as in `gameView`).
  */
-export function corrView(result: FaceitResult, series: PlayerSeries, period: Period, today: Day, tz: string): CorrView {
-  const info = faceitInfo(result, period, today, tz);
+export function corrView(
+  faceit: FaceitResult | null,
+  site: SiteGames | null,
+  series: PlayerSeries,
+  period: Period,
+  today: Day,
+  tz: string,
+): CorrView {
+  const info = faceit === null ? { notice: null, coverage: null } : faceitInfo(faceit, period, today, tz);
   const head = GAME_COLUMNS.map(([label]) => label);
-  if (result.status !== "ok") return { ...info, head, rows: [], note: null };
+  const heldSite = site?.lines ?? [];
+  const matches = faceit?.status === "ok" ? faceit.matches : null;
+  if (faceit !== null && matches === null && heldSite.length === 0) return { ...info, head, rows: [], note: null };
 
-  const game = matchDaily(result.matches, period.from, period.to, tz);
+  const game = linesDaily([...faceitLines(matches ?? [], period.from, period.to, tz), ...heldSite]);
   const matrix: CorrelationMatrix = {};
   const rows = STATE_ROWS.map(([name, row]): CorrRow => {
     const rs = GAME_COLUMNS.map(([, column]) => correlate(series[row], game[column]));

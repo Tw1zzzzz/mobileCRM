@@ -2,15 +2,14 @@
  * Everything the «Статистика» page shows, as ready-to-render text, from the players' per-day series.
  *
  * Pure functions over `PlayerData` (already loaded). Numbers come from `correlatePooled` / `keyLinks` / `medianSplit`
- * (`lib/staff/statistics.ts`), `gameSummary` / `matchDaily` (`lib/staff/game.ts`); this file formats them the board's way
+ * (`lib/staff/statistics.ts`), `linesSummary` (`lib/staff/game-lines.ts`); this file formats them the board's way
  * (`Statistics.dc.html`). Team mode pools the player-day pairs of every player; a value without data is «нет данных»,
  * a pair without enough days is «мало данных», never a zero.
  */
 import { MATCH_LIMIT } from "@/lib/faceit/client";
 import type { FaceitResult } from "@/lib/faceit/cache";
-import type { FaceitMatch } from "@/lib/faceit/mapper";
 import { FACEIT_MESSAGES, cellColour, faceitInfo, fixed, signedR, type FaceitNoticeData } from "@/lib/staff/card-game";
-import { gameSummary } from "@/lib/staff/game";
+import { distinctLines, faceitLines, linesSummary, type GameLine } from "@/lib/staff/game-lines";
 import { mean, type Day } from "@/lib/staff/metrics";
 import { NO_DATA, plural, whole } from "@/lib/staff/overview-format";
 import { MONTHS } from "@/lib/staff/players";
@@ -34,8 +33,10 @@ export interface PlayerData {
   id: string;
   nickname: string;
   series: PlayerSeries;
-  /** Per-day K/D, ADR and win rate of the matches; null when Faceit gave no matches (or was not asked). */
+  /** Per-day K/D, ADR and win rate of the Faceit matches and the hand-entered maps; null when no game metric was asked. */
   game: { kd: DaySeries; adr: DaySeries; winRate: DaySeries } | null;
+  /** The lines `game` is made of (Faceit matches and the player's maps of hand-entered games) in the period. */
+  lines?: readonly GameLine[];
   /** Null when Faceit was not asked. */
   faceit: FaceitResult | null;
 }
@@ -241,22 +242,18 @@ function lastValue(series: DaySeries): number | null {
   return days.length === 0 ? null : series[days[days.length - 1]];
 }
 
-/** The first occurrence of each Faceit match id: teammates who played the same match share one id. */
-function distinctMatches(matches: readonly FaceitMatch[]): FaceitMatch[] {
-  const seen = new Set<string>();
-  return matches.filter((m) => (seen.has(m.id) ? false : (seen.add(m.id), true)));
-}
-
 function gameCard(players: readonly PlayerData[], period: Period, tz: string): GameCardView {
   const answered = players.filter((p) => p.faceit?.status === "ok");
-  const matches = answered.flatMap((p) => (p.faceit?.status === "ok" ? p.faceit.matches : []));
-  // Maps played and Win Rate count a match once however many selected players were in it; K/D and ADR average
-  // every selected player's own lines.
-  const summary = gameSummary(matches, period.from, period.to, tz);
-  const distinct = gameSummary(distinctMatches(matches), period.from, period.to, tz);
+  const lines = players.flatMap(
+    (p) => p.lines ?? faceitLines(p.faceit?.status === "ok" ? p.faceit.matches : [], period.from, period.to, tz),
+  );
+  // Maps played and Win Rate count a match / map once however many selected players were in it; K/D and ADR
+  // average every selected player's own lines.
+  const summary = linesSummary(lines);
+  const distinct = linesSummary(distinctLines(lines));
   const ended = players.map((p) => lastValue(p.series.elo)).filter((v): v is number => v !== null);
   const elo = mean(ended);
-  const some = answered.length > 0;
+  const some = answered.length > 0 || lines.length > 0;
   const orNo = (value: number | null, format: (v: number) => string): string => (value === null ? NO_DATA : format(value));
   return {
     tiles: [
@@ -268,7 +265,7 @@ function gameCard(players: readonly PlayerData[], period: Period, tz: string): G
     ],
     note:
       players.length > 1
-        ? "Карты и Win Rate — по матчам игроков с данными Faceit, общий матч считается один раз; K/D и ADR — по матчам каждого игрока; ELO — среднее значение на конец периода по игрокам, у которых он есть."
+        ? "Карты и Win Rate — по матчам Faceit и играм команды (пракки, турниры), общий матч или карта считается один раз; K/D и ADR — по матчам и картам каждого игрока; ELO — среднее значение на конец периода по игрокам, у которых он есть."
         : null,
   };
 }

@@ -3,7 +3,8 @@ import { loadMatches, type FaceitResult } from "@/lib/faceit/cache";
 import { FACEIT_PAGE_DEADLINE_MS, raceDeadline } from "@/lib/faceit/deadline";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext, type TeamPlayer } from "@/lib/staff/access";
 import { faceitIdentity } from "@/lib/staff/card";
-import { matchDaily } from "@/lib/staff/game";
+import { faceitLines, linesDaily, siteLines, type GameLine } from "@/lib/staff/game-lines";
+import { listGames, type Game } from "@/lib/staff/games";
 import { STAFF_TIME_ZONE, dayOf, shiftDay, type Day } from "@/lib/staff/metrics";
 import { TEAM, type RosterEntry, type SearchParams } from "@/lib/staff/overview";
 import { periodDays, playerSeries, type Period } from "@/lib/staff/series";
@@ -14,7 +15,7 @@ import { playerCodeOf } from "@/lib/teams";
 /**
  * «Статистика»: which players, metrics and period the URL asks for (`?who=&m=&period=&from=&to=`), and every number
  * the correlation analysis shows, computed from the roster's synced documents (read through `lib/staff/access.ts`)
- * and, for the game metrics, from Faceit.
+ * and, for the game metrics, from Faceit and the games the staff entered by hand (pracc / tournament).
  */
 
 export const STATS_PATH = "/staff/statistics";
@@ -194,8 +195,9 @@ async function faceitOf(
 }
 
 /**
- * Everything the page needs. Faceit is asked only when K/D, ADR or Win Rate is selected (`NEEDS_FACEIT`), and only for the roster's
- * players the page shows (never for an id from the URL). `tz` is the staff time zone.
+ * Everything the page needs. Faceit and the hand-entered games are read only when K/D, ADR or Win Rate is selected
+ * (`NEEDS_FACEIT`), and only for the roster's players the page shows (never for an id from the URL). `tz` is the staff
+ * time zone.
  */
 export async function loadStatistics(
   deps: Deps,
@@ -213,18 +215,25 @@ export async function loadStatistics(
   const { from, to } = params.range;
 
   const docs = await Promise.all(scope.map((p) => playerDocuments(deps, ctx, p.id, STATS_COLLECTIONS)));
-  const wantsFaceit = params.metrics.some((id) => NEEDS_FACEIT.has(id));
-  const faceit = wantsFaceit
+  const wantsGame = params.metrics.some((id) => NEEDS_FACEIT.has(id));
+  const faceit = wantsGame
     ? await faceitForScope(deps, scope, docs, options)
     : scope.map(() => null);
 
+  // The hand-entered games are one read for the whole team, then split by player.
+  const siteGames: readonly Game[] = wantsGame ? await listGames(deps, ctx, { from, to }) : [];
+
   const players: PlayerData[] = scope.map((p, i) => {
     const result = faceit[i];
+    const lines: GameLine[] = wantsGame
+      ? [...faceitLines(result?.status === "ok" ? result.matches : [], from, to, tz), ...siteLines(siteGames, p.id)]
+      : [];
     return {
       id: p.id,
       nickname: p.nickname,
       series: playerSeries({ id: p.id, docs: docs[i] }, from, to, tz),
-      game: result?.status === "ok" ? matchDaily(result.matches, from, to, tz) : null,
+      game: wantsGame ? linesDaily(lines) : null,
+      lines,
       faceit: result,
     };
   });

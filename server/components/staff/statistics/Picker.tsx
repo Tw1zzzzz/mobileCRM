@@ -7,7 +7,7 @@ type Group = "state" | "game";
 
 const GROUPS: readonly { group: Group; title: string; label: string }[] = [
   { group: "state", title: "Состояние", label: "Метрики состояния" },
-  { group: "game", title: "Игра · Faceit", label: "Игровые метрики" },
+  { group: "game", title: "Игра · Faceit, пракки, турниры", label: "Игровые метрики" },
 ];
 
 function chipClass(group: Group, on: boolean, off: boolean): string {

@@ -30,9 +30,9 @@ export interface GameTiles {
   avgKR: number | null;
   /** Mean of the matches' kills / max(1, deaths). */
   avgKD: number | null;
-  kast: null;
+  kast: number | null;
   firstKills: number | null;
-  firstDeaths: null;
+  firstDeaths: number | null;
   /** Utility damage per round. */
   udr: number | null;
   /** Entry duels won minus lost. */
@@ -40,20 +40,20 @@ export interface GameTiles {
   /** Multi-kill rounds (2K..5K) per match. */
   avgMultikills: number | null;
   clutchesWon: number | null;
-  avgFlashTime: null;
-  draws: null;
+  avgFlashTime: number | null;
+  draws: number | null;
   /** Rounds of the matches that have a score. */
   rounds: number | null;
   roundsWon: number | null;
   roundWinRate: number | null;
   avgRoundsWon: number | null;
   avgRoundsLost: number | null;
-  pistolWon: null;
-  pistolRounds: null;
-  pistolWinRate: null;
+  pistolWon: number | null;
+  pistolRounds: number | null;
+  pistolWinRate: number | null;
 }
 
-/** The tiles Faceit cannot give, always `null`. */
+/** The tiles Faceit cannot give, always `null` for Faceit matches (hand-entered games can fill them, see `game-lines.ts`). */
 export const UNAVAILABLE_TILES = ["kast", "firstDeaths", "avgFlashTime", "draws", "pistolWon", "pistolRounds", "pistolWinRate"] as const;
 
 const sum = (values: readonly number[]): number => values.reduce((total, value) => total + value, 0);
@@ -75,7 +75,7 @@ function sumWhere(matches: readonly FaceitMatch[], pick: (match: FaceitMatch) =>
   return values.length > 0 ? sum(values) : null;
 }
 
-function emptyTiles(): GameTiles {
+export function emptyTiles(): GameTiles {
   return {
     matches: 0, wins: null, losses: null, winRate: null, kills: null, deaths: null, assists: null, kd: null, adr: null,
     kpr: null, deathsPerRound: null, avgKR: null, avgKD: null, kast: null, firstKills: null, firstDeaths: null,

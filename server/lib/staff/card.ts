@@ -5,7 +5,9 @@ import { FACEIT_PAGE_DEADLINE_MS, raceDeadline } from "@/lib/faceit/deadline";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext } from "@/lib/staff/access";
 import { chartLine, type TestsChart } from "@/lib/staff/card-charts";
 import { corrView, gameView, type CorrView, type GameView } from "@/lib/staff/card-game";
+import { loadSiteGames, type SiteGames } from "@/lib/staff/card-site";
 import { foodData, type FoodData } from "@/lib/staff/card-food";
+import type { GameKind } from "@/lib/staff/games";
 import { loadProfileNotes, type ProfileNotes } from "@/lib/staff/notes";
 import { dayLabel, hoursMinutes, initials, monthDay, signed1 } from "@/lib/staff/card-format";
 import { wheelData, type WheelData } from "@/lib/staff/card-wheel";
@@ -40,7 +42,8 @@ export const CARD_PERIODS = [7, 30, 90] as const;
 export type CardPeriod = (typeof CARD_PERIODS)[number];
 export const TEST_TYPES = ["all", "cog", "game"] as const;
 export type TestType = (typeof TEST_TYPES)[number];
-export const GAME_SOURCES = ["all", "faceit"] as const;
+/** The board's «Источник игр» in its order: «Все / Пракки / Faceit / Турниры». */
+export const GAME_SOURCES = ["all", "pracc", "faceit", "tournament"] as const;
 export type GameSource = (typeof GAME_SOURCES)[number];
 
 const DEFAULT_PERIOD: CardPeriod = 30;
@@ -190,7 +193,7 @@ export type CardData =
       food: FoodData;
       /** Staff notes and images; only on the «Профиль» tab. */
       profile: ProfileNotes | null;
-      /** Only on the «Игра» tab (and only then is Faceit asked). */
+      /** Only on the «Игра» tab (and only then are Faceit and the site games asked). */
       game: GameView | null;
       /** Only on the «Корреляции» tab. */
       corr: CorrView | null;
@@ -361,9 +364,24 @@ export function faceitIdentity(doc: unknown): { playerId: string | null; nicknam
   };
 }
 
+/** The two tabs that show games. */
+function showsGames(params: CardParams): boolean {
+  return params.tab === "game" || params.tab === "corr";
+}
+
 /** Faceit is asked only for the two tabs that show its matches, and only for sources that include it. */
 function wantsFaceit(params: CardParams): boolean {
-  return (params.tab === "game" || params.tab === "corr") && (params.src === "all" || params.src === "faceit");
+  return showsGames(params) && (params.src === "all" || params.src === "faceit");
+}
+
+/** The kind of site game a source names; «Все» (and Faceit, which reads none) names no single kind. */
+function siteKind(src: GameSource): GameKind | undefined {
+  return src === "pracc" || src === "tournament" ? src : undefined;
+}
+
+/** The team's hand-entered games are read only for those tabs and the sources that include them. */
+function wantsSite(params: CardParams): boolean {
+  return showsGames(params) && params.src !== "faceit";
 }
 
 /**
@@ -397,6 +415,10 @@ export async function loadCard(
       )
     : null;
 
+  const site: SiteGames | null = wantsSite(params)
+    ? await loadSiteGames(deps, ctx, player.id, period, today, siteKind(params.src))
+    : null;
+
   return {
     kind: "card",
     params,
@@ -420,7 +442,7 @@ export async function loadCard(
     wheel: wheelData(docs, today, params.day, (day) => cardHref(params, { day })),
     food: foodData(docs, player.id, period.from, period.to, tz),
     profile: params.tab === "profile" ? await loadProfileNotes(deps, ctx, player.id, tz, firstOf(raw.notice)) : null,
-    game: faceit && params.tab === "game" ? gameView(faceit, period, today, tz) : null,
-    corr: faceit && params.tab === "corr" ? corrView(faceit, series, period, today, tz) : null,
+    game: params.tab === "game" && (faceit || site) ? gameView(faceit, site, period, today, tz) : null,
+    corr: params.tab === "corr" && (faceit || site) ? corrView(faceit, site, series, period, today, tz) : null,
   };
 }
