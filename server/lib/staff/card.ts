@@ -3,7 +3,7 @@ import { archetypeOf, latestMindsetScores, type Archetype } from "@/lib/staff/ar
 import { loadMatches, type FaceitResult } from "@/lib/faceit/cache";
 import { FACEIT_PAGE_DEADLINE_MS, raceDeadline } from "@/lib/faceit/deadline";
 import { playerDocuments, teamPlayers, type Collection, type StaffContext } from "@/lib/staff/access";
-import { chartLine, type TestsChart } from "@/lib/staff/card-charts";
+import { chartLine, testsPoints, type TestsChart } from "@/lib/staff/card-charts";
 import { corrView, gameView, type CorrView, type GameView } from "@/lib/staff/card-game";
 import { loadSiteGames, type SiteGames } from "@/lib/staff/card-site";
 import { foodData, type FoodData } from "@/lib/staff/card-food";
@@ -291,7 +291,14 @@ function testsData(
   const state = chartLine(period.days, series.readiness);
   const hasPoints = [score, state].some((l) => l.line !== "" || l.dots !== "");
   return {
-    chart: hasPoints ? { score, state, aria: `Score и Индекс состояния игрока ${nickname} за период` } : null,
+    chart: hasPoints
+      ? {
+          score,
+          state,
+          aria: `Score и Индекс состояния игрока ${nickname} за период`,
+          points: testsPoints(period.days, series.cog, series.readiness, today),
+        }
+      : null,
     rows,
     total: matching.length,
   };

@@ -53,6 +53,19 @@ export interface WheelFigure {
   aria: string;
   labels: WheelLabel[];
   list: { name: string; value: string }[];
+  /** One per value, in the order of `list`: what pointing at that part of the radar picks and marks. */
+  sectors: WheelSector[];
+}
+
+export interface WheelSector {
+  /** `points` of the wedge around the spoke, out to the outer ring. */
+  points: string;
+  /** The value's vertex on the radar. */
+  x: number;
+  y: number;
+  /** The same vertex in CSS percentages of the square. */
+  left: string;
+  top: string;
 }
 
 export interface WheelData {
@@ -72,6 +85,23 @@ function point(index: number, value: number): [number, number] {
   const a = angle(index);
   const r = (RADIUS * value) / SCALE_MAX;
   return [CENTRE + Math.cos(a) * r, CENTRE + Math.sin(a) * r];
+}
+
+/** The wedge of spoke `index`: half the way to each neighbouring spoke. */
+function sector(index: number, value: number): WheelSector {
+  const edge = (delta: number): string => {
+    const a = angle(index) + delta;
+    const reach = RADIUS / Math.cos(Math.PI / 8);
+    return `${(CENTRE + Math.cos(a) * reach).toFixed(1)},${(CENTRE + Math.sin(a) * reach).toFixed(1)}`;
+  };
+  const [x, y] = point(index, value);
+  return {
+    points: `${CENTRE},${CENTRE} ${edge(-Math.PI / 8)} ${edge(Math.PI / 8)}`,
+    x: Number(x.toFixed(1)),
+    y: Number(y.toFixed(1)),
+    left: `${((x / SIZE) * 100).toFixed(1)}%`,
+    top: `${((y / SIZE) * 100).toFixed(1)}%`,
+  };
 }
 
 function polygonPoints(values: readonly number[]): string {
@@ -118,6 +148,7 @@ function figure(values: readonly number[]): WheelFigure {
       };
     }),
     list: CATEGORIES.map((c, i) => ({ name: c.title, value: valueText(values[i]) })),
+    sectors: values.map((value, i) => sector(i, value)),
   };
 }
 

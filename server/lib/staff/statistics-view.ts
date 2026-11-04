@@ -14,7 +14,8 @@ import { mean, type Day } from "@/lib/staff/metrics";
 import { NO_DATA, plural, whole } from "@/lib/staff/overview-format";
 import { MONTHS } from "@/lib/staff/players";
 import type { DaySeries, Period, PlayerSeries } from "@/lib/staff/series";
-import { sparkline } from "@/lib/staff/statistics-charts";
+import { fraction, type HoverPoint } from "@/lib/staff/chart-hover";
+import { SPARKLINE_CHART, sparkline, sparklineX, sparklineYs } from "@/lib/staff/statistics-charts";
 import {
   STAT_METRICS,
   correlatePooled,
@@ -67,6 +68,8 @@ export interface MultipleView {
   line: string;
   dots: string;
   aria: string;
+  /** One per day of the period, for the chart's hover tooltip. */
+  points: HoverPoint[];
 }
 
 export interface MatrixCell {
@@ -221,7 +224,7 @@ function multipleView(id: MetricId, players: readonly PlayerData[], period: Peri
   const present = values.filter((v): v is number => v !== null);
   const base = { id, label, group, from: dayLabel(period.from), to: dayLabel(period.to) };
   if (present.length === 0) {
-    return { ...base, hasData: false, avg: NO_DATA, min: NO_DATA, max: NO_DATA, line: "", dots: "", aria: `${label}: ${NO_DATA}` };
+    return { ...base, hasData: false, avg: NO_DATA, min: NO_DATA, max: NO_DATA, line: "", dots: "", aria: `${label}: ${NO_DATA}`, points: [] };
   }
   const avg = formatMetric(id, mean(present) as number);
   return {
@@ -232,7 +235,30 @@ function multipleView(id: MetricId, players: readonly PlayerData[], period: Peri
     max: formatMetric(id, Math.max(...present)),
     ...sparkline(values),
     aria: `${label}: среднее ${avg}`,
+    points: multiplePoints(id, period.days, values),
   };
+}
+
+const GROUP_COLORS = { state: "#3FD0FF", game: "#FFAA3C" } as const;
+
+/** Each day of a small multiple: «15 окт» and the day's value (or «нет данных»), marker on the line. */
+function multiplePoints(id: MetricId, days: readonly Day[], values: readonly (number | null)[]): HoverPoint[] {
+  const { label, group } = metric(id);
+  const ys = sparklineYs(values);
+  return days.map((day, i) => {
+    const value = values[i] ?? null;
+    const y = ys[i] ?? null;
+    return {
+      x: fraction(sparklineX(i, days.length), SPARKLINE_CHART.width),
+      title: dayLabel(day),
+      rows: [{
+        label,
+        value: value === null ? NO_DATA : formatMetric(id, value),
+        color: GROUP_COLORS[group],
+        y: y === null ? undefined : fraction(y, SPARKLINE_CHART.height),
+      }],
+    };
+  });
 }
 
 // ---------------------------------------------------------------- Faceit

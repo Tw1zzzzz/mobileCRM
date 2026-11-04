@@ -3,7 +3,10 @@
  * y = 180 − v·1.6 for v in 0..100). Only days with data are points: consecutive days are joined, a gap breaks the
  * line and nothing is interpolated; a lone day is a dot.
  */
+import { dayLabel } from "@/lib/staff/card-format";
+import { fraction, type HoverPoint } from "@/lib/staff/chart-hover";
 import type { Day } from "@/lib/staff/metrics";
+import { NO_DATA, whole } from "@/lib/staff/overview-format";
 import type { DaySeries } from "@/lib/staff/series";
 
 const LEFT = 40;
@@ -24,7 +27,14 @@ export interface TestsChart {
   score: ChartLine;
   state: ChartLine;
   aria: string;
+  /** One per day of the period, for the chart's hover tooltip. */
+  points: HoverPoint[];
 }
+
+export const SCORE_COLOR = "#3fd0ff";
+export const STATE_COLOR = "#ffaa3c";
+const VIEW_WIDTH = 900;
+const VIEW_HEIGHT = 220;
 
 const num = (value: number): string => String(Number(value.toFixed(1)));
 
@@ -71,4 +81,20 @@ export function chartLine(days: readonly Day[], series: DaySeries): ChartLine {
       .map((run) => circle(run[0]))
       .join(""),
   };
+}
+
+/** Each day of the period: «Вчера» / «15 окт» and that day's Score and state index. */
+export function testsPoints(days: readonly Day[], score: DaySeries, state: DaySeries, today: Day): HoverPoint[] {
+  const row = (label: string, series: DaySeries, color: string) => (day: Day) => {
+    const value = series[day];
+    const known = typeof value === "number";
+    return { label, value: known ? whole(value) : NO_DATA, color, y: known ? fraction(y(value), VIEW_HEIGHT) : undefined };
+  };
+  const scoreRow = row("Score", score, SCORE_COLOR);
+  const stateRow = row("Индекс состояния", state, STATE_COLOR);
+  return days.map((day, i) => ({
+    x: fraction(x(i, days.length), VIEW_WIDTH),
+    title: dayLabel(day, today),
+    rows: [scoreRow(day), stateRow(day)],
+  }));
 }

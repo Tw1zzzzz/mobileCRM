@@ -398,6 +398,25 @@ a.chipOn:hover {
   color: var(--text-soft);
   white-space: nowrap;
 }
+.rlOn {
+  color: var(--text);
+  font-weight: 700;
+}
+.wheelSector {
+  cursor: pointer;
+}
+.wheelTip {
+  position: absolute;
+  padding: 3px 9px;
+  border-radius: 8px;
+  border: 1px solid rgba(120, 150, 220, 0.25);
+  background: rgba(11, 16, 32, 0.96);
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--text);
+  transform: translate(-50%, calc(-100% - 10px));
+  pointer-events: none;
+}
 .wheelList {
   flex: 1 1 260px;
   display: grid;
@@ -412,6 +431,18 @@ a.chipOn:hover {
   border-radius: 10px;
   background: var(--raised);
   font-size: 14px;
+}
+.kv {
+  border: 1px solid transparent;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.kvOn {
+  border-color: rgba(63, 208, 255, 0.45);
+  background: var(--raised-hover);
+}
+.kv:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
 }
 .kvName {
   color: var(--text-soft);

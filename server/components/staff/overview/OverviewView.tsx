@@ -45,7 +45,7 @@ export function OverviewView({ overview, players, filters }: OverviewViewProps) 
       {metrics.length > 0 && (
         <div className={styles.grid}>
           {metrics.map((m) => (
-            <MetricCard key={m.key} metric={m} whoLabel={whoLabel} />
+            <MetricCard key={m.key} metric={m} whoLabel={whoLabel} days={overview.days} today={overview.today} />
           ))}
         </div>
       )}

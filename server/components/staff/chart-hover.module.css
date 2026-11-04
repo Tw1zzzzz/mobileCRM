@@ -1,0 +1,88 @@
+/* The hover layer of the panel's charts (ChartHover.tsx); colours follow the panel tokens of staff.module.css. */
+
+.wrap {
+  position: relative;
+}
+.layer {
+  position: absolute;
+  inset: 0;
+  cursor: crosshair;
+  /* A finger can scrub along the days and still scroll the page up and down. */
+  touch-action: pan-y;
+  border-radius: 8px;
+}
+.layer:focus-visible {
+  outline: 2px solid var(--cyan, #3fd0ff);
+  outline-offset: 4px;
+}
+.guide {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  transform: translateX(-0.5px);
+  background: rgba(163, 174, 203, 0.45);
+  pointer-events: none;
+}
+.marker {
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  box-sizing: border-box;
+  border-radius: 50%;
+  border: 3px solid #3fd0ff;
+  background: #070b17;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+.tip {
+  position: absolute;
+  top: 0;
+  z-index: 2;
+  min-width: 140px;
+  max-width: 240px;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(120, 150, 220, 0.25);
+  background: rgba(11, 16, 32, 0.96);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  pointer-events: none;
+  transform: translate(-50%, calc(-100% - 8px));
+  color: var(--text, #f2f5fb);
+  font-size: 13px;
+  line-height: 1.3;
+  white-space: nowrap;
+}
+.tip[data-edge="start"] {
+  transform: translate(0, calc(-100% - 8px));
+}
+.tip[data-edge="end"] {
+  transform: translate(-100%, calc(-100% - 8px));
+}
+.tipTitle {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--muted, #a3aecb);
+}
+.tipRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.swatch {
+  flex: 0 0 auto;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+}
+.tipLabel {
+  flex: 1 1 auto;
+  color: var(--text-soft, #c9d2e8);
+}
+.tipValue {
+  font-weight: 700;
+}

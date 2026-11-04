@@ -66,9 +66,13 @@ export function sleepBarsPath(hours: readonly (number | null)[]): string {
     .join("");
 }
 
-function energyY(value: number): number {
-  return BASELINE - value * UNIT;
+/** The y of an energy (or sleep-hours) value on the 0..10 axis; also the top of a sleep bar. */
+export function energyY(value: number): number {
+  return BASELINE - Math.min(value, AXIS_MAX) * UNIT;
 }
+
+/** The chart's viewBox width and height. */
+export const SLEEP_CHART = { width: 640, height: 240 } as const;
 
 /** Energy line, broken at days without a value. */
 export function energyLinePath(energy: readonly (number | null)[]): string {
@@ -121,23 +125,36 @@ function circle(p: Point, r: number): string {
  * Line and filled area of a 7-day series scaled between its own minimum and maximum, as on the board. Runs of
  * consecutive days are joined; a lone day is a dot; the latest day with a value gets the larger dot.
  */
-export function trend(series: readonly (number | null)[]): Trend {
-  const known = series.flatMap((v) => (v === null ? [] : [v]));
-  if (known.length === 0) return { line: "", area: "", dots: "", empty: true };
+/** The trend's viewBox width and height. */
+export const TREND_CHART = { width: 600, height: 140 } as const;
 
+/** The x of day `index` of `count` on a trend. */
+export function trendX(index: number, count: number): number {
+  return 10 + index * (count > 1 ? 580 / (count - 1) : 0);
+}
+
+/** The y of each day of a trend, scaled between the series' own minimum and maximum; null for a day without a value. */
+export function trendYs(series: readonly (number | null)[]): (number | null)[] {
+  const known = series.flatMap((v) => (v === null ? [] : [v]));
+  if (known.length === 0) return series.map(() => null);
   const min = Math.min(...known);
   let max = Math.max(...known);
   if (max - min < 1e-6) max = min + 1;
-  const step = series.length > 1 ? 580 / (series.length - 1) : 0;
+  return series.map((v) => (v === null ? null : 120 - ((v - min) / (max - min)) * 90));
+}
+
+export function trend(series: readonly (number | null)[]): Trend {
+  const ys = trendYs(series);
+  if (ys.every((y) => y === null)) return { line: "", area: "", dots: "", empty: true };
 
   const runs: Point[][] = [];
   let open = false;
-  series.forEach((v, i) => {
-    if (v === null) {
+  ys.forEach((y, i) => {
+    if (y === null) {
       open = false;
       return;
     }
-    const point = { x: 10 + i * step, y: 120 - ((v - min) / (max - min)) * 90 };
+    const point = { x: trendX(i, series.length), y };
     if (open) runs[runs.length - 1].push(point);
     else runs.push([point]);
     open = true;

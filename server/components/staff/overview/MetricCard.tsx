@@ -1,6 +1,8 @@
 import { trend } from "@/lib/staff/overview-charts";
 import { NO_DATA, arrow, fmt2, kcal, whole } from "@/lib/staff/overview-format";
-import type { MetricKey, WeeklyMetric } from "@/lib/staff/metrics";
+import type { Day, MetricKey, WeeklyMetric } from "@/lib/staff/metrics";
+import { trendPoints } from "@/lib/staff/overview-hover";
+import { ChartHover } from "@/components/staff/ChartHover";
 import { OpenLink } from "./OpenLink";
 import { Pill } from "./Pill";
 import styles from "./overview.module.css";
@@ -33,8 +35,16 @@ const FORMAT: Record<MetricKey, (value: number) => string> = {
 const UP = { stroke: "#3FD0FF", fill: "rgba(31,139,255,0.22)" } as const;
 const DOWN = { stroke: "#FF7A3D", fill: "rgba(255,122,61,0.18)" } as const;
 
+interface MetricCardProps {
+  metric: WeeklyMetric;
+  whoLabel: string;
+  /** The 7 days of the trend, oldest first, and the last of them. */
+  days: readonly Day[];
+  today: Day;
+}
+
 /** One weekly metric: the value, the change against the previous week, and a 7-day trend. */
-export function MetricCard({ metric, whoLabel }: { metric: WeeklyMetric; whoLabel: string }) {
+export function MetricCard({ metric, whoLabel, days, today }: MetricCardProps) {
   const title = TITLES[metric.key];
   const format = FORMAT[metric.key];
   const shape = trend(metric.series);
@@ -71,11 +81,13 @@ export function MetricCard({ metric, whoLabel }: { metric: WeeklyMetric; whoLabe
                 <span className={styles.metricDeltaMuted}>{NO_DATA} за прошлую неделю</span>
               )}
             </div>
-            <svg viewBox="0 0 600 140" className={styles.trend} role="img" aria-label={aria}>
-              {shape.area !== "" && <path d={shape.area} fill={colors.fill} className={styles.trendArea} />}
-              <path d={shape.line} pathLength={1} fill="none" stroke={colors.stroke} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" className={styles.trendLine} />
-              <path d={shape.dots} fill={colors.stroke} className={styles.trendDots} />
-            </svg>
+            <ChartHover points={trendPoints(days, metric.series, today, title, format, colors.stroke)} label={title}>
+              <svg viewBox="0 0 600 140" className={styles.trend} role="img" aria-label={aria}>
+                {shape.area !== "" && <path d={shape.area} fill={colors.fill} className={styles.trendArea} />}
+                <path d={shape.line} pathLength={1} fill="none" stroke={colors.stroke} strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" className={styles.trendLine} />
+                <path d={shape.dots} fill={colors.stroke} className={styles.trendDots} />
+              </svg>
+            </ChartHover>
           </>
         )}
       </div>

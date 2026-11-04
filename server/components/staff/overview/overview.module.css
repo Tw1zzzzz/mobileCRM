@@ -295,6 +295,8 @@ a.iconBtn:focus-visible {
 .donutCenter {
   position: absolute;
   inset: 0;
+  /* Lies over the ring: the arcs under it take the pointer. */
+  pointer-events: none;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -330,6 +332,23 @@ a.iconBtn:focus-visible {
   padding: 12px 14px;
   border-radius: 12px;
   background: var(--raised);
+}
+.cat {
+  border: 1px solid transparent;
+  cursor: default;
+  transition: border-color 120ms ease, background 120ms ease;
+}
+.catOn {
+  border-color: rgba(63, 208, 255, 0.45);
+  background: var(--raised-hover, rgba(40, 52, 84, 0.9));
+}
+.cat:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.donutArc {
+  cursor: pointer;
+  transition: stroke-width 120ms ease, stroke-opacity 120ms ease;
 }
 .catDot {
   flex: 0 0 auto;

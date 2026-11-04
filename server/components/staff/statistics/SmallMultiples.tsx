@@ -1,5 +1,6 @@
 import type { MultipleView } from "@/lib/staff/statistics-view";
 import { NO_DATA } from "@/lib/staff/overview-format";
+import { ChartHover } from "@/components/staff/ChartHover";
 import styles from "./statistics.module.css";
 
 const COLORS = { state: "#3FD0FF", game: "#FFAA3C" } as const;
@@ -21,15 +22,17 @@ function Multiple({ m }: { m: MultipleView }) {
       </div>
       {m.hasData ? (
         <>
-          <svg viewBox="0 0 300 90" width="100%" role="img" aria-label={m.aria} preserveAspectRatio="none" className={styles.chart}>
-            <line x1="0" y1="45" x2="300" y2="45" stroke="#26304A" strokeDasharray="4 4" />
-            {m.line !== "" && (
-              <path d={m.line} pathLength={1} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" className={styles.chartLine} />
-            )}
-            {m.dots !== "" && (
-              <path d={m.dots} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" className={styles.chartDots} />
-            )}
-          </svg>
+          <ChartHover points={m.points} label={m.label}>
+            <svg viewBox="0 0 300 90" width="100%" role="img" aria-label={m.aria} preserveAspectRatio="none" className={styles.chart}>
+              <line x1="0" y1="45" x2="300" y2="45" stroke="#26304A" strokeDasharray="4 4" />
+              {m.line !== "" && (
+                <path d={m.line} pathLength={1} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" className={styles.chartLine} />
+              )}
+              {m.dots !== "" && (
+                <path d={m.dots} fill="none" stroke={color} strokeWidth="6" strokeLinecap="round" vectorEffect="non-scaling-stroke" className={styles.chartDots} />
+              )}
+            </svg>
+          </ChartHover>
           <div className={styles.foot}>
             <span>{m.from}</span>
             <span>{`мин ${m.min} · макс ${m.max}`}</span>

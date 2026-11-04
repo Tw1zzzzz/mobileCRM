@@ -19,21 +19,35 @@ export interface Sparkline {
 const num = (value: number): string => value.toFixed(1);
 
 /** The line of one value per day (oldest first); `null` is a day without data. */
-export function sparkline(values: readonly (number | null)[]): Sparkline {
+/** The chart's viewBox width and height. */
+export const SPARKLINE_CHART = { width: WIDTH, height: 90 } as const;
+
+/** The x of day `index` of `count`. */
+export function sparklineX(index: number, count: number): number {
+  return count === 1 ? WIDTH / 2 : (index * WIDTH) / (count - 1);
+}
+
+/** The y of each value, min–max scaled; null for a day without data. */
+export function sparklineYs(values: readonly (number | null)[]): (number | null)[] {
   const present = values.filter((v): v is number => v !== null);
-  if (present.length === 0) return { line: "", dots: "" };
+  if (present.length === 0) return values.map(() => null);
   const min = Math.min(...present);
   const span = Math.max(...present) - min || 1;
+  return values.map((value) => (value === null ? null : BOTTOM - ((value - min) / span) * HEIGHT));
+}
+
+export function sparkline(values: readonly (number | null)[]): Sparkline {
+  const ys = sparklineYs(values);
+  if (ys.every((y) => y === null)) return { line: "", dots: "" };
 
   const runs: string[][] = [];
   let open = false;
-  values.forEach((value, i) => {
-    if (value === null) {
+  ys.forEach((y, i) => {
+    if (y === null) {
       open = false;
       return;
     }
-    const x = values.length === 1 ? WIDTH / 2 : (i * WIDTH) / (values.length - 1);
-    const point = `${num(x)} ${num(BOTTOM - ((value - min) / span) * HEIGHT)}`;
+    const point = `${num(sparklineX(i, values.length))} ${num(y)}`;
     if (open) runs[runs.length - 1].push(point);
     else runs.push([point]);
     open = true;

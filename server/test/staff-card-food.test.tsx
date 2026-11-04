@@ -146,8 +146,8 @@ describe("wheel tab", () => {
     const { markup } = await frame(t, { player: t.ids.nova, tab: "wheel", day: "2026-10-24" });
     expect(markup).toContain('viewBox="0 0 340 340"');
     const polygons = [...markup.matchAll(/<polygon points="([^"]*)"/g)].map((m) => m[1]);
-    // four rings (2.5, 5, 7.5, 10 of 10) and the player's polygon
-    expect(polygons).toHaveLength(5);
+    // four rings (2.5, 5, 7.5, 10 of 10), the player's polygon, and eight invisible sectors the pointer picks
+    expect(polygons).toHaveLength(13);
     const points = (s: string) => s.split(" ").map((p) => p.split(",").map(Number));
     // ring 10: radius 115 around (170, 170), spokes from straight up every 45 degrees
     expect(polygons[3].startsWith("170.0,55.0 ")).toBe(true);

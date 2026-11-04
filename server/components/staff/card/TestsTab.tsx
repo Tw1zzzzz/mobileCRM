@@ -1,10 +1,8 @@
 import type { TestsData } from "@/lib/staff/card";
-import type { ChartLine, TestsChart } from "@/lib/staff/card-charts";
+import { SCORE_COLOR, STATE_COLOR, type ChartLine, type TestsChart } from "@/lib/staff/card-charts";
 import { NO_DATA } from "@/lib/staff/overview-format";
+import { ChartHover } from "@/components/staff/ChartHover";
 import styles from "./card.module.css";
-
-const SCORE_COLOR = "#3fd0ff";
-const STATE_COLOR = "#ffaa3c";
 
 function Line({ line, color, dashed }: { line: ChartLine; color: string; dashed?: boolean }) {
   return (
@@ -36,20 +34,22 @@ function Chart({ chart }: { chart: TestsChart }) {
           Индекс состояния
         </span>
       </div>
-      <svg viewBox="0 0 900 220" width="100%" role="img" aria-label={chart.aria} className={styles.chart}>
-        <g stroke="#26304a">
-          <line x1="40" y1="20" x2="890" y2="20" />
-          <line x1="40" y1="100" x2="890" y2="100" />
-          <line x1="40" y1="180" x2="890" y2="180" />
-        </g>
-        <g fill="#7d89a8" fontSize="12" fontFamily="Onest, sans-serif">
-          <text x="4" y="24">100</text>
-          <text x="10" y="104">50</text>
-          <text x="22" y="184">0</text>
-        </g>
-        <Line line={chart.score} color={SCORE_COLOR} />
-        <Line line={chart.state} color={STATE_COLOR} dashed />
-      </svg>
+      <ChartHover points={chart.points} label="Score и Индекс состояния">
+        <svg viewBox="0 0 900 220" width="100%" role="img" aria-label={chart.aria} className={styles.chart}>
+          <g stroke="#26304a">
+            <line x1="40" y1="20" x2="890" y2="20" />
+            <line x1="40" y1="100" x2="890" y2="100" />
+            <line x1="40" y1="180" x2="890" y2="180" />
+          </g>
+          <g fill="#7d89a8" fontSize="12" fontFamily="Onest, sans-serif">
+            <text x="4" y="24">100</text>
+            <text x="10" y="104">50</text>
+            <text x="22" y="184">0</text>
+          </g>
+          <Line line={chart.score} color={SCORE_COLOR} />
+          <Line line={chart.state} color={STATE_COLOR} dashed />
+        </svg>
+      </ChartHover>
     </>
   );
 }
