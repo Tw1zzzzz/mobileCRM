@@ -476,11 +476,25 @@
 }
 .actions {
   display: flex;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 6px;
+  flex-wrap: nowrap;
 }
 .actions form {
   margin: 0;
+  display: flex;
+}
+/* One row as on the board: the three buttons share the panel width instead of wrapping. */
+.actions .btnGhost,
+.actions .btnDanger {
+  min-width: 0;
+  padding: 0 10px;
+  font-size: 13px;
+  white-space: nowrap;
+}
+@media (max-width: 360px) {
+  .actions {
+    flex-wrap: wrap;
+  }
 }
 .confirm {
   display: flex;
