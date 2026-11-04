@@ -21,6 +21,9 @@ const unauthorized = () => new ApiError("unauthorized", "Not authorized", 401);
 
 const sha256Hex = (value: string) => createHash("sha256").update(value).digest("hex");
 
+/** How a refresh token is stored (`refresh_tokens.token_hash`): lets a caller name "this session" without the token. */
+export const hashRefreshToken = sha256Hex;
+
 async function signAccess(deps: Deps, userId: string): Promise<string> {
   const issuedAt = Math.floor(deps.now().getTime() / 1000);
   return new SignJWT({})
@@ -154,6 +157,13 @@ export async function revokeAll(deps: Deps, userId: string): Promise<void> {
   await deps.sql`
     update refresh_tokens set revoked_at = ${deps.now()}
     where user_id = ${userId} and revoked_at is null`;
+}
+
+/** Signs the user out everywhere except the one session whose token hashes to `keepTokenHash`. */
+export async function revokeAllExcept(deps: Deps, userId: string, keepTokenHash: string): Promise<void> {
+  await deps.sql`
+    update refresh_tokens set revoked_at = ${deps.now()}
+    where user_id = ${userId} and revoked_at is null and token_hash <> ${keepTokenHash}`;
 }
 
 /** Resolves `Authorization: Bearer <jwt>` to an existing user's id. */

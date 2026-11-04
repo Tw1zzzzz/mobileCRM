@@ -1,0 +1,177 @@
+/* «Профиль»: cards, fields and buttons in the look of the other panel pages (tokens come from the panel root,
+   app/staff/staff.module.css). */
+
+.sections {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
+  gap: 16px;
+  align-items: start;
+}
+.section {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  box-sizing: border-box;
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.sectionDanger {
+  border-color: var(--danger-line);
+}
+.sectionTitle {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+.form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  margin: 0;
+}
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+}
+.field label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.input {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 46px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line-strong);
+  background: var(--input);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  color-scheme: dark;
+}
+.input:focus {
+  outline: 2px solid var(--cyan);
+  outline-offset: 0;
+  border-color: transparent;
+}
+.current {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.currentValue {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  overflow-wrap: anywhere;
+}
+.hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.45;
+  color: var(--faint);
+}
+.error,
+.notice {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: 12px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.error {
+  border: 1px solid var(--danger-line);
+  background: rgba(255, 122, 61, 0.08);
+  color: var(--danger);
+}
+.notice {
+  border: 1px solid rgba(63, 208, 255, 0.35);
+  background: rgba(63, 208, 255, 0.08);
+  color: var(--cyan-soft);
+}
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.primary,
+.secondary,
+.danger {
+  min-height: 46px;
+  padding: 0 20px;
+  box-sizing: border-box;
+  border-radius: 12px;
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.primary {
+  border: 0;
+  background: var(--brand-flat);
+  color: #fff;
+  box-shadow: 0 8px 24px rgba(0, 110, 255, 0.35);
+}
+.primary:hover {
+  filter: brightness(1.08);
+}
+.secondary {
+  border: 1px solid var(--line-strong);
+  background: transparent;
+  color: var(--text-soft);
+}
+.secondary:hover {
+  background: var(--raised-hover);
+  color: #fff;
+}
+.danger {
+  border: 1px solid var(--danger-line);
+  background: transparent;
+  color: var(--danger);
+}
+.danger:hover {
+  background: rgba(255, 122, 61, 0.14);
+}
+.primary:focus-visible,
+.secondary:focus-visible,
+.danger:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.primary[disabled],
+.secondary[disabled],
+.danger[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+  filter: none;
+  box-shadow: none;
+}
+.step {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 900px) {
+  .section {
+    padding: 16px;
+  }
+  .sectionTitle {
+    font-size: 18px;
+  }
+}

@@ -4,6 +4,7 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { defaultDeps } from "@/lib/deps";
+import { hashRefreshToken } from "@/lib/auth/tokens";
 import { ApiError } from "@/lib/http";
 import { clientIp } from "@/lib/rateLimit";
 import type { FormState } from "@/lib/staff/form-state";
@@ -18,6 +19,8 @@ import {
   staffSignIn,
   staffSignOut,
 } from "@/lib/staff/session";
+import { changePasswordCore, deleteAccountCore, emailChangeCore, saveProfileCore } from "@/lib/staff/profile-forms";
+import { signOutEverywhere } from "@/lib/staff/profile";
 import { deleteImageCore, saveNoteCore, uploadImageCore } from "@/lib/staff/notes-actions";
 import { removeMemberCore, rotateCodeCore, teamHref } from "@/lib/staff/team-management";
 import { deleteCalendarEvent, saveCalendarEvent } from "@/lib/staff/calendar";
@@ -211,4 +214,46 @@ export async function uploadImageAction(form: FormData): Promise<void> {
 export async function deleteImageAction(form: FormData): Promise<void> {
   const ctx = await requireStaffContext();
   redirect(await deleteImageCore(defaultDeps(), ctx, form));
+}
+
+// ---- Профиль ----
+// The person is always the session's: the context comes from requireStaffContext(), never from the form.
+
+const PROFILE_PATH = "/staff/profile";
+
+export async function saveProfileAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const ctx = await requireStaffContext();
+  const result = await saveProfileCore(defaultDeps(), ctx, form);
+  if (result.status === "done") revalidatePath(PROFILE_PATH);
+  return result;
+}
+
+/** Both steps of the e-mail change; the page re-renders so that the code field appears (or goes) with the pending code. */
+export async function emailChangeAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const ctx = await requireStaffContext();
+  const result = await emailChangeCore(defaultDeps(), ctx, form);
+  if (result.status !== "error") revalidatePath(PROFILE_PATH);
+  return result;
+}
+
+export async function changePasswordAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const ctx = await requireStaffContext();
+  // This browser's own session stays; every other one is signed out.
+  const cookie = (await cookies()).get(STAFF_COOKIE)?.value;
+  return changePasswordCore(defaultDeps(), ctx, form, cookie ? hashRefreshToken(cookie) : null);
+}
+
+export async function signOutEverywhereAction(): Promise<void> {
+  const ctx = await requireStaffContext();
+  await signOutEverywhere(defaultDeps(), ctx);
+  (await cookies()).delete(STAFF_COOKIE);
+  redirect("/staff/login");
+}
+
+export async function deleteAccountAction(_previous: FormState, form: FormData): Promise<FormState> {
+  const ctx = await requireStaffContext();
+  const result = await deleteAccountCore(defaultDeps(), ctx, form);
+  if (result.status !== "done") return result;
+  (await cookies()).delete(STAFF_COOKIE);
+  return redirect("/staff/login");
 }

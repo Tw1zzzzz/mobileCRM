@@ -34,7 +34,12 @@ export async function patchMe(req: Request, deps: Deps): Promise<Response> {
  * being solo players.
  */
 export async function deleteMe(req: Request, deps: Deps): Promise<Response> {
-  const userId = await requireUser(deps, req);
+  await deleteAccount(deps, await requireUser(deps, req));
+  return ok({});
+}
+
+/** The account deletion itself (the app's `DELETE /v1/me` and the staff website's «Удалить аккаунт»). */
+export async function deleteAccount(deps: Deps, userId: string): Promise<void> {
   await deps.sql.begin(async (tx) => {
     const [self] = await tx<{ team_id: string | null }[]>`select team_id from users where id = ${userId}`;
     // Locking the team row keeps a concurrent join, removal or deletion from slipping in mid-delete.
@@ -50,5 +55,4 @@ export async function deleteMe(req: Request, deps: Deps): Promise<Response> {
     }
     await tx`delete from users where id = ${userId}`;
   });
-  return ok({});
 }

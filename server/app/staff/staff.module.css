@@ -177,6 +177,20 @@ a.navOn:hover {
   align-items: center;
   gap: 12px;
 }
+/* The account block opens «Профиль»; it is a link, so it takes the text colour back from `.root a`. */
+a.account,
+a.account:hover {
+  color: var(--text);
+  text-decoration: none;
+}
+a.account:hover {
+  background: rgba(30, 39, 64, 0.9);
+  border-color: rgba(63, 208, 255, 0.35);
+}
+a.account:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
 .avatar {
   flex: 0 0 auto;
   width: 40px;
@@ -362,7 +376,13 @@ a.navOn:hover {
     flex-direction: row;
     align-items: center;
   }
+  /* On a phone only the avatar is left of the account block, still a link to «Профиль». */
   .account {
+    padding: 0;
+    background: none;
+    border: 0;
+  }
+  .accountText {
     display: none;
   }
 }

@@ -21,13 +21,13 @@ export function Sidebar({ teamName }: { teamName: string }) {
       </Link>
       <NavLinks />
       <div className={styles.sidebarFoot}>
-        <div className={styles.account}>
+        <Link href="/staff/profile" className={styles.account} aria-label="Профиль" title="Профиль">
           <span className={styles.avatar} aria-hidden="true">{initials}</span>
           <span className={styles.accountText}>
             <span className={styles.accountName}>{teamName}</span>
             <span className={styles.accountRole}>Staff</span>
           </span>
-        </div>
+        </Link>
         <SignOutButton />
       </div>
     </nav>

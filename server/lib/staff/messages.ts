@@ -36,3 +36,35 @@ export function playersLabel(count: number): string {
         : "игроков";
   return `${count} ${word}`;
 }
+
+/** The profile page's notices. */
+export const PROFILE_NOTICES = {
+  saved: "Сохранено",
+  emailChanged: "Почта изменена",
+  passwordChanged: "Пароль изменён",
+} as const;
+
+const PROFILE_BY_CODE: Partial<Record<ErrorCode, string>> = {
+  ...BY_CODE,
+  invalid_email: "Укажите корректный адрес электронной почты",
+  email_taken: "Этот email уже зарегистрирован",
+};
+
+const PROFILE_BY_FIELD: Record<string, string> = {
+  nickname_empty: MESSAGES.emptyFields,
+  nickname_long: "Не больше 40 символов",
+  faceit_url: "Укажите корректную ссылку на профиль Faceit",
+};
+
+export const PROFILE_FAILED = "Не удалось выполнить действие. Повторите попытку позже";
+
+/** The text for a failed profile action, in the app's words; anything unexpected is logged and shown generically. */
+export function profileMessage(error: unknown): string {
+  if (!(error instanceof ApiError)) {
+    console.error("staff profile action failed", error);
+    return PROFILE_FAILED;
+  }
+  const field = (error.meta as { field?: string } | undefined)?.field;
+  if (error.code === "validation_failed" && field !== undefined) return PROFILE_BY_FIELD[field] ?? PROFILE_FAILED;
+  return PROFILE_BY_CODE[error.code] ?? PROFILE_FAILED;
+}
