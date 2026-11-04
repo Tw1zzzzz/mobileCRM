@@ -27,7 +27,7 @@ function readRow(value: unknown): DraftRow | null {
   const playerId = typeof value.playerId === "string" ? value.playerId : null;
   const key = playerId ?? str(value.key, 60);
   if (key === "") return null;
-  return { key, playerId, nickname: str(value.nickname, MAX_NICKNAME), cells: readCells(value.cells) };
+  return { key, playerId, nickname: str(value.nickname, MAX_NICKNAME), absent: playerId !== null && value.absent === true, cells: readCells(value.cells) };
 }
 
 function readMap(value: unknown): DraftMap | null {
@@ -84,5 +84,29 @@ export function clearStoredDraft(teamId: string): void {
     window.localStorage.removeItem(draftStorageKey(teamId));
   } catch {
     /* no storage: nothing to clear */
+  }
+}
+
+// The id a game is being sent under, kept with the draft: after a lost answer (or a reload) the retry reuses it, so
+// a game the server did commit is replaced instead of doubled. Gone as soon as the draft is saved, cleared or blank.
+
+const attemptKey = (teamId: string): string => `${draftStorageKey(teamId)}.attempt`;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+export function loadAttemptId(teamId: string): string | null {
+  try {
+    const id = window.localStorage.getItem(attemptKey(teamId));
+    return id !== null && UUID.test(id) ? id : null;
+  } catch {
+    return null;
+  }
+}
+
+export function storeAttemptId(teamId: string, id: string | null): void {
+  try {
+    if (id === null) window.localStorage.removeItem(attemptKey(teamId));
+    else window.localStorage.setItem(attemptKey(teamId), id);
+  } catch {
+    /* no storage: a retry after a reload sends a new id */
   }
 }

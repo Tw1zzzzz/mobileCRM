@@ -1,13 +1,13 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { checkDraft } from "@/components/staff/game-stats/check";
 import {
   CELLS, GAME_KIND_OPTIONS, GAME_MAP_OPTIONS, MAX_MAPS, MAX_NICKNAME, MAX_OPPONENT, MAX_ROWS, TEAM, draftFromGame, isBlank, newDraft,
-  normalizeCell, readCell, readScore, toGameInput, visibleRows, withCell, withNewMap, withPastedCells, withRoster, withStandIn, withWho,
+  absentRows, normalizeCell, readCell, readScore, withAbsent, toGameInput, visibleRows, withCell, withNewMap, withPastedCells, withRoster, withStandIn, withWho,
   type Draft, type RosterPlayer,
 } from "@/components/staff/game-stats/draft";
 import { liveSummary, rowFigures } from "@/components/staff/game-stats/figures";
 import { parsePaste, pasteCells } from "@/components/staff/game-stats/paste";
-import { readDraft, writeDraft } from "@/components/staff/game-stats/storage";
+import { loadAttemptId, readDraft, storeAttemptId, writeDraft } from "@/components/staff/game-stats/storage";
 import { GAME_KINDS, GAME_MAPS, MAX_GAME_MAPS, MAX_ROWS_PER_MAP, parseGameInput, type Game } from "@/lib/staff/games";
 
 const A: RosterPlayer = { id: "a1111111-1111-4111-8111-111111111111", nickname: "vega" };
@@ -56,6 +56,16 @@ describe("the form agrees with the server's limits", () => {
     draft = withCell(draft, 0, A.id, "udr", "12,34");
     const row = toGameInput(draft).maps[0].rows[0];
     expect(row).toMatchObject({ adr: 76.3, kast: 55.6, udr: 12.3 });
+  });
+
+  it("ignoresOneTrailingPercentSign", () => {
+    expect(readCell("kast", "78%")).toEqual({ kind: "ok", value: 78 });
+    expect(readCell("kast", "78,55 %")).toEqual({ kind: "ok", value: 78.6 });
+    expect(readCell("kast", "%")).toEqual({ kind: "bad" });
+    expect(readCell("kast", "78%%")).toEqual({ kind: "bad" });
+    expect(normalizeCell("kast", "78,5%")).toBe("78,5");
+    const pasted = withPastedCells(fresh(), 0, pasteCells(parsePaste("78%\t80%"), { row: 0, col: 4 }, { rows: 2, cols: CELLS.length }));
+    expect(pasted.maps[0].rows[0].cells).toMatchObject({ kast: "78", fk: "80" });
   });
 
   it("readsCellsTheWayTheServerWantsThem", () => {
@@ -159,6 +169,93 @@ describe("the draft", () => {
     expect(input).toMatchObject({ id: "d4444444-4444-4444-8444-444444444444", kind: "pracc", opponent: "Natus Vincere", playedOn: "2026-11-04" });
     expect(input.maps[0].rows[2]).toMatchObject({ nickname: "ringer", adr: 80.5, multikills: 1.5, fd: null });
     expect(() => parseGameInput(input)).not.toThrow();
+  });
+});
+
+describe("«Не играл»", () => {
+  it("leavesARosterPlayerOutOfOneMapAndBringsThemBack", () => {
+    let draft = withNewMap(fresh());
+    draft = withAbsent(draft, 0, B.id, true);
+    expect(visibleRows(draft, draft.maps[0]).map((r) => r.nickname)).toEqual(["vega"]);
+    expect(absentRows(draft, draft.maps[0]).map((r) => r.nickname)).toEqual(["nova"]);
+    expect(visibleRows(draft, draft.maps[1]).map((r) => r.nickname)).toEqual(["vega", "nova"]);
+    expect(isBlank(withAbsent(fresh(), 0, B.id, true))).toBe(false);
+    draft = withAbsent(draft, 0, B.id, false);
+    expect(visibleRows(draft, draft.maps[0])).toHaveLength(2);
+    expect(absentRows(draft, draft.maps[0])).toEqual([]);
+  });
+
+  it("theChecklistAndTheSentGameFollowIt", () => {
+    let draft = played(fresh());
+    expect(checkDraft(draft).issues).toContain("Карта 1: не заполнено 8 обязательных ячеек");
+    draft = withAbsent(draft, 0, B.id, true);
+    expect(checkDraft(draft).issues).toContain("Карта 1: не заполнено 4 обязательные ячейки");
+    for (const [key, value] of [["kills", "20"], ["deaths", "10"], ["assists", "4"], ["adr", "80"]] as const) draft = withCell(draft, 0, A.id, key, value);
+    expect(checkDraft(draft).issues).toEqual([]);
+    expect(toGameInput(draft).maps[0].rows.map((r) => r.playerId)).toEqual([A.id]);
+    // A pasted block lands on the players who are shown.
+    const second = withPastedCells(draft, 0, pasteCells(parsePaste("1\t2\n3\t4"), { row: 0, col: 0 }, { rows: 1, cols: CELLS.length }));
+    expect(second.maps[0].rows.find((r) => r.playerId === B.id)?.cells.kills).toBe("");
+  });
+
+  it("atLeastOneLineStaysRequired", () => {
+    let draft = withAbsent(withAbsent(played(fresh()), 0, A.id, true), 0, B.id, true);
+    expect(checkDraft(draft).issues).toContain("Карта 1: добавьте хотя бы одного игрока");
+    // A stand-in is a line too.
+    draft = withStandIn(draft, 0);
+    expect(checkDraft(draft).issues).not.toContain("Карта 1: добавьте хотя бы одного игрока");
+  });
+
+  it("aSinglePlayerGameIgnoresIt", () => {
+    const draft = withWho(withAbsent(fresh(), 0, A.id, true), A.id);
+    expect(visibleRows(draft, draft.maps[0]).map((r) => r.nickname)).toEqual(["vega"]);
+    expect(absentRows(draft, draft.maps[0])).toEqual([]);
+  });
+
+  it("isKeptWithTheDraft", () => {
+    const draft = withAbsent(fresh(), 0, B.id, true);
+    expect(readDraft(writeDraft(draft))?.maps[0].rows.map((r) => r.absent)).toEqual([false, true]);
+    expect(withRoster(draft, [A, B], { keep: new Set(), fill: true }).maps[0].rows.map((r) => r.absent)).toEqual([false, true]);
+    expect(withNewMap(draft).maps[1].rows.map((r) => r.absent)).toEqual([false, true]);
+  });
+});
+
+describe("the id of a game being sent", () => {
+  const ID = "d4444444-4444-4444-8444-444444444444";
+  const store = new Map<string, string>();
+  const stub = () =>
+    vi.stubGlobal("window", {
+      localStorage: {
+        getItem: (k: string) => store.get(k) ?? null,
+        setItem: (k: string, v: string) => void store.set(k, v),
+        removeItem: (k: string) => void store.delete(k),
+      },
+    });
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    store.clear();
+  });
+
+  it("survivesAReloadUntilItIsCleared", () => {
+    stub();
+    expect(loadAttemptId("t1")).toBeNull();
+    storeAttemptId("t1", ID);
+    expect(loadAttemptId("t1")).toBe(ID);
+    expect(loadAttemptId("t2")).toBeNull();
+    storeAttemptId("t1", null);
+    expect(loadAttemptId("t1")).toBeNull();
+  });
+
+  it("onlyAUuidIsTrustedFromStorage", () => {
+    stub();
+    store.set("pulse.staff.game-draft.t1.attempt", "not-an-id");
+    expect(loadAttemptId("t1")).toBeNull();
+  });
+
+  it("worksWithoutStorage", () => {
+    vi.stubGlobal("window", { get localStorage(): never { throw new Error("blocked"); } });
+    expect(loadAttemptId("t1")).toBeNull();
+    expect(() => storeAttemptId("t1", ID)).not.toThrow();
   });
 });
 

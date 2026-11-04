@@ -538,6 +538,20 @@
   font-size: 12px;
   letter-spacing: 0.04em;
 }
+.gnameText {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.absentRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--faint);
+}
 .standIn {
   flex: 1 1 auto;
   min-width: 0;

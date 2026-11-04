@@ -87,7 +87,7 @@ export function liveSummary(draft: Draft): LiveSummary {
     if (our === null || their === null) return [];
     return [{ ourScore: our, theirScore: their, pistol1: "lost", pistol2: "lost", rows: [] }];
   });
-  // A pistol counts as soon as it is marked, with or without the score of its map.
+  // A map's pistols count once both are marked, with or without the score of the map.
   const pistols: MapStats[] = draft.maps.flatMap((map) =>
     map.pistol1 === "" || map.pistol2 === ""
       ? []

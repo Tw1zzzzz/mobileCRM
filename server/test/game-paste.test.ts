@@ -24,10 +24,24 @@ describe("spreadsheet paste", () => {
   });
 
   it("nonNumbersLeaveTheCellEmpty", () => {
-    expect(parsePaste("abc\t-3\t1e3\t12%\t.5\t7,\t8")).toEqual([["", "", "", "", "", "", "8"]]);
+    expect(parsePaste("abc\t-3\t1e3\t12%%\t.5\t7,\t8")).toEqual([["", "", "", "", "", "", "8"]]);
     // A line with no number at all is a header or a note, not data.
     expect(parsePaste("Игрок\tK\tD\nvega\t24\t15")).toEqual([["", "24", "15"]]);
     expect(parsePaste("K\tD\tA\tADR")).toEqual([]);
+  });
+
+  it("aColumnOfDecimalCommasIsOneColumn", () => {
+    // A Russian-locale sheet copies one column as lines of «91,5»: no cell separator, not two columns.
+    expect(parsePaste("91,5\n76,2")).toEqual([["91.5"], ["76.2"]]);
+    expect(parsePaste("91,5\r\n\r\n76,25\r\n55,0")).toEqual([["91.5"], ["76.25"], ["55.0"]]);
+    expect(parsePaste("78,5%\n80%")).toEqual([["78.5"], ["80"]]);
+    // A CSV block (a line that is not a lone decimal) still splits on commas.
+    expect(parsePaste("24,15,5\n18,17,7")).toEqual([["24", "15", "5"], ["18", "17", "7"]]);
+    expect(parsePaste("91,5\n24,15,5")).toEqual([["91", "5"], ["24", "15", "5"]]);
+  });
+
+  it("aTrailingPercentSignIsDropped", () => {
+    expect(parsePaste("78%\t80,5 %\t12%%")).toEqual([["78", "80.5", ""]]);
   });
 
   it("anEmptyClipboardIsNothing", () => {

@@ -76,11 +76,11 @@ function roundTo(decimals: 0 | 1, value: number): number {
 
 /**
  * What the text of a cell means: nothing yet, a number within the game's limits, or something the game refuses.
- * Comma or dot is accepted as the decimal separator; digits beyond the cell's precision are rounded, not refused.
+ * Comma or dot is accepted as the decimal separator, one trailing % is ignored; digits beyond the cell's precision are rounded, not refused.
  */
 export function readCell(key: CellKey, text: string): CellValue {
-  const trimmed = text.trim();
-  if (trimmed === "") return { kind: "empty" };
+  const trimmed = text.trim().replace(/%$/, "").trim();
+  if (text.trim() === "") return { kind: "empty" };
   const spec = SPEC_OF[key];
   if (!NUMBER.test(trimmed)) return { kind: "bad" };
   const value = roundTo(spec.decimals, Number(trimmed.replace(",", ".")));
@@ -113,6 +113,8 @@ export interface DraftRow {
   /** A player of the team; null for a stand-in typed by nickname. */
   playerId: string | null;
   nickname: string;
+  /** «Не играл»: a roster player left out of this map (the line is kept so that it can come back). */
+  absent: boolean;
   cells: Cells;
 }
 
@@ -147,10 +149,10 @@ export interface RosterPlayer {
 const emptyCells = (): Cells => Object.fromEntries(CELL_KEYS.map((key) => [key, ""])) as Cells;
 
 export const playerRow = (player: RosterPlayer): DraftRow => ({
-  key: player.id, playerId: player.id, nickname: player.nickname, cells: emptyCells(),
+  key: player.id, playerId: player.id, nickname: player.nickname, absent: false, cells: emptyCells(),
 });
 
-export const standInRow = (nickname = ""): DraftRow => ({ key: `stand-in-${crypto.randomUUID()}`, playerId: null, nickname, cells: emptyCells() });
+export const standInRow = (nickname = ""): DraftRow => ({ key: `stand-in-${crypto.randomUUID()}`, playerId: null, nickname, absent: false, cells: emptyCells() });
 
 const blankMap = (rows: DraftRow[]): DraftMap => ({ map: "", our: "", their: "", pistol1: "", pistol2: "", rows });
 
@@ -161,9 +163,14 @@ export function newDraft(roster: readonly RosterPlayer[], today: string, keep?: 
   };
 }
 
-/** The rows of a map that belong to the game under «Кто играл». */
+/** The rows of a map that belong to the game under «Кто играл» (in «Команда», without those marked «Не играл»). */
 export function visibleRows(draft: Pick<Draft, "who">, map: DraftMap): DraftRow[] {
-  return draft.who === TEAM ? map.rows : map.rows.filter((row) => row.playerId === draft.who);
+  return draft.who === TEAM ? map.rows.filter((row) => !row.absent) : map.rows.filter((row) => row.playerId === draft.who);
+}
+
+/** The roster players marked «Не играл» on a map, in «Команда» mode. */
+export function absentRows(draft: Pick<Draft, "who">, map: DraftMap): DraftRow[] {
+  return draft.who === TEAM ? map.rows.filter((row) => row.absent) : [];
 }
 
 /** Nothing typed yet apart from the type, the date and who played (a draft like that is not worth keeping). */
@@ -174,7 +181,7 @@ export function isBlank(draft: Draft): boolean {
     draft.maps.every(
       (map) =>
         map.map === "" && map.our === "" && map.their === "" && map.pistol1 === "" && map.pistol2 === "" &&
-        map.rows.every((row) => row.playerId !== null && Object.values(row.cells).every((cell) => cell === "")),
+        map.rows.every((row) => row.playerId !== null && !row.absent && Object.values(row.cells).every((cell) => cell === "")),
     )
   );
 }
@@ -206,6 +213,10 @@ function withRowChange(draft: Draft, mapIndex: number, rowKey: string, change: (
 
 export const withCell = (draft: Draft, mapIndex: number, rowKey: string, key: CellKey, value: string): Draft =>
   withRowChange(draft, mapIndex, rowKey, (row) => ({ ...row, cells: { ...row.cells, [key]: value } }));
+
+/** «Не играл» / «Вернуть»: leaves a roster player out of one map, or puts the line back. */
+export const withAbsent = (draft: Draft, mapIndex: number, rowKey: string, absent: boolean): Draft =>
+  withRowChange(draft, mapIndex, rowKey, (row) => ({ ...row, absent }));
 
 export const withNickname = (draft: Draft, mapIndex: number, rowKey: string, nickname: string): Draft =>
   withRowChange(draft, mapIndex, rowKey, (row) => ({ ...row, nickname }));
@@ -304,7 +315,7 @@ export function draftFromGame(game: Game, roster: readonly RosterPlayer[]): Draf
     maps: game.maps.map((map) => ({
       map: map.map, our: String(map.ourScore), their: String(map.theirScore), pistol1: map.pistol1, pistol2: map.pistol2,
       rows: map.rows.map((row) => ({
-        key: row.playerId ?? `stand-in-${row.id}`, playerId: row.playerId, nickname: row.nickname,
+        key: row.playerId ?? `stand-in-${row.id}`, playerId: row.playerId, nickname: row.nickname, absent: false,
         cells: {
           kills: text(row.kills), deaths: text(row.deaths), assists: text(row.assists), adr: text(row.adr),
           kast: text(row.kast), fk: text(row.fk), fd: text(row.fd), udr: text(row.udr),

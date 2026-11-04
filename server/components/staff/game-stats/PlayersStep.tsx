@@ -1,7 +1,7 @@
 import type { ClipboardEvent } from "react";
 import {
-  CELLS, GAME_MAP_OPTIONS, MAX_NICKNAME, MAX_ROWS, TEAM, activeMap, normalizeCell, readCell, visibleRows, withCell, withNickname,
-  withPastedCells, withStandIn, withoutRow, type CellSpec, type Draft, type DraftRow,
+  CELLS, GAME_MAP_OPTIONS, absentRows, MAX_NICKNAME, MAX_ROWS, TEAM, activeMap, normalizeCell, readCell, visibleRows, withCell, withNickname,
+  withAbsent, withPastedCells, withStandIn, withoutRow, type CellSpec, type Draft, type DraftRow,
 } from "./draft";
 import { rowFigures } from "./figures";
 import styles from "./game-stats.module.css";
@@ -25,6 +25,7 @@ export function PlayersStep({ draft, showErrors, onChange }: PlayersStepProps) {
   const index = Math.min(draft.active, draft.maps.length - 1);
   const map = activeMap(draft);
   const rows = visibleRows(draft, map);
+  const absent = absentRows(draft, map);
   const mapName = GAME_MAP_OPTIONS.find((option) => option.value === map.map)?.label ?? `карта ${index + 1}`;
 
   function paste(event: ClipboardEvent<HTMLInputElement>, row: number, col: number) {
@@ -86,7 +87,20 @@ export function PlayersStep({ draft, showErrors, onChange }: PlayersStepProps) {
                     </button>
                   </span>
                 ) : (
-                  <span role="rowheader" className={styles.gname}>{row.nickname}</span>
+                  <span role="rowheader" className={styles.gname}>
+                    <span className={styles.gnameText}>{row.nickname}</span>
+                    {draft.who === TEAM && (
+                      <button
+                        type="button"
+                        className={styles.iconBtn}
+                        aria-label={`${row.nickname}: не играл`}
+                        title="Не играл"
+                        onClick={() => onChange((d) => withAbsent(d, index, row.key, true))}
+                      >
+                        <Icon path="M6 6l12 12M18 6L6 18" size={14} strokeWidth={2.4} />
+                      </button>
+                    )}
+                  </span>
                 )}
                 {CELLS.map((spec, col) => {
                   const value = row.cells[spec.key];
@@ -121,6 +135,16 @@ export function PlayersStep({ draft, showErrors, onChange }: PlayersStepProps) {
           })}
         </div>
       </div>
+      {absent.length > 0 && (
+        <div className={styles.absentRow}>
+          <span>Не играл:</span>
+          {absent.map((row) => (
+            <button key={row.key} type="button" className={styles.chip} onClick={() => onChange((d) => withAbsent(d, index, row.key, false))}>
+              {row.nickname} · Вернуть
+            </button>
+          ))}
+        </div>
+      )}
       <div className={styles.tableFoot}>
         <span><strong>K, D, A, ADR</strong> — обязательно</span>
         <span>FK / FD — первые убийства / смерти · Мульти — ср. мультикиллы · Ослепл. — ср. время ослепления, с</span>
