@@ -70,7 +70,7 @@ describe("gameTotals", () => {
     expect(t.roundWinRate).toBeNull();
     expect(t.kpr).toBeNull();
     expect(t.dpr).toBeNull();
-    expect(t.adr).toBeNull();
+    expect(t.adr).toBe(80); // the mean of the entered ADRs does not need rounds
     expect(t.winRate).toBe(0);
   });
 
@@ -83,17 +83,38 @@ describe("gameTotals", () => {
     expect(t.openingDiff).toBeNull();
   });
 
-  it("sumsLinesAndWeighsAdrByRounds", () => {
+  it("sumsLinesAndAveragesAdrOverTheLines", () => {
     const t = gameTotals([
       map(13, 7, { rows: [row({ kills: 20, deaths: 10, assists: 3, adr: 90 }), row({ playerId: "p2", kills: 10, deaths: 5, assists: 1, adr: 60 })] }),
       map(3, 13, { rows: [row({ kills: 6, deaths: 14, assists: 2, adr: 40 })] }),
     ]);
     expect(t).toMatchObject({ lines: 3, kills: 36, deaths: 29, assists: 6 });
     expect(t.kd).toBe(1.24);
-    // lines: 20 rounds x2 (adr 90, 60) and 16 rounds x1 (adr 40)
-    expect(t.adr).toBeCloseTo((90 * 20 + 60 * 20 + 40 * 16) / 56);
+    // The board's «ADR» is the plain mean of the lines' ADR, not weighed by the rounds of their maps.
+    expect(t.adr).toBeCloseTo((90 + 60 + 40) / 3);
+    // lines: 20 rounds x2 and 16 rounds x1
     expect(t.kpr).toBeCloseTo(36 / 56);
     expect(t.dpr).toBeCloseTo(29 / 56);
+  });
+
+  it("optionalColumnsAreSummedOrAveragedOverTheLinesThatHaveThem", () => {
+    const t = gameTotals([
+      map(13, 7, {
+        rows: [
+          row({ fk: 4, fd: 1, kast: 80, udr: 12, multikills: 1, clutches: 2, flashTime: 2 }),
+          row({ fk: 2, fd: null, kast: 70, udr: null, multikills: 0.5, clutches: null, flashTime: null }),
+          row(),
+        ],
+      }),
+    ]);
+    expect(t).toMatchObject({ fk: 6, fd: 1, clutches: 2, udr: 12, flashTime: 2 });
+    expect(t.kast).toBeCloseTo(75);
+    expect(t.multikills).toBeCloseTo(0.75);
+  });
+
+  it("optionalColumnsNobodyEnteredAreNullNotZero", () => {
+    const t = gameTotals([map(13, 7)]);
+    expect(t).toMatchObject({ fk: null, fd: null, clutches: null, kast: null, udr: null, multikills: null, flashTime: null });
   });
 
   it("openingDiffSumsOnlyLinesThatHaveBoth", () => {

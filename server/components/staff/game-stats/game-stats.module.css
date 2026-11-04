@@ -816,26 +816,256 @@
   min-height: 40px;
 }
 
-/* ---- the period summary (placeholder until it is built) ---- */
+/* ---- «Сводка за период» ---- */
 
-.summarySection {
+.sumHeader {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+.sumHeaderText {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
-.summarySection h2 {
+.sumHeaderText h2 {
   margin: 0;
   font-size: 24px;
   font-weight: 700;
 }
-.soon {
-  align-self: flex-start;
-  padding: 2px 8px;
-  border-radius: 999px;
-  background: rgba(120, 150, 220, 0.12);
+.filterRow {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 12px;
+}
+/* The panel colours every link (`.root a`); these are links that look like the buttons of the board. */
+.page a.segBtn,
+.page a.chip,
+.page a.btnGhost {
+  text-decoration: none;
+  box-sizing: border-box;
+  color: var(--text-soft);
+}
+.page a.segBtn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.page a.segBtn:hover,
+.page a.chip:hover,
+.page a.btnGhost:hover {
+  color: #fff;
+}
+.page a.chipOn,
+.page a.chipOn:hover {
+  color: var(--cyan-soft);
+}
+.page a.segOn,
+.page a.segOn:hover {
+  color: #fff;
+}
+.dates {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  flex-basis: 100%;
+  justify-content: flex-end;
+}
+.dates label {
+  font-size: 13px;
   color: var(--muted);
-  font-size: 11px;
+}
+.dateInput {
+  box-sizing: border-box;
+  min-height: 44px;
+  padding: 0 12px;
+  border-radius: 12px;
+  border: 1px solid rgba(63, 208, 255, 0.35);
+  background: rgba(63, 208, 255, 0.06);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 600;
+  color-scheme: dark;
+}
+.dateInput:focus {
+  outline: 2px solid var(--cyan);
+  border-color: transparent;
+}
+.periodTiles {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 12px;
+}
+
+.confirm {
+  scroll-margin-top: 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 14px 16px;
+  border-radius: 14px;
+  border: 1px solid var(--danger-line);
+  background: rgba(255, 122, 61, 0.06);
+}
+.confirmText {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.45;
+}
+.confirmGame {
+  margin: 0;
+  font-size: 13px;
+  color: var(--faint);
+}
+.confirmActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.btnDanger {
+  min-height: 44px;
+  padding: 0 18px;
+  border-radius: 12px;
+  border: 1px solid var(--danger-line);
+  background: rgba(255, 122, 61, 0.14);
+  color: var(--danger);
+  font-family: inherit;
+  font-size: 14px;
   font-weight: 700;
+  cursor: pointer;
+}
+.btnDanger:hover {
+  background: rgba(255, 122, 61, 0.24);
+}
+.btnDanger:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+
+.tableWrap {
+  border-radius: 16px;
+  border: 1px solid rgba(120, 150, 220, 0.14);
+  overflow-x: auto;
+  background: var(--input);
+}
+.sumTable {
+  border-collapse: separate;
+  border-spacing: 0;
+  width: 100%;
+  min-width: max-content;
+  font-variant-numeric: tabular-nums;
+}
+.sumCell {
+  padding: 12px 14px;
+  min-width: 150px;
+  box-sizing: border-box;
+  font-size: 14px;
+  font-weight: 400;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 1px solid rgba(120, 150, 220, 0.1);
+}
+.sumLabel {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  min-width: 240px;
+  background: var(--input);
+  color: #c3ccdc;
+  font-weight: 500;
+}
+.sumCorner {
+  background: var(--raised);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+.sumHead {
+  background: var(--raised);
+  vertical-align: top;
+}
+.sumHead > span {
+  display: block;
+}
+.sumTitle {
+  font-size: 14px;
+  font-weight: 700;
+}
+.sumSub {
+  margin-top: 2px;
+  font-size: 12px;
+  color: var(--faint);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sumActions {
+  display: flex !important;
+  gap: 12px;
+  margin-top: 8px;
+}
+.page a.sumLink {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--cyan-soft);
+  text-decoration: none;
+}
+.page a.sumLink:hover {
+  text-decoration: underline;
+}
+.page a.sumLink:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.page a.sumDanger,
+.page a.sumDanger:hover {
+  color: var(--danger);
+}
+.sumTotal {
+  font-weight: 700;
+  color: #fff;
+  background: rgba(0, 102, 255, 0.12);
+}
+.sumRow:hover td,
+.sumRow:hover th {
+  background-color: rgba(30, 39, 64, 0.45);
+}
+.sumGroup {
+  padding: 16px 14px 8px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-align: left;
+  text-transform: uppercase;
+  color: var(--cyan-soft);
+  border-bottom: 1px solid rgba(120, 150, 220, 0.1);
+}
+
+.emptyState {
+  padding: 40px 20px;
+  border-radius: 16px;
+  border: 1px dashed rgba(120, 150, 220, 0.25);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  text-align: center;
+}
+.emptyTitle {
+  font-size: 16px;
+  font-weight: 600;
+}
+.emptySub {
+  font-size: 14px;
+  color: var(--text-soft);
 }
 
 @media (max-width: 900px) {

@@ -7,6 +7,8 @@
  *  - Rounds of a map = our + their score. A map is won when our score is higher, lost when lower, drawn when equal.
  *  - Win Rate = won maps / maps; Round Win Rate = rounds won / rounds; Pistol Win Rate = pistols won / pistols
  *    (two per map); average rounds won / lost are per map.
+ *  - Over several lines (a game, a period) the board adds kills, deaths, assists, first kills / deaths and clutches
+ *    up, and takes the plain mean of ADR, KAST, UDR, multikills and flash time over the lines that have the value.
  */
 
 export type MapResult = "win" | "loss" | "draw";
@@ -21,6 +23,12 @@ export interface RowStats {
   adr: number;
   fk: number | null;
   fd: number | null;
+  /** The optional columns; a line that does not carry them (or left them empty) counts as «not entered». */
+  kast?: number | null;
+  udr?: number | null;
+  multikills?: number | null;
+  clutches?: number | null;
+  flashTime?: number | null;
 }
 
 export interface MapStats {
@@ -62,10 +70,19 @@ export interface StatTotals {
   /** Kills / deaths per round played by the counted lines. */
   kpr: number | null;
   dpr: number | null;
-  /** Average of the lines' ADR weighted by the rounds of their map. */
+  /** Plain mean of the lines' ADR (as the board does), whatever the rounds of their maps. */
   adr: number | null;
   /** Sum of FK − FD over the lines that have both numbers. */
   openingDiff: number | null;
+  /** Sums over the lines that entered the value; null when no line did. */
+  fk: number | null;
+  fd: number | null;
+  clutches: number | null;
+  /** Plain means over the lines that entered the value; null when no line did. */
+  kast: number | null;
+  udr: number | null;
+  multikills: number | null;
+  flashTime: number | null;
 }
 
 export type PeriodTotals = StatTotals & { games: number };
@@ -94,6 +111,18 @@ export function openingDiff(fk: number | null, fd: number | null): number | null
 }
 
 const sum = (values: readonly number[]): number => values.reduce((total, value) => total + value, 0);
+
+/** The numbers among `values`; the entered ones only. */
+const entered = (values: readonly (number | null | undefined)[]): number[] =>
+  values.filter((v): v is number => typeof v === "number");
+const total = (values: readonly (number | null | undefined)[]): number | null => {
+  const list = entered(values);
+  return list.length > 0 ? sum(list) : null;
+};
+const average = (values: readonly (number | null | undefined)[]): number | null => {
+  const list = entered(values);
+  return list.length > 0 ? sum(list) / list.length : null;
+};
 
 /**
  * Totals of the given maps. With `playerId` only the maps that player played and only their lines count; without
@@ -141,8 +170,15 @@ export function gameTotals(maps: readonly MapStats[], playerId?: string): StatTo
     kd: lines.length > 0 ? kd(kills, deaths) : null,
     kpr: kpr(kills, lineRounds),
     dpr: dpr(deaths, lineRounds),
-    adr: ratio(sum(lines.map((l) => l.row.adr * l.rounds)), lineRounds),
+    adr: average(lines.map((l) => l.row.adr)),
     openingDiff: withBoth.length > 0 ? sum(withBoth) : null,
+    fk: total(lines.map((l) => l.row.fk)),
+    fd: total(lines.map((l) => l.row.fd)),
+    clutches: total(lines.map((l) => l.row.clutches)),
+    kast: average(lines.map((l) => l.row.kast)),
+    udr: average(lines.map((l) => l.row.udr)),
+    multikills: average(lines.map((l) => l.row.multikills)),
+    flashTime: average(lines.map((l) => l.row.flashTime)),
   };
 }
 

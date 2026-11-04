@@ -1,11 +1,13 @@
 import { GameForm } from "@/components/staff/game-stats/GameForm";
 import { draftFromGame } from "@/components/staff/game-stats/draft";
 import styles from "@/components/staff/game-stats/game-stats.module.css";
+import { PeriodSummary } from "@/components/staff/game-stats/PeriodSummary";
 import { Header } from "@/components/staff/Header";
 import { defaultDeps } from "@/lib/deps";
 import { rosterMembers } from "@/lib/staff/access";
 import { requireStaffContext } from "@/lib/staff/current";
 import { GAME_ERRORS } from "@/lib/staff/game-forms";
+import { loadSummaryGames, parseSummaryParams } from "@/lib/staff/game-summary";
 import { getGame } from "@/lib/staff/games";
 import { STAFF_TIME_ZONE, dayOf } from "@/lib/staff/metrics";
 
@@ -16,8 +18,10 @@ type SearchParams = Record<string, string | string[] | undefined>;
 const first = (value: string | string[] | undefined): string | undefined => (Array.isArray(value) ? value[0] : value);
 
 /**
- * «Игровая статистика»: the team's games, typed in by hand. `?edit=<id>` opens a saved game of the team in the
- * form; another team's id (or none) shows the empty form with a notice.
+ * «Игровая статистика»: the team's games, typed in by hand, and the summary of them. `?edit=<id>` opens a saved game
+ * of the team in the form; another team's id (or none) shows the empty form with a notice. The summary's period,
+ * source and player are in the URL (`period`, `from`, `to`, `kind`, `who`); `?delete=<id>` asks before a game is
+ * deleted.
  */
 export default async function GameStatsPage({ searchParams }: { searchParams: Promise<SearchParams> }) {
   const ctx = await requireStaffContext();
@@ -26,6 +30,12 @@ export default async function GameStatsPage({ searchParams }: { searchParams: Pr
   const roster = await rosterMembers(deps, ctx);
   const editId = first(params.edit);
   const game = editId === undefined ? null : await getGame(deps, ctx, editId);
+  const summaryParams = parseSummaryParams(params, roster.map((p) => p.id), dayOf(deps.now(), STAFF_TIME_ZONE));
+  const deleteId = first(params.delete);
+  const [games, deleting] = await Promise.all([
+    loadSummaryGames(deps, ctx, summaryParams),
+    deleteId === undefined ? null : getGame(deps, ctx, deleteId),
+  ]);
   const missing = first(params.error) === "not-found" || (editId !== undefined && game === null);
   return (
     <>
@@ -44,10 +54,7 @@ export default async function GameStatsPage({ searchParams }: { searchParams: Pr
           today={dayOf(deps.now(), STAFF_TIME_ZONE)}
           initial={game ? draftFromGame(game, roster) : null}
         />
-        <section className={styles.summarySection} aria-labelledby="gs-period">
-          <h2 id="gs-period">Сводка за период</h2>
-          <span className={styles.soon}>Скоро</span>
-        </section>
+        <PeriodSummary params={summaryParams} roster={roster} games={games} confirm={deleting} />
       </div>
     </>
   );
