@@ -7,8 +7,8 @@ import { Field } from "./Field";
 import { FormMessage } from "./FormMessage";
 import styles from "./profile.module.css";
 
-/** «Удаление аккаунта»: the password is the confirmation; a successful delete ends in the sign-in page. */
-export function DeleteForm() {
+/** «Удаление аккаунта» (with a warning for the team's last staff): the password is the confirmation; a successful delete ends in the sign-in page. */
+export function DeleteForm({ lastStaff }: { lastStaff: boolean }) {
   const [state, action, pending] = useActionState(deleteAccountAction, IDLE);
   return (
     <section className={`${styles.section} ${styles.sectionDanger}`} aria-labelledby="profile-delete">
@@ -16,6 +16,11 @@ export function DeleteForm() {
         Удаление аккаунта
       </h2>
       <p className={styles.hint}>Аккаунт и все данные будут удалены без возможности восстановления.</p>
+      {lastStaff && (
+        <p className={styles.hint}>
+          Вы — последний стафф команды: команда и все её данные (игры, календарь, раскидки, заметки) будут удалены.
+        </p>
+      )}
       <form action={action} className={styles.form} noValidate>
         <Field id="profile-delete-password" label="Пароль" name="password" type="password" autoComplete="current-password" />
         <FormMessage state={state} />

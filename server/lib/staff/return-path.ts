@@ -8,8 +8,7 @@ export function gameStatsReturnPath(raw: string | undefined): string {
   if (raw === undefined || !raw.startsWith(GAME_STATS_PATH)) return GAME_STATS_PATH;
   const rest = raw.slice(GAME_STATS_PATH.length);
   const onThePage = rest === "" || rest.startsWith("?") || rest.startsWith("#");
-  // No control characters or backslashes: the value ends up in a Location header.
-  // eslint-disable-next-line no-control-regex
-  if (!onThePage || /[\u0000- \\]/.test(raw)) return GAME_STATS_PATH;
+  // Printable ASCII only, no backslashes: the value ends up in a Location header.
+  if (!onThePage || !/^[\x21-\x7e]+$/.test(raw) || raw.includes("\\")) return GAME_STATS_PATH;
   return raw;
 }

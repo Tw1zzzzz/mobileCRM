@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, describe, expect, it } from "vitest";
+import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { hashPassword, verifyPassword } from "../lib/auth/passwords";
 import { hashRefreshToken, issueSession } from "../lib/auth/tokens";
 import { ApiError } from "../lib/http";
@@ -7,6 +7,7 @@ import {
   changePassword,
   confirmEmailChange,
   deleteOwnAccount,
+  isLastStaff,
   loadProfile,
   requestEmailChange,
   signOutEverywhere,
@@ -235,6 +236,49 @@ describe("staff profile: email", () => {
     const fresh = deps.mailer.lastCode("late@mail.gg")!;
     await confirmEmailChange(deps, ctx, fresh);
     expect((await failure(confirmEmailChange(deps, ctx, fresh))).code).toBe("invalid_code");
+  });
+
+  it("confirmingTellsTheOldAddress", async () => {
+    const { ctx, email } = await makeTeam();
+    await requestEmailChange(deps, ctx, "told@mail.gg", PASSWORD);
+    const code = deps.mailer.lastCode("told@mail.gg")!;
+    deps.mailer.sent.length = 0;
+    await confirmEmailChange(deps, ctx, code);
+
+    expect(deps.mailer.sent).toEqual([
+      {
+        to: email,
+        subject: "Почта аккаунта Pulse изменена",
+        text: "Почта вашего аккаунта Pulse изменена на told@mail.gg. Если это были не вы, сбросьте пароль и напишите тренеру команды.",
+      },
+    ]);
+  });
+
+  it("aFailingMailerDoesNotUndoTheChange", async () => {
+    const { ctx } = await makeTeam();
+    await requestEmailChange(deps, ctx, "kept@mail.gg", PASSWORD);
+    const code = deps.mailer.lastCode("kept@mail.gg")!;
+    const send = vi.spyOn(deps.mailer, "send").mockRejectedValue(new Error("smtp down"));
+    const log = vi.spyOn(console, "error").mockImplementation(() => {});
+    try {
+      await confirmEmailChange(deps, ctx, code);
+      expect((await loadProfile(deps, ctx)).email).toBe("kept@mail.gg");
+      expect(send).toHaveBeenCalledTimes(1);
+      expect(log).toHaveBeenCalledTimes(1);
+      expect(JSON.stringify(log.mock.calls)).not.toContain(code);
+    } finally {
+      send.mockRestore();
+      log.mockRestore();
+    }
+  });
+
+  it("isLastStaffOnlyWithoutAnotherConfirmedStaff", async () => {
+    const { ctx } = await makeTeam();
+    expect(await isLastStaff(deps, ctx)).toBe(true);
+    const helper = await addUser("staff", ctx.teamId);
+    expect(await isLastStaff(deps, ctx)).toBe(false);
+    await deps.sql`update users set email_verified_at = null where id = ${helper.id}`;
+    expect(await isLastStaff(deps, ctx)).toBe(true);
   });
 
   it("emailChangeNeedsPassword", async () => {

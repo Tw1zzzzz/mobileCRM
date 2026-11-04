@@ -7,6 +7,7 @@ import { ApiError } from "@/lib/http";
 import { deleteAccount } from "@/lib/me";
 import { rateLimit } from "@/lib/rateLimit";
 import type { StaffContext } from "@/lib/staff/access";
+import { otherStaffId } from "@/lib/team/members";
 import { isDemoEmail } from "@/lib/users";
 
 /**
@@ -157,6 +158,7 @@ export async function confirmEmailChange(deps: Deps, ctx: StaffContext, rawCode:
   const email = await checkCode(deps, ctx.userId, "email_change", rawCode.trim());
   if (email === null) throw new ApiError("invalid_code", "Invalid code.", 422);
   const now = deps.now();
+  const [before] = await deps.sql<{ email: string }[]>`select email from users where id = ${ctx.userId}`;
   try {
     await deps.sql`
       update users set email = ${email}, email_verified_at = ${now}, updated_at = ${now}
@@ -165,6 +167,25 @@ export async function confirmEmailChange(deps: Deps, ctx: StaffContext, rawCode:
     if (isEmailConflict(e)) throw emailTaken();
     throw e;
   }
+  if (before) await tellOldAddress(deps, before.email, email);
+}
+
+/** One notice to the address the account just left; the change is done either way, so a failure is only logged. */
+async function tellOldAddress(deps: Deps, oldEmail: string, newEmail: string): Promise<void> {
+  try {
+    await deps.mailer.send({
+      to: oldEmail,
+      subject: "Почта аккаунта Pulse изменена",
+      text: `Почта вашего аккаунта Pulse изменена на ${newEmail}. Если это были не вы, сбросьте пароль и напишите тренеру команды.`,
+    });
+  } catch (e) {
+    console.error("could not tell the old address about the email change", e);
+  }
+}
+
+/** Whether no other confirmed staff member is left in the team: deleting this account then deletes the team. */
+export async function isLastStaff(deps: Deps, ctx: StaffContext): Promise<boolean> {
+  return (await otherStaffId(deps.sql, ctx.teamId, ctx.userId)) === null;
 }
 
 /** Revokes every refresh token of the person: this browser, other browsers and the app. */

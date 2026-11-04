@@ -24,6 +24,8 @@ describe("where deleting a game returns to", () => {
     "/staff/game-stats/../players",
     " /staff/game-stats",
     "/staff/game-stats\r\nSet-Cookie: a=b",
+    "/staff/game-stats?who=\x7f",
+    "/staff/game-stats?who=игрок",
   ])("otherwiseTheBarePage (%j)", (raw) => {
     expect(gameStatsReturnPath(raw)).toBe(GAME_STATS_PATH);
   });

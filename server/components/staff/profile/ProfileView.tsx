@@ -7,14 +7,14 @@ import { SessionsForm } from "./SessionsForm";
 import styles from "./profile.module.css";
 
 /** «Профиль»: the staff member's own account, one card per concern. */
-export function ProfileView({ profile }: { profile: Profile }) {
+export function ProfileView({ profile, lastStaff }: { profile: Profile; lastStaff: boolean }) {
   return (
     <div className={styles.sections}>
       <MainForm nickname={profile.nickname} faceitUrl={profile.faceitUrl} />
       <EmailForm current={profile.email} pending={profile.pendingEmail} />
       <PasswordForm />
       <SessionsForm />
-      <DeleteForm />
+      <DeleteForm lastStaff={lastStaff} />
     </div>
   );
 }
