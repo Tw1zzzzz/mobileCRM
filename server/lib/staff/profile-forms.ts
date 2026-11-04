@@ -40,7 +40,7 @@ export function saveProfileCore(deps: Deps, ctx: StaffContext, form: FormData): 
   });
 }
 
-/** «Почта»: `step` is «request» («Получить код») or «confirm» («Подтвердить»). */
+/** «Почта»: the request needs the current password; `step` is «request» («Получить код») or «confirm» («Подтвердить»). */
 export function emailChangeCore(deps: Deps, ctx: StaffContext, form: FormData): Promise<FormState> {
   const step = field(form, "step");
   return attempt(async () => {
@@ -51,8 +51,9 @@ export function emailChangeCore(deps: Deps, ctx: StaffContext, form: FormData): 
       return done(PROFILE_NOTICES.emailChanged);
     }
     const email = field(form, "email");
-    if (email.trim() === "") return failure(MESSAGES.emptyFields);
-    await requestEmailChange(deps, ctx, email);
+    const password = field(form, "password");
+    if (email.trim() === "" || password === "") return failure(MESSAGES.emptyFields);
+    await requestEmailChange(deps, ctx, email, password);
     return { status: "codeSent", email: email.trim().toLowerCase() };
   });
 }

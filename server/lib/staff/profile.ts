@@ -126,10 +126,17 @@ async function addressInUse(deps: Deps, email: string): Promise<boolean> {
 }
 
 /**
- * Mails a 6-digit code to the NEW address; the address on the account changes only in `confirmEmailChange`. An
- * address any account already holds (the person's own included) is refused. A newer request voids the older code.
+ * Mails a 6-digit code to the NEW address; the address on the account changes only in `confirmEmailChange`. The
+ * current password is required, so a borrowed session cannot redirect the account. An address any account already
+ * holds (the person's own included) is refused. A newer request voids the older code.
  */
-export async function requestEmailChange(deps: Deps, ctx: StaffContext, rawEmail: string): Promise<void> {
+export async function requestEmailChange(
+  deps: Deps,
+  ctx: StaffContext,
+  rawEmail: string,
+  password: string,
+): Promise<void> {
+  await requirePassword(deps, ctx.userId, password);
   const email = normalizeEmail(rawEmail);
   if (!isValidEmail(email)) throw new ApiError("invalid_email", "Invalid email address.", 422);
   if (await addressInUse(deps, email)) throw emailTaken();

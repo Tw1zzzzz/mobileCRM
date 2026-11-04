@@ -13,7 +13,7 @@ interface EmailFormProps {
   pending: string | null;
 }
 
-/** «Почта»: the current address, «Новая почта» → «Получить код», then «Код из письма» → «Подтвердить». */
+/** «Почта»: the current address, «Новая почта» + «Текущий пароль» → «Получить код», then «Код из письма» → «Подтвердить». */
 export function EmailForm({ current, pending }: EmailFormProps) {
   // One action for both steps, so one message: the page re-renders after each, and `pending` decides the step.
   const [state, action, isPending] = useActionState(emailChangeAction, IDLE);
@@ -30,6 +30,7 @@ export function EmailForm({ current, pending }: EmailFormProps) {
       <form action={action} className={styles.form} noValidate>
         <input type="hidden" name="step" value="request" />
         <Field id="profile-new-email" label="Новая почта" name="email" type="email" autoComplete="email" value={email} onChange={setEmail} />
+        <Field id="profile-email-password" label="Текущий пароль" name="password" type="password" autoComplete="current-password" />
         <div className={styles.actions}>
           <button type="submit" className={styles.secondary} disabled={isPending}>
             Получить код

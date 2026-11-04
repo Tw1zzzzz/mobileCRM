@@ -181,7 +181,7 @@ describe("staff profile: password", () => {
 describe("staff profile: email", () => {
   it("emailChangeSendsCodeToNewAddress", async () => {
     const { ctx, email } = await makeTeam();
-    await requestEmailChange(deps, ctx, "  New.Address@Mail.GG ");
+    await requestEmailChange(deps, ctx, "  New.Address@Mail.GG ", PASSWORD);
 
     expect(deps.mailer.sent).toHaveLength(1);
     expect(deps.mailer.sent[0].to).toBe("new.address@mail.gg");
@@ -204,20 +204,40 @@ describe("staff profile: email", () => {
 
   it("codeIsGoodFor15MinutesAndOnlyOnce", async () => {
     const { ctx } = await makeTeam();
-    await requestEmailChange(deps, ctx, "late@mail.gg");
+    await requestEmailChange(deps, ctx, "late@mail.gg", PASSWORD);
     const code = deps.mailer.lastCode("late@mail.gg")!;
     deps.advance(15 * MINUTE + 1);
     expect((await failure(confirmEmailChange(deps, ctx, code))).code).toBe("code_expired");
 
-    await requestEmailChange(deps, ctx, "late@mail.gg");
+    await requestEmailChange(deps, ctx, "late@mail.gg", PASSWORD);
     const fresh = deps.mailer.lastCode("late@mail.gg")!;
     await confirmEmailChange(deps, ctx, fresh);
     expect((await failure(confirmEmailChange(deps, ctx, fresh))).code).toBe("invalid_code");
   });
 
+  it("emailChangeNeedsPassword", async () => {
+    const { ctx } = await makeTeam();
+    for (const password of ["wrong-pass1", ""]) {
+      const e = await failure(requestEmailChange(deps, ctx, "needs@mail.gg", password));
+      expect(e.code).toBe("invalid_credentials");
+      expect(e.status).toBe(401);
+    }
+    expect(deps.mailer.sent).toHaveLength(0);
+    expect((await loadProfile(deps, ctx)).pendingEmail).toBeNull();
+    // Wrong tries count under the same limit as the password change: ten in all, then rate_limited.
+    for (let i = 0; i < 8; i++) await failure(requestEmailChange(deps, ctx, "needs@mail.gg", "wrong-pass1"));
+    expect((await failure(requestEmailChange(deps, ctx, "needs@mail.gg", PASSWORD))).code).toBe("rate_limited");
+    expect((await failure(changePassword(deps, ctx, PASSWORD, "brand-new1", null))).code).toBe("rate_limited");
+
+    await resetDb(deps.sql);
+    const fresh = await makeTeam();
+    await requestEmailChange(deps, fresh.ctx, "needs@mail.gg", PASSWORD);
+    expect(deps.mailer.lastCode("needs@mail.gg")).toMatch(/^\d{6}$/);
+  });
+
   it("invalidAddressRefused", async () => {
     const { ctx } = await makeTeam();
-    const e = await failure(requestEmailChange(deps, ctx, "not-an-email"));
+    const e = await failure(requestEmailChange(deps, ctx, "not-an-email", PASSWORD));
     expect(e.code).toBe("invalid_email");
     expect(deps.mailer.sent).toHaveLength(0);
   });
@@ -226,7 +246,7 @@ describe("staff profile: email", () => {
     const { ctx, email } = await makeTeam();
     const other = await addUser("soloPlayer", null);
     for (const taken of [other.email, other.email.toUpperCase(), email, "staff@pulse.app"]) {
-      const e = await failure(requestEmailChange(deps, ctx, taken));
+      const e = await failure(requestEmailChange(deps, ctx, taken, PASSWORD));
       expect(e.code).toBe("email_taken");
       expect(e.status).toBe(409);
     }
@@ -236,7 +256,7 @@ describe("staff profile: email", () => {
 
   it("addressTakenMeanwhileIsRefusedAtConfirmation", async () => {
     const { ctx, email } = await makeTeam();
-    await requestEmailChange(deps, ctx, "race@mail.gg");
+    await requestEmailChange(deps, ctx, "race@mail.gg", PASSWORD);
     const code = deps.mailer.lastCode("race@mail.gg")!;
     await addUser("soloPlayer", null, "race@mail.gg");
     expect((await failure(confirmEmailChange(deps, ctx, code))).code).toBe("email_taken");
@@ -245,7 +265,7 @@ describe("staff profile: email", () => {
 
   it("emailChangeWrongCodeCountsAttempts", async () => {
     const { ctx, email } = await makeTeam();
-    await requestEmailChange(deps, ctx, "guess@mail.gg");
+    await requestEmailChange(deps, ctx, "guess@mail.gg", PASSWORD);
     const code = deps.mailer.lastCode("guess@mail.gg")!;
     const wrong = code === "000000" ? "111111" : "000000";
 
@@ -265,9 +285,9 @@ describe("staff profile: email", () => {
 
   it("newRequestVoidsTheOlderCode", async () => {
     const { ctx } = await makeTeam();
-    await requestEmailChange(deps, ctx, "first@mail.gg");
+    await requestEmailChange(deps, ctx, "first@mail.gg", PASSWORD);
     const first = deps.mailer.lastCode("first@mail.gg")!;
-    await requestEmailChange(deps, ctx, "second@mail.gg");
+    await requestEmailChange(deps, ctx, "second@mail.gg", PASSWORD);
     const second = deps.mailer.lastCode("second@mail.gg")!;
     expect((await loadProfile(deps, ctx)).pendingEmail).toBe("second@mail.gg");
     if (first !== second) await failure(confirmEmailChange(deps, ctx, first));
@@ -397,23 +417,31 @@ describe("staff profile: forms say it in the app's words", () => {
     const { ctx } = await makeTeam();
     const taken = await addUser("soloPlayer", null);
     const run = (values: Record<string, string>) => emailChangeCore(deps, ctx, formOf(values));
-    expect(await run({ step: "request", email: "" })).toEqual({ status: "error", message: "Заполните обязательные поля" });
-    expect(await run({ step: "request", email: "nope" })).toEqual({
+    expect(await run({ step: "request", email: "", password: PASSWORD })).toEqual({ status: "error", message: "Заполните обязательные поля" });
+    expect(await run({ step: "request", email: "x@mail.gg", password: "" })).toEqual({
+      status: "error",
+      message: "Заполните обязательные поля",
+    });
+    expect(await run({ step: "request", email: "x@mail.gg", password: "wrong-pass1" })).toEqual({
+      status: "error",
+      message: "Неверный логин или пароль",
+    });
+    expect(await run({ step: "request", email: "nope", password: PASSWORD })).toEqual({
       status: "error",
       message: "Укажите корректный адрес электронной почты",
     });
-    expect(await run({ step: "request", email: taken.email })).toEqual({
+    expect(await run({ step: "request", email: taken.email, password: PASSWORD })).toEqual({
       status: "error",
       message: "Этот email уже зарегистрирован",
     });
-    expect(await run({ step: "request", email: "Fresh@Mail.gg" })).toEqual({ status: "codeSent", email: "fresh@mail.gg" });
+    expect(await run({ step: "request", email: "Fresh@Mail.gg", password: PASSWORD })).toEqual({ status: "codeSent", email: "fresh@mail.gg" });
     expect(await run({ step: "confirm", code: "" })).toEqual({ status: "error", message: "Заполните обязательные поля" });
     const code = deps.mailer.lastCode("fresh@mail.gg")!;
     const wrong = code === "000000" ? "111111" : "000000";
     expect(await run({ step: "confirm", code: wrong })).toEqual({ status: "error", message: "Неверный код" });
     expect(await run({ step: "confirm", code })).toEqual({ status: "done", message: "Почта изменена" });
     deps.advance(MINUTE);
-    await run({ step: "request", email: "later@mail.gg" });
+    await run({ step: "request", email: "later@mail.gg", password: PASSWORD });
     deps.advance(16 * MINUTE);
     expect(await run({ step: "confirm", code: deps.mailer.lastCode("later@mail.gg")! })).toEqual({
       status: "error",
