@@ -121,14 +121,14 @@ interface TeamManagementProps {
   error: TeamError | null;
 }
 
-/** «Команда»: both codes, «Новый код», and the members with «Убрать из команды». Confirmation is a second page view. */
+/** «Команда» in the profile: both codes, «Новый код», and the members with «Убрать из команды». Confirmation is a second page view. */
 export function TeamManagement({ team, confirm, error }: TeamManagementProps) {
   const rotating = confirm?.kind === "rotate" ? confirm.code : null;
   const removing = confirm?.kind === "remove" ? confirm.member.id : null;
   return (
     <section id="team" className={styles.section} aria-labelledby="team-title">
       <h2 id="team-title" className={styles.sectionTitle}>
-        Доступ и участники
+        Команда
       </h2>
       {error !== null && (
         <p className={styles.error} role="alert">

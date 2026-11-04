@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { defaultDeps } from "@/lib/deps";
 import { ApiError } from "@/lib/http";
 import { teamPlayers, type StaffContext } from "@/lib/staff/access";
+import { loadNickname } from "@/lib/staff/profile";
 import { STAFF_COOKIE, resolveSession, type SessionState } from "@/lib/staff/session";
 
 /** The visitor's session, resolved once per request however many components ask. */
@@ -36,6 +37,12 @@ export async function requireStaffContext(denied: "redirect" | "status" = "redir
   }
   return redirect(state.kind === "notStaff" ? "/staff/no-access" : "/staff/login");
 }
+
+/** The signed-in staff member's nickname for the sidebar card, read once per request. */
+export const getNickname = cache(async (): Promise<string> => {
+  const ctx = await requireStaffContext();
+  return loadNickname(defaultDeps(), ctx.userId);
+});
 
 /** How many players the signed-in staff member's team has. */
 export const getPlayerCount = cache(async (): Promise<number> => {

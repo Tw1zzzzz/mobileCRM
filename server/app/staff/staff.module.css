@@ -184,8 +184,12 @@ a.account:hover {
   text-decoration: none;
 }
 a.account:hover {
-  background: rgba(30, 39, 64, 0.9);
-  border-color: rgba(63, 208, 255, 0.35);
+  border-color: rgba(63, 208, 255, 0.45);
+}
+a.accountOn,
+a.accountOn:hover {
+  border-color: rgba(63, 208, 255, 0.7);
+  background: linear-gradient(160deg, rgba(0, 102, 255, 0.25), rgba(23, 31, 52, 0.95) 70%);
 }
 a.account:focus-visible {
   outline: 2px solid var(--cyan);
@@ -221,6 +225,9 @@ a.account:focus-visible {
 .accountRole {
   font-size: 12px;
   color: var(--muted);
+}
+.accountGear {
+  flex: 0 0 auto;
 }
 
 .ghost {
@@ -377,12 +384,15 @@ a.account:focus-visible {
     align-items: center;
   }
   /* On a phone only the avatar is left of the account block, still a link to «Профиль». */
-  .account {
+  .account,
+  a.accountOn,
+  a.accountOn:hover {
     padding: 0;
     background: none;
     border: 0;
   }
-  .accountText {
+  .accountText,
+  .accountGear {
     display: none;
   }
 }

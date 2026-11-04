@@ -5,12 +5,13 @@ import type { StaffContext } from "@/lib/staff/access";
 import { removeMember, rotateCode } from "@/lib/team/members";
 
 /**
- * The two team actions of «Игроки → Команда» without any Next.js: the Server Actions in `app/staff/actions.ts`
+ * The two team actions of «Профиль → Команда» without any Next.js: the Server Actions in `app/staff/actions.ts`
  * resolve the signed-in staff member (`requireStaffContext`) and pass that context in. The team is always the
  * one of `ctx`; a team id in the form is never read, and a member id is resolved inside the caller's team.
  */
 
-export const TEAM_PATH = "/staff/team";
+/** The team block lives in the profile (`#team`); /staff/team only redirects there. */
+export const TEAM_PATH = "/staff/profile";
 
 /** Outcomes shown inline after an action. Anything else is an unexpected error and is not swallowed. */
 export type TeamError = "last-staff" | "failed";

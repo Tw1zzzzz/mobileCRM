@@ -116,7 +116,7 @@ export async function signOutAction(): Promise<void> {
   redirect("/staff/login");
 }
 
-// ---- «Игроки → Команда» ----
+// ---- «Профиль → Команда» ----
 // Every action starts with requireStaffContext(): a logged-out or non-staff caller is redirected before anything
 // is read or written. The team always comes from that context, never from the form.
 

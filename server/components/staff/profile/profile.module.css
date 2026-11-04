@@ -7,6 +7,10 @@
   gap: 16px;
   align-items: start;
 }
+.wide {
+  grid-column: 1 / -1;
+  min-width: 0;
+}
 .section {
   display: flex;
   flex-direction: column;

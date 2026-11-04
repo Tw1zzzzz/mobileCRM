@@ -350,4 +350,15 @@ describe("page wiring", () => {
     expect(games).toMatchObject({ href: "/staff/game-stats", activePath: "/staff/game-stats" });
     expect(isActive(games, "/staff/game-stats")).toBe(true);
   });
+
+  it("sidebarFollowsTheDesign", () => {
+    const shape = NAV_GROUPS.map((g) => [g.title, g.items.map((i) => i.name)]);
+    expect(shape).toEqual([
+      [null, ["Обзор", "Календарь"]],
+      ["Команда", ["Игроки", "Раскидки и скрипты"]],
+      ["Аналитика", ["Статистика", "Игровая статистика"]],
+    ]);
+    // «Команда» is a heading only: the team lives in the profile, no nav item points to the old page
+    expect(NAV_GROUPS.flatMap((g) => g.items).some((i) => i.href === "/staff/team")).toBe(false);
+  });
 });

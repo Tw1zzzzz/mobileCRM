@@ -45,6 +45,13 @@ function invalid(field: ProfileField, message: string): ApiError {
   return new ApiError("validation_failed", message, 422, { field });
 }
 
+/** The staff member's nickname, shown on the sidebar's profile card. */
+export async function loadNickname(deps: Deps, userId: string): Promise<string> {
+  const [row] = await deps.sql<{ nickname: string }[]>`select nickname from users where id = ${userId}`;
+  if (!row) throw new ApiError("unauthorized", "Not authorized", 401);
+  return row.nickname;
+}
+
 export async function loadProfile(deps: Deps, ctx: StaffContext): Promise<Profile> {
   const [row] = await deps.sql<{ nickname: string; email: string; faceit_url: string | null }[]>`
     select nickname, email, faceit_url from users where id = ${ctx.userId}`;

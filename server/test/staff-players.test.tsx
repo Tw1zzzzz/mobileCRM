@@ -235,8 +235,8 @@ describe("team block", () => {
     const markup = renderToStaticMarkup(<TeamManagement team={p.team} confirm={null} error={null} />);
     const words = text(markup);
     expect(markup).toContain('id="team"');
-    // the page title «Команда» lives in the /staff/team page header; the block carries its own heading
-    expect(words).toContain("Доступ и участники");
+    // the block lives in the profile and carries its own heading
+    expect(words).toContain("Команда");
     expect(words).toContain("PALPHA");
     expect(words).toContain("SALPHA");
     expect(words).toContain("Код игрока");
@@ -260,7 +260,7 @@ describe("team block", () => {
     const markup = renderToStaticMarkup(<TeamManagement team={p.team} confirm={p.confirm} error={null} />);
     expect(text(markup)).toContain("Старый код перестанет работать. Продолжить?");
     expect(markup).toContain('name="kind" value="staff"');
-    expect(markup).toContain('href="/staff/team#team"'); // «Отмена»
+    expect(markup).toContain('href="/staff/profile#team"'); // «Отмена»
     expect((markup.match(/Старый код перестанет работать/g) ?? []).length).toBe(1);
   });
 
@@ -444,19 +444,19 @@ describe("actions require staff of that team", () => {
     session.token = (await issueSession(deps, mine.ids.staff)).refresh_token;
 
     const rotated = await redirectOf(() => rotateCodeAction(form({ kind: "player", teamId: other.teamId, next: "https://evil.example" })));
-    expect(rotated).toBe("/staff/team#team");
+    expect(rotated).toBe("/staff/profile#team");
     expect((await codesOf(other.teamId)).invite_code).toBe("PBRAVO");
     expect((await codesOf(mine.ids.team)).invite_code).not.toBe("PALPHA");
 
     const foreign = await redirectOf(() => removeMemberAction(form({ memberId: theirPlayer, next: "https://evil.example" })));
-    expect(foreign).toBe("/staff/team?error=failed#team");
+    expect(foreign).toBe("/staff/profile?error=failed#team");
     expect(await roleOf(theirPlayer)).toEqual({ role: "teamPlayer", team_id: other.teamId });
 
     const last = await redirectOf(() => removeMemberAction(form({ memberId: mine.ids.staff })));
-    expect(last).toBe("/staff/team?error=last-staff#team");
+    expect(last).toBe("/staff/profile?error=last-staff#team");
 
     const removed = await redirectOf(() => removeMemberAction(form({ memberId: mine.ids.vega })));
-    expect(removed).toBe("/staff/team#team");
+    expect(removed).toBe("/staff/profile#team");
     expect(await roleOf(mine.ids.vega)).toEqual({ role: "soloPlayer", team_id: null });
   });
 
@@ -465,7 +465,7 @@ describe("actions require staff of that team", () => {
     await addUser("coach", "staff", ids.team);
     const { removeMemberAction } = await import("../app/staff/actions");
     session.token = (await issueSession(deps, ids.staff)).refresh_token;
-    expect(await redirectOf(() => removeMemberAction(form({ memberId: ids.staff })))).toBe("/staff/team#team");
+    expect(await redirectOf(() => removeMemberAction(form({ memberId: ids.staff })))).toBe("/staff/profile#team");
     // the next page load goes through the normal guard
     const { requireStaffContext } = await import("../lib/staff/current");
     expect(await redirectOf(() => requireStaffContext())).toBe("/staff/no-access");

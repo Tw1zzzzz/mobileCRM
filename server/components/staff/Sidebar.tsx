@@ -1,11 +1,10 @@
 import Link from "next/link";
 import { NavLinks } from "@/components/staff/NavLinks";
-import { SignOutButton } from "@/components/staff/SignOutButton";
+import { ProfileCard } from "@/components/staff/ProfileCard";
 import styles from "@/app/staff/staff.module.css";
 
-/** «Меню Staff»: on a phone (≤ 900 px) the same markup becomes a menu along the top. */
-export function Sidebar({ teamName }: { teamName: string }) {
-  const initials = Array.from(teamName.trim()).slice(0, 2).join("").toUpperCase();
+/** «Меню Staff» of the design: on a phone (≤ 900 px) the same markup becomes a menu along the top. */
+export function Sidebar({ teamName, nickname }: { teamName: string; nickname: string }) {
   return (
     <nav aria-label="Меню Staff" className={styles.sidebar}>
       <Link href="/staff/overview" className={styles.brand}>
@@ -15,20 +14,13 @@ export function Sidebar({ teamName }: { teamName: string }) {
           </svg>
         </span>
         <span className={styles.brandText}>
-          <span className={styles.brandEyebrow}>Pulse</span>
-          <span className={styles.brandName}>Кабинет стаффа</span>
+          <span className={styles.brandEyebrow}>Atlant Technology</span>
+          <span className={styles.brandName}>Performance CRM</span>
         </span>
       </Link>
       <NavLinks />
       <div className={styles.sidebarFoot}>
-        <Link href="/staff/profile" className={styles.account} aria-label="Профиль" title="Профиль">
-          <span className={styles.avatar} aria-hidden="true">{initials}</span>
-          <span className={styles.accountText}>
-            <span className={styles.accountName}>{teamName}</span>
-            <span className={styles.accountRole}>Staff</span>
-          </span>
-        </Link>
-        <SignOutButton />
+        <ProfileCard nickname={nickname} role={`Staff · ${teamName}`} />
       </div>
     </nav>
   );
