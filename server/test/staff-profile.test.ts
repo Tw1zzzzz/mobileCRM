@@ -170,6 +170,28 @@ describe("staff profile: password", () => {
     expect(await activeTokens(ctx.userId)).toBe(0);
   });
 
+  it("aFailedRevokeLeavesThePasswordUnchanged", async () => {
+    const { ctx } = await makeTeam();
+    await issueSession(deps, ctx.userId);
+    const [before] = await deps.sql<{ password_hash: string }[]>`select password_hash from users where id = ${ctx.userId}`;
+    await deps.sql`
+      create or replace function profile_test_block_revoke() returns trigger language plpgsql as
+      $$ begin raise exception 'revoke blocked'; end $$`;
+    await deps.sql`
+      create trigger profile_test_block_revoke before update on refresh_tokens
+      for each row execute function profile_test_block_revoke()`;
+    try {
+      await expect(changePassword(deps, ctx, PASSWORD, "brand-new1", null)).rejects.toThrow();
+    } finally {
+      await deps.sql`drop trigger profile_test_block_revoke on refresh_tokens`;
+      await deps.sql`drop function profile_test_block_revoke()`;
+    }
+    const [after] = await deps.sql<{ password_hash: string }[]>`select password_hash from users where id = ${ctx.userId}`;
+    expect(after.password_hash).toBe(before.password_hash);
+    expect(await verifyPassword(after.password_hash, PASSWORD)).toBe(true);
+    expect(await activeTokens(ctx.userId)).toBe(1);
+  });
+
   it("wrongCurrentPasswordIsRateLimited", async () => {
     const { ctx } = await makeTeam();
     for (let i = 0; i < 10; i++) await failure(changePassword(deps, ctx, "wrong-pass1", "brand-new1", null));
@@ -239,6 +261,18 @@ describe("staff profile: email", () => {
     const { ctx } = await makeTeam();
     const e = await failure(requestEmailChange(deps, ctx, "not-an-email", PASSWORD));
     expect(e.code).toBe("invalid_email");
+    expect(deps.mailer.sent).toHaveLength(0);
+  });
+
+  it("probingTakenAddressesIsCappedByTheEmailRequestLimit", async () => {
+    const { ctx } = await makeTeam();
+    const other = await addUser("soloPlayer", null);
+    // Five requests are allowed per hour; probing a registered address counts against them like any other.
+    for (let i = 0; i < 5; i++) expect((await failure(requestEmailChange(deps, ctx, other.email, PASSWORD))).code).toBe("email_taken");
+    const e = await failure(requestEmailChange(deps, ctx, other.email, PASSWORD));
+    expect(e.code).toBe("rate_limited");
+    expect(e.message).not.toMatch(/registered/i);
+    expect((await failure(requestEmailChange(deps, ctx, "staff@pulse.app", PASSWORD))).code).toBe("rate_limited");
     expect(deps.mailer.sent).toHaveLength(0);
   });
 

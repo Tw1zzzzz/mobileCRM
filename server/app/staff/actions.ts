@@ -27,6 +27,7 @@ import { deleteCalendarEvent, saveCalendarEvent } from "@/lib/staff/calendar";
 import { deleteStaffLineup, saveStaffLineup, toggleStaffLineupFavorite } from "@/lib/staff/lineups";
 import { saveGameCore } from "@/lib/staff/game-forms";
 import { deleteGame } from "@/lib/staff/games";
+import { gameStatsReturnPath } from "@/lib/staff/return-path";
 import { revalidatePath } from "next/cache";
 
 const SignInFields = z.object({ email: z.string().trim().min(1), password: z.string().min(1) });
@@ -278,5 +279,6 @@ export async function deleteGameAction(form: FormData): Promise<void> {
   const id = field(form, "id");
   const deleted = id !== undefined && z.string().uuid().safeParse(id).success && (await deleteGame(defaultDeps(), ctx, id));
   revalidatePath(GAME_STATS_PATH);
-  redirect(deleted ? GAME_STATS_PATH : `${GAME_STATS_PATH}?error=not-found`);
+  // The summary filters of the page the question was asked on stay; a doubtful value is the bare page.
+  redirect(deleted ? gameStatsReturnPath(field(form, "returnTo")) : `${GAME_STATS_PATH}?error=not-found`);
 }

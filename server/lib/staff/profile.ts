@@ -105,11 +105,16 @@ export async function changePassword(
     throw new ApiError("weak_password", "Password must be at least 8 characters with letters and digits.", 422);
   }
   await requirePassword(deps, ctx.userId, current);
-  await deps.sql`
-    update users set password_hash = ${await hashPassword(next)}, updated_at = ${deps.now()}
-    where id = ${ctx.userId}`;
-  if (keepRefreshHash === null) await revokeAll(deps, ctx.userId);
-  else await revokeAllExcept(deps, ctx.userId, keepRefreshHash);
+  const hash = await hashPassword(next);
+  // One transaction: if signing the other sessions out fails, the password must not have changed either.
+  await deps.sql.begin(async (tx) => {
+    const inTx: Deps = { ...deps, sql: tx as unknown as Deps["sql"] };
+    await tx`
+      update users set password_hash = ${hash}, updated_at = ${deps.now()}
+      where id = ${ctx.userId}`;
+    if (keepRefreshHash === null) await revokeAll(inTx, ctx.userId);
+    else await revokeAllExcept(inTx, ctx.userId, keepRefreshHash);
+  });
 }
 
 const emailTaken = () => new ApiError("email_taken", "This email is already registered.", 409);
@@ -137,10 +142,11 @@ export async function requestEmailChange(
   password: string,
 ): Promise<void> {
   await requirePassword(deps, ctx.userId, password);
+  // Before the «in use» lookup, so probing which addresses are registered is capped by this limit.
+  await rateLimit(deps, `profile-email:${ctx.userId}`, EMAIL_REQUESTS, EMAIL_REQUESTS_WINDOW_MS);
   const email = normalizeEmail(rawEmail);
   if (!isValidEmail(email)) throw new ApiError("invalid_email", "Invalid email address.", 422);
   if (await addressInUse(deps, email)) throw emailTaken();
-  await rateLimit(deps, `profile-email:${ctx.userId}`, EMAIL_REQUESTS, EMAIL_REQUESTS_WINDOW_MS);
   const [own] = await deps.sql<{ email: string }[]>`select email from users where id = ${ctx.userId}`;
   if (!own) throw new ApiError("unauthorized", "Not authorized", 401);
   await sendCode(deps, { id: ctx.userId, email: own.email }, "email_change", email);

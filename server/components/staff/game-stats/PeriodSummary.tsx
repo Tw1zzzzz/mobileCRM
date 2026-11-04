@@ -23,6 +23,7 @@ function ConfirmDelete({ game, params }: { game: Game; params: SummaryParams }) 
       <div className={styles.confirmActions}>
         <form action={deleteGameAction}>
           <input type="hidden" name="id" value={game.id} />
+          <input type="hidden" name="returnTo" value={summaryHref(params)} />
           <button type="submit" className={styles.btnDanger}>Удалить</button>
         </form>
         <Link href={summaryHref(params)} scroll={false} className={styles.btnGhost}>Отмена</Link>
