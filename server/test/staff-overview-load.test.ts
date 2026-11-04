@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { requireStaff, type StaffContext } from "../lib/staff/access";
+import { saveGame } from "../lib/staff/games";
 import { DEFAULT_SHOW, loadOverview, parseFilters } from "../lib/staff/overview";
 import { resetDb, testDeps } from "./helpers";
 
@@ -50,7 +51,7 @@ describe("parseFilters", () => {
 
   it("defaultsToWholeTeamAndTheDefaultMetrics", () => {
     expect(parseFilters({}, ids)).toEqual({ who: "team", show: DEFAULT_SHOW });
-    expect(DEFAULT_SHOW).toEqual(["state", "sleep"]);
+    expect(DEFAULT_SHOW).toEqual(["state", "sleep", "game"]);
   });
 
   it("acceptsAPlayerOfTheRoster", () => {
@@ -73,14 +74,35 @@ describe("parseFilters", () => {
     expect(parseFilters({ show: "" }, ids).show).toEqual([]);
   });
 
-  it("gameAndGarbageAreIgnored", () => {
-    expect(parseFilters({ show: "game,state" }, ids).show).toEqual(["state"]);
-    expect(parseFilters({ show: "game" }, ids).show).toEqual(DEFAULT_SHOW);
+  it("gameIsAMetricAndGarbageIsIgnored", () => {
+    expect(parseFilters({ show: "game,state" }, ids).show).toEqual(["state", "game"]);
+    expect(parseFilters({ show: "game" }, ids).show).toEqual(["game"]);
     expect(parseFilters({ show: "nonsense" }, ids).show).toEqual(DEFAULT_SHOW);
   });
 });
 
 describe("loadOverview", () => {
+  it("gameCardsCountTheGamesEnteredOnTheSite", async () => {
+    const { teamId, staffId } = await makeTeam("Alpha", "PALPHA");
+    const player = await addUser("vega", "teamPlayer", teamId);
+    const ctx = await ctxOf(staffId);
+    await saveGame(deps, ctx, {
+      kind: "pracc", playedOn: "2026-10-25", opponent: null,
+      maps: [{ map: "mirage", ourScore: 13, theirScore: 7, pistol1: "won", pistol2: "lost",
+        rows: [{ playerId: player, kills: 24, deaths: 12, assists: 3, adr: 90 }] }],
+    });
+    const page = await loadOverview(deps, ctx, {}, "Europe/Moscow", { apiKey: "" });
+    if (page.kind !== "data") throw new Error("expected data");
+    const kd = page.overview.metrics.find((m) => m.key === "kd");
+    const winRate = page.overview.metrics.find((m) => m.key === "winRate");
+    expect(kd?.value).toBe(2);
+    expect(winRate?.value).toBe(100);
+
+    const off = await loadOverview(deps, ctx, { show: "state,sleep" }, "Europe/Moscow", { apiKey: "" });
+    if (off.kind !== "data") throw new Error("expected data");
+    expect(off.overview.metrics.map((m) => m.key)).toEqual(["readiness", "cognitive", "nutrition"]);
+  });
+
   it("emptyTeamCarriesThePlayerCode", async () => {
     const { staffId } = await makeTeam("Alpha", "PALPHA");
     const page = await loadOverview(deps, await ctxOf(staffId), {});

@@ -8,6 +8,9 @@ export function SessionsForm() {
       <h2 id="profile-sessions" className={styles.sectionTitle}>
         Сеансы
       </h2>
+      <p className={styles.hint}>
+        Завершит вход во всех браузерах и в приложении, включая этот. Войти нужно будет заново.
+      </p>
       <form action={signOutEverywhereAction} className={styles.form}>
         <div className={styles.actions}>
           <button type="submit" className={styles.secondary}>

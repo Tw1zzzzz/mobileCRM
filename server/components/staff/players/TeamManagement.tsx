@@ -127,7 +127,7 @@ export function TeamManagement({ team, confirm, error }: TeamManagementProps) {
   const removing = confirm?.kind === "remove" ? confirm.member.id : null;
   return (
     <section id="team" className={styles.section} aria-labelledby="team-title">
-      <h2 id="team-title" className={styles.sectionTitle}>
+      <h2 id="team-title" className={styles.teamTitle}>
         Команда
       </h2>
       {error !== null && (

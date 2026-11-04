@@ -5,7 +5,7 @@ import { EmptyTeam } from "@/components/staff/overview/EmptyTeam";
 import { OverviewView } from "@/components/staff/overview/OverviewView";
 import { ReadinessBadge } from "@/components/staff/overview/ReadinessBadge";
 import { TodayCard } from "@/components/staff/overview/TodayCard";
-import { teamOverview, type OverviewData, type PlayerDocuments } from "@/lib/staff/metrics";
+import { teamOverview, type OverviewData, type PlayerDocuments, type WeeklyMetric } from "@/lib/staff/metrics";
 import type { TodayEvent } from "@/lib/staff/overview-today";
 import { DEFAULT_SHOW, type OverviewFilters, type ShowKey } from "@/lib/staff/overview";
 
@@ -85,7 +85,8 @@ describe("overview body", () => {
     // switching the player keeps the selected metrics; toggling a metric keeps the player
     expect(markup).toContain('href="/staff/overview?who=p1&amp;show=state"');
     expect(markup).toContain('href="/staff/overview?who=p2&amp;show=state,food"'); // «Питание» on
-    expect(markup).toContain('href="/staff/overview?who=p2"'); // «Сон» on gives the default set again
+    expect(markup).toContain('href="/staff/overview?who=p2&amp;show=state,sleep"'); // «Сон» on
+    expect(markup).toContain('href="/staff/overview?who=p2&amp;show=state,game"'); // «Игра» on
     expect(markup).toContain('href="/staff/overview?who=p2&amp;show="'); // «Состояние» off leaves nothing
     expect(markup).toContain('href="/staff/overview?show=state"'); // «Вся команда» keeps the metrics
   });
@@ -99,11 +100,26 @@ describe("overview body", () => {
     expect(markup).not.toMatch(/<a[^>]*aria-current="true"[^>]*>Вся команда<\/a>/);
   });
 
-  it("gameChipIsHiddenUntilPlanC", () => {
-    const t = text(view("team", DEFAULT_SHOW));
-    expect(t).not.toContain("Игра");
-    expect(t).not.toContain("K/D");
-    expect(t).not.toContain("Win-rate");
+  it("gameChipShowsKdAndWinRateCards", () => {
+    const base = overviewOf("team");
+    const game: WeeklyMetric[] = [
+      { key: "kd", value: 1.12, previous: 1, delta: 0.12, direction: "up", pill: "good", series: [1, null, 1.2, null, null, 1.1, 1.2] },
+      { key: "winRate", value: 40, previous: 50, delta: -10, direction: "down", pill: "bad", series: [0, null, 100, null, null, 0, 50] },
+    ];
+    const overview = { ...base, metrics: [...base.metrics, ...game] };
+    const render = (show: readonly ShowKey[]): string =>
+      text(renderToStaticMarkup(<OverviewView overview={overview} players={PLAYERS} filters={{ who: "team", show }} />));
+
+    const shown = render(DEFAULT_SHOW);
+    expect(shown).toContain("Игра");
+    expect(shown).toContain("K/D 7 дней · вся команда Отлично 1,12 ↑ 0,12 к прошлой неделе");
+    expect(shown).toContain("Win-rate 7 дней · вся команда");
+    expect(shown).toContain("40% ↓ 10% к прошлой неделе");
+
+    const hidden = render(["state", "sleep"]);
+    expect(hidden).toContain("Игра"); // the chip stays, the cards go
+    expect(hidden).not.toContain("K/D");
+    expect(hidden).not.toContain("Win-rate");
   });
 
   it("showTogglesBlocks", () => {

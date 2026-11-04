@@ -1,5 +1,5 @@
 import { trend } from "@/lib/staff/overview-charts";
-import { NO_DATA, arrow, kcal, whole } from "@/lib/staff/overview-format";
+import { NO_DATA, arrow, fmt2, kcal, whole } from "@/lib/staff/overview-format";
 import type { MetricKey, WeeklyMetric } from "@/lib/staff/metrics";
 import { OpenLink } from "./OpenLink";
 import { Pill } from "./Pill";
@@ -9,6 +9,8 @@ const TITLES: Record<MetricKey, string> = {
   readiness: "Готовность",
   cognitive: "Когнитивная форма",
   nutrition: "Питание, ккал в день",
+  kd: "K/D",
+  winRate: "Win-rate",
 };
 
 /** Where each metric is read in detail: the roster for readiness, «Статистика» for cognition, the team's meals. */
@@ -16,12 +18,16 @@ const HREFS: Record<MetricKey, string> = {
   readiness: "/staff/players",
   cognitive: "/staff/statistics",
   nutrition: "/staff/players?section=nutrition",
+  kd: "/staff/game-stats",
+  winRate: "/staff/game-stats",
 };
 
 const FORMAT: Record<MetricKey, (value: number) => string> = {
   readiness: whole,
   cognitive: whole,
   nutrition: kcal,
+  kd: fmt2,
+  winRate: (value) => `${whole(value)}%`,
 };
 
 const UP = { stroke: "#3FD0FF", fill: "rgba(31,139,255,0.22)" } as const;

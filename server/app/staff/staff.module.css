@@ -311,6 +311,34 @@ a.account:focus-visible {
 .headerSpacer {
   flex: 1 1 auto;
 }
+/* «Профиль» at the top right: the same avatar as the menu's account block, without scrolling down to it. */
+a.headerAccount,
+a.headerAccount:hover {
+  height: 48px;
+  max-width: 220px;
+  box-sizing: border-box;
+  padding: 0 14px 0 4px;
+  border-radius: 14px;
+  border: 1px solid rgba(120, 150, 220, 0.14);
+  background: rgba(23, 31, 52, 0.85);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  color: var(--text);
+  text-decoration: none;
+}
+a.headerAccount:hover {
+  border-color: rgba(63, 208, 255, 0.45);
+}
+a.headerAccount:focus-visible {
+  outline: 2px solid var(--cyan);
+  outline-offset: 2px;
+}
+.headerAccount .avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 11px;
+}
 
 /* ---- notice page (signed in, but not staff) ---- */
 
@@ -393,6 +421,10 @@ a.account:focus-visible {
   }
   .accountText,
   .accountGear {
+    display: none;
+  }
+  /* The menu along the top already has the avatar: no second one in the page header. */
+  a.headerAccount {
     display: none;
   }
 }

@@ -160,7 +160,7 @@ async function forEachLimited<T>(items: readonly T[], limit: number, work: (item
  * by then counts as «unavailable», and players still waiting for a slot are never started. Late results are dropped
  * (they still fill the cache for the next load).
  */
-async function faceitForScope(
+export async function faceitForScope(
   deps: Deps,
   scope: readonly TeamPlayer[],
   docs: readonly Partial<Record<Collection, unknown>>[],

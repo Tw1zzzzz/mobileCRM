@@ -2,15 +2,93 @@
    app/staff/staff.module.css). */
 
 .sections {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(100%, 420px), 1fr));
-  gap: 16px;
-  align-items: start;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
 }
-.wide {
-  grid-column: 1 / -1;
+.group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
 }
+.groupTitle {
+  margin: 0;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+/* Two cards of one row are equally tall, and their buttons sit on the same line. */
+.pair {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  align-items: stretch;
+}
+.pair > .section > .form:last-child {
+  flex: 1 1 auto;
+}
+.pair > .section > .form:last-child > .actions {
+  margin-top: auto;
+}
+
+.summary {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  flex-wrap: wrap;
+  box-sizing: border-box;
+  padding: 20px;
+  border-radius: 20px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+}
+.summaryAvatar {
+  flex: 0 0 auto;
+  width: 56px;
+  height: 56px;
+  border-radius: 16px;
+  background: var(--staff-avatar);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+  font-weight: 700;
+  color: #fff;
+}
+.summaryText {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+  flex: 1 1 200px;
+}
+.summaryName {
+  font-size: 22px;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+}
+.summaryMeta {
+  font-size: 14px;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+}
+.summaryRole {
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: rgba(176, 124, 255, 0.16);
+  color: #c9a6ff;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+/* Deletion spans the column, but one password field does not need its whole width. */
+.sectionDanger .form {
+  max-width: 480px;
+}
+
 .section {
   display: flex;
   flex-direction: column;
@@ -171,7 +249,16 @@
   border-top: 1px solid var(--line);
 }
 
+@media (max-width: 1100px) {
+  .pair {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
 @media (max-width: 900px) {
+  .summary {
+    padding: 16px;
+  }
   .section {
     padding: 16px;
   }

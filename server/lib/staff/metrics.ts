@@ -44,7 +44,7 @@ export interface MoodCategoryShare extends MoodCategory {
   percent: number;
 }
 
-export type MetricKey = "readiness" | "cognitive" | "nutrition";
+export type MetricKey = "readiness" | "cognitive" | "nutrition" | "kd" | "winRate";
 
 export interface WeeklyMetric {
   key: MetricKey;
@@ -109,7 +109,8 @@ export const PILL_THRESHOLDS = {
 /** A sleep session shorter than this is «Неполная» in the app and is not counted as sleep. */
 export const MIN_SLEEP_MS = 60 * 60 * 1000;
 export const HOUR_MS = 60 * 60 * 1000;
-const WINDOW_DAYS = 7;
+/** «Обзор» compares the last 7 days with the 7 before them. */
+export const WINDOW_DAYS = 7;
 
 // ---------------------------------------------------------------- numbers
 
@@ -364,9 +365,17 @@ function weeklyMetric(
   previousDays: readonly Day[],
   pick: (inputs: DailyInputs) => number | undefined | null,
 ): WeeklyMetric {
-  const series = dailySeries(players, days, pick);
+  return weeklyFromSeries(key, dailySeries(players, days, pick), dailySeries(players, previousDays, pick));
+}
+
+/** A weekly metric from its per-day values this week and the week before (`null` where nobody has data). */
+export function weeklyFromSeries(
+  key: MetricKey,
+  series: readonly (number | null)[],
+  previousSeries: readonly (number | null)[],
+): WeeklyMetric {
   const value = meanOfKnown(series);
-  const previous = meanOfKnown(dailySeries(players, previousDays, pick));
+  const previous = meanOfKnown(previousSeries);
   const both = value !== null && previous !== null;
   const { ok, mid } = PILL_THRESHOLDS[key];
   return {

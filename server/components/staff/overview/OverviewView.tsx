@@ -19,9 +19,10 @@ export function OverviewView({ overview, players, filters }: OverviewViewProps) 
   const showState = filters.show.includes("state");
   const showSleep = filters.show.includes("sleep");
   const showFood = filters.show.includes("food");
+  const showGame = filters.show.includes("game");
 
   const metrics = overview.metrics.filter((m) =>
-    m.key === "nutrition" ? showFood : showState,
+    m.key === "nutrition" ? showFood : m.key === "kd" || m.key === "winRate" ? showGame : showState,
   );
 
   return (

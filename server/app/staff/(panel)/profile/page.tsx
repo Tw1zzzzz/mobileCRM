@@ -21,11 +21,10 @@ export default async function ProfilePage({ searchParams }: { searchParams: Prom
   ]);
   return (
     <>
-      <Header title="Профиль">
-        <SignOutButton />
-      </Header>
+      <Header title="Профиль" trailing={<SignOutButton />} />
       <ProfileView
         profile={profile}
+        teamName={ctx.teamName}
         lastStaff={lastStaff}
         team={<TeamManagement team={teamPage.team} confirm={teamPage.confirm} error={teamPage.error} />}
       />

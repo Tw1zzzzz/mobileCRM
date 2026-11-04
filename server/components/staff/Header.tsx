@@ -1,5 +1,6 @@
+import Link from "next/link";
 import type { ReactNode } from "react";
-import { getPlayerCount, requireStaffContext } from "@/lib/staff/current";
+import { getNickname, getPlayerCount, requireStaffContext } from "@/lib/staff/current";
 import { playersLabel } from "@/lib/staff/messages";
 import styles from "@/app/staff/staff.module.css";
 
@@ -9,12 +10,15 @@ interface HeaderProps {
   meta?: string;
   /** Page-specific widgets shown at the right of the title. */
   children?: ReactNode;
+  /** Shown after «Профиль», at the far right (the profile page's «Выйти»). */
+  trailing?: ReactNode;
 }
 
-/** The page header of the board: «Staff» badge, team and player count, then the title. */
-export async function Header({ title, meta, children }: HeaderProps) {
+/** The page header of the board: «Staff» badge, team and player count, the title, and «Профиль» at the top right. */
+export async function Header({ title, meta, children, trailing }: HeaderProps) {
   const ctx = await requireStaffContext();
-  const count = meta === undefined ? await getPlayerCount() : 0;
+  const [count, nickname] = await Promise.all([meta === undefined ? getPlayerCount() : 0, getNickname()]);
+  const initials = Array.from(nickname.trim()).slice(0, 2).join("").toUpperCase();
   return (
     <header className={styles.header}>
       <div className={styles.headerText}>
@@ -28,6 +32,14 @@ export async function Header({ title, meta, children }: HeaderProps) {
       </div>
       <div className={styles.headerSpacer} />
       {children}
+      <Link href="/staff/profile" className={styles.headerAccount} aria-label="Профиль и настройки">
+        <span className={styles.avatar} aria-hidden="true">{initials}</span>
+        <span className={styles.accountText}>
+          <span className={styles.accountName}>{nickname}</span>
+          <span className={styles.accountRole}>Профиль</span>
+        </span>
+      </Link>
+      {trailing}
     </header>
   );
 }

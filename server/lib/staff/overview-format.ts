@@ -11,6 +11,10 @@ export function fmt1(value: number): string {
   return value.toFixed(1).replace(".", ",");
 }
 
+export function fmt2(value: number): string {
+  return value.toFixed(2).replace(".", ",");
+}
+
 /** Hours as «7ч 09м». */
 export function hm(hours: number): string {
   let h = Math.floor(hours);

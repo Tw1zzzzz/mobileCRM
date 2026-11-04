@@ -6,6 +6,7 @@ const METRIC_CHIPS: readonly { key: ShowKey; name: string }[] = [
   { key: "state", name: "Состояние" },
   { key: "sleep", name: "Сон" },
   { key: "food", name: "Питание" },
+  { key: "game", name: "Игра" },
 ];
 
 function Chip({ href, on, children }: { href: string; on: boolean; children: React.ReactNode }) {
