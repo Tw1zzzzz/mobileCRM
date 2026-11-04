@@ -533,8 +533,9 @@
   box-sizing: border-box;
   white-space: nowrap;
 }
-.page .btnPrimary,
-.page .btnPrimary:hover {
+/* Doubled class: outranks the panel's `.root a` link colour also in the page header, outside `.page`. */
+.btnPrimary.btnPrimary,
+.btnPrimary.btnPrimary:hover {
   color: #fff;
 }
 .btnPrimary:hover {
@@ -564,10 +565,10 @@
 .btnTall {
   min-height: 46px;
 }
-.page .btnGhost {
+.btnGhost.btnGhost {
   color: var(--text-soft);
 }
-.page .btnGhost:hover {
+.btnGhost.btnGhost:hover {
   background: var(--raised-hover);
   color: #fff;
 }
