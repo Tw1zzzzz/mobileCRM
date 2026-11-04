@@ -1,6 +1,6 @@
 import type { ClipboardEvent } from "react";
 import {
-  CELLS, GAME_MAP_OPTIONS, MAX_NICKNAME, MAX_ROWS, TEAM, activeMap, readCell, visibleRows, withCell, withNickname,
+  CELLS, GAME_MAP_OPTIONS, MAX_NICKNAME, MAX_ROWS, TEAM, activeMap, normalizeCell, readCell, visibleRows, withCell, withNickname,
   withPastedCells, withStandIn, withoutRow, type CellSpec, type Draft, type DraftRow,
 } from "./draft";
 import { rowFigures } from "./figures";
@@ -103,6 +103,10 @@ export function PlayersStep({ draft, showErrors, onChange }: PlayersStepProps) {
                         aria-invalid={wrong || undefined}
                         value={value}
                         onChange={(e) => onChange((d) => withCell(d, index, row.key, spec.key, e.target.value))}
+                        onBlur={(e) => {
+                          const shown = normalizeCell(spec.key, e.target.value);
+                          if (shown !== e.target.value) onChange((d) => withCell(d, index, row.key, spec.key, shown));
+                        }}
                         onPaste={(e) => paste(e, rowIndex, col)}
                       />
                     </span>

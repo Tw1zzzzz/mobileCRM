@@ -32,7 +32,8 @@ export const MAX_NICKNAME = 40;
 
 // ---------------------------------------------------------------------------------------------------- cells
 
-export const CELL_KEYS = ["kills", "deaths", "assists", "adr", "fk", "fd", "multikills", "clutches", "flashTime"] as const;
+/** The board's 11 input columns, in the order a spreadsheet pasted into the table is read. */
+export const CELL_KEYS = ["kills", "deaths", "assists", "adr", "kast", "fk", "fd", "udr", "multikills", "clutches", "flashTime"] as const;
 export type CellKey = (typeof CELL_KEYS)[number];
 export type Cells = Record<CellKey, string>;
 
@@ -44,7 +45,7 @@ export interface CellSpec {
   title: string;
   required: boolean;
   max: number;
-  /** Decimal places allowed (the game accepts whole numbers or one decimal). */
+  /** Decimal places kept (the game stores whole numbers or one decimal); more are rounded away. */
   decimals: 0 | 1;
 }
 
@@ -53,8 +54,10 @@ export const CELLS: readonly CellSpec[] = [
   { key: "deaths", label: "D", title: "Смерти", required: true, max: 99, decimals: 0 },
   { key: "assists", label: "A", title: "Ассисты", required: true, max: 99, decimals: 0 },
   { key: "adr", label: "ADR", title: "Средний урон за раунд", required: true, max: 300, decimals: 1 },
+  { key: "kast", label: "KAST %", title: "KAST, %", required: false, max: 100, decimals: 1 },
   { key: "fk", label: "FK", title: "First Kills", required: false, max: 30, decimals: 0 },
   { key: "fd", label: "FD", title: "First Deaths", required: false, max: 30, decimals: 0 },
+  { key: "udr", label: "UDR", title: "Utility damage per round", required: false, max: 500, decimals: 1 },
   { key: "multikills", label: "Мульти", title: "Ср. мультикиллы", required: false, max: 10, decimals: 1 },
   { key: "clutches", label: "Клатчи", title: "Выигранные клатчи", required: false, max: 20, decimals: 0 },
   { key: "flashTime", label: "Ослепл.", title: "Ср. время ослепления, с", required: false, max: 60, decimals: 1 },
@@ -66,16 +69,31 @@ export type CellValue = { kind: "empty" } | { kind: "ok"; value: number } | { ki
 
 const NUMBER = /^\d+(?:[.,]\d+)?$/;
 
-/** What the text of a cell means: nothing yet, a number within the game's limits, or something the game refuses. */
+/** A number rounded to the precision of its cell (76.25 → 76.3 for ADR, 24.5 → 25 for K). */
+function roundTo(decimals: 0 | 1, value: number): number {
+  return decimals === 0 ? Math.round(value) : Math.round(Number((value * 10).toFixed(6))) / 10;
+}
+
+/**
+ * What the text of a cell means: nothing yet, a number within the game's limits, or something the game refuses.
+ * Comma or dot is accepted as the decimal separator; digits beyond the cell's precision are rounded, not refused.
+ */
 export function readCell(key: CellKey, text: string): CellValue {
   const trimmed = text.trim();
   if (trimmed === "") return { kind: "empty" };
   const spec = SPEC_OF[key];
   if (!NUMBER.test(trimmed)) return { kind: "bad" };
-  const value = Number(trimmed.replace(",", "."));
-  const tenths = value * 10;
-  const fits = spec.decimals === 0 ? Number.isInteger(value) : Math.abs(tenths - Math.round(tenths)) < 1e-7;
-  return fits && value <= spec.max ? { kind: "ok", value } : { kind: "bad" };
+  const value = roundTo(spec.decimals, Number(trimmed.replace(",", ".")));
+  return value <= spec.max ? { kind: "ok", value } : { kind: "bad" };
+}
+
+/** The text a number is shown as: a decimal comma, like the rest of the panel. */
+export const showNumber = (value: number): string => String(value).replace(".", ",");
+
+/** A typed or pasted value as it is kept: rounded to the cell's precision with a comma; anything else as typed. */
+export function normalizeCell(key: CellKey, text: string): string {
+  const cell = readCell(key, text);
+  return cell.kind === "ok" ? showNumber(cell.value) : text;
 }
 
 /** A whole number typed as a score: digits only, 0–30. */
@@ -126,7 +144,7 @@ export interface RosterPlayer {
   nickname: string;
 }
 
-const emptyCells = (): Cells => ({ kills: "", deaths: "", assists: "", adr: "", fk: "", fd: "", multikills: "", clutches: "", flashTime: "" });
+const emptyCells = (): Cells => Object.fromEntries(CELL_KEYS.map((key) => [key, ""])) as Cells;
 
 export const playerRow = (player: RosterPlayer): DraftRow => ({
   key: player.id, playerId: player.id, nickname: player.nickname, cells: emptyCells(),
@@ -205,7 +223,7 @@ export function withPastedCells(
         rows: map.rows.map((row) => {
           const mine = cells.filter((cell) => shown[cell.row] === row.key);
           if (mine.length === 0) return row;
-          const changed = Object.fromEntries(mine.map((cell) => [CELLS[cell.col].key, cell.value]));
+          const changed = Object.fromEntries(mine.map((cell) => [CELLS[cell.col].key, normalizeCell(CELLS[cell.col].key, cell.value)]));
           return { ...row, cells: { ...row.cells, ...changed } };
         }),
       };
@@ -276,7 +294,7 @@ function whoPlayed(game: Game, roster: readonly RosterPlayer[]): string {
   return ids.size === 1 && only !== null && roster.some((player) => player.id === only) ? only : TEAM;
 }
 
-const text = (value: number | null): string => (value === null ? "" : String(value));
+const text = (value: number | null): string => (value === null ? "" : showNumber(value));
 
 /** The draft of a saved game, for editing it. */
 export function draftFromGame(game: Game, roster: readonly RosterPlayer[]): Draft {
@@ -289,8 +307,8 @@ export function draftFromGame(game: Game, roster: readonly RosterPlayer[]): Draf
         key: row.playerId ?? `stand-in-${row.id}`, playerId: row.playerId, nickname: row.nickname,
         cells: {
           kills: text(row.kills), deaths: text(row.deaths), assists: text(row.assists), adr: text(row.adr),
-          fk: text(row.fk), fd: text(row.fd), multikills: text(row.multikills), clutches: text(row.clutches),
-          flashTime: text(row.flashTime),
+          kast: text(row.kast), fk: text(row.fk), fd: text(row.fd), udr: text(row.udr),
+          multikills: text(row.multikills), clutches: text(row.clutches), flashTime: text(row.flashTime),
         },
       })),
     })),
@@ -326,8 +344,8 @@ export function toGameInput(draft: Draft, id?: string): GameInput {
         const who = row.playerId === null ? { nickname: row.nickname.trim() } : { playerId: row.playerId };
         return {
           ...who, kills: number("kills"), deaths: number("deaths"), assists: number("assists"), adr: number("adr"),
-          fk: optional("fk"), fd: optional("fd"), multikills: optional("multikills"), clutches: optional("clutches"),
-          flashTime: optional("flashTime"),
+          kast: optional("kast"), fk: optional("fk"), fd: optional("fd"), udr: optional("udr"),
+          multikills: optional("multikills"), clutches: optional("clutches"), flashTime: optional("flashTime"),
         };
       }),
     })),

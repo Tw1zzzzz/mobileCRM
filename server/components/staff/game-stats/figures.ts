@@ -2,7 +2,7 @@ import {
   gameTotals, kd, kpr, dpr, mapResult, openingDiff, type MapResult, type MapStats, type RowStats,
 } from "@/lib/staff/games-math";
 import { plural } from "@/lib/staff/overview-format";
-import { TEAM, readCell, readScore, visibleRows, type Draft, type DraftMap, type DraftRow } from "./draft";
+import { TEAM, readCell, showNumber, readScore, visibleRows, type Draft, type DraftMap, type DraftRow } from "./draft";
 
 /**
  * The numbers the form shows while the game is typed: the computed columns of the table and the block «Итог игры ·
@@ -13,8 +13,8 @@ import { TEAM, readCell, readScore, visibleRows, type Draft, type DraftMap, type
 export const DASH = "—";
 
 const percent = (value: number | null): string => (value === null ? DASH : `${Math.round(value * 100)}%`);
-const oneDecimal = (value: number | null): string => (value === null ? DASH : String(Math.round(value * 10) / 10));
-const twoDecimals = (value: number | null): string => (value === null ? DASH : value.toFixed(2));
+const oneDecimal = (value: number | null): string => (value === null ? DASH : showNumber(Math.round(value * 10) / 10));
+const twoDecimals = (value: number | null): string => (value === null ? DASH : value.toFixed(2).replace(".", ","));
 
 /** Rounds of a map (our + their score); null until both scores are valid. */
 export function roundsOfDraft(map: Pick<DraftMap, "our" | "their">): number | null {
@@ -42,7 +42,7 @@ export function rowFigures(map: DraftMap, row: DraftRow): RowFigures {
   const rounds = roundsOfDraft(map);
   const diff = openingDiff(numberOf(row, "fk"), numberOf(row, "fd"));
   return {
-    kd: kills === null || deaths === null ? DASH : kd(kills, deaths).toFixed(2),
+    kd: kills === null || deaths === null ? DASH : twoDecimals(kd(kills, deaths)),
     kpr: kills === null || rounds === null ? DASH : twoDecimals(kpr(kills, rounds)),
     dpr: deaths === null || rounds === null ? DASH : twoDecimals(dpr(deaths, rounds)),
     open: diff === null ? DASH : `${diff > 0 ? "+" : ""}${diff}`,

@@ -489,11 +489,11 @@
   overflow-x: auto;
 }
 .table {
-  min-width: 1100px;
+  min-width: 1300px;
 }
 .gridRow {
   display: grid;
-  grid-template-columns: 200px repeat(9, minmax(62px, 1fr)) repeat(4, 70px);
+  grid-template-columns: 200px repeat(11, minmax(62px, 1fr)) repeat(4, 70px);
   align-items: center;
   border-bottom: 1px solid var(--line);
 }

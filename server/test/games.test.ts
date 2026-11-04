@@ -55,7 +55,7 @@ describe("validation limits", () => {
       mapOf({
         map: (["mirage", "inferno", "nuke", "ancient", "overpass"] as const)[i], ourScore: 30, theirScore: 30,
         rows: Array.from({ length: 10 }, (_, j) => line({
-          nickname: `p${j}`.padEnd(40, "x"), kills: 99, deaths: 99, assists: 99, adr: 300, fk: 30, fd: 30,
+          nickname: `p${j}`.padEnd(40, "x"), kills: 99, deaths: 99, assists: 99, adr: 300, kast: 100, fk: 30, fd: 30, udr: 500,
           multikills: 10, clutches: 20, flashTime: 60,
         })),
       }));
@@ -63,17 +63,17 @@ describe("validation limits", () => {
     const game = await getGame(deps, t.ctx, id);
     expect(game?.maps).toHaveLength(5);
     expect(game?.maps[4].rows).toHaveLength(10);
-    expect(game?.maps[0].rows[0]).toMatchObject({ kills: 99, adr: 300, fk: 30, multikills: 10, clutches: 20, flashTime: 60 });
+    expect(game?.maps[0].rows[0]).toMatchObject({ kills: 99, adr: 300, kast: 100, udr: 500, fk: 30, multikills: 10, clutches: 20, flashTime: 60 });
   });
 
   it("acceptsEveryLowerBoundAndTheExtraMaps", async () => {
     const t = await seed();
     const id = await saveGame(deps, t.ctx, gameOf({
-      opponent: null, maps: [mapOf({ map: "vertigo", ourScore: 0, theirScore: 0, rows: [line({ nickname: "x", kills: 0, deaths: 0, assists: 0, adr: 0, fk: 0, fd: 0, multikills: 0, clutches: 0, flashTime: 0 })] })],
+      opponent: null, maps: [mapOf({ map: "vertigo", ourScore: 0, theirScore: 0, rows: [line({ nickname: "x", kills: 0, deaths: 0, assists: 0, adr: 0, kast: 0, udr: 0, fk: 0, fd: 0, multikills: 0, clutches: 0, flashTime: 0 })] })],
     }));
     const game = await getGame(deps, t.ctx, id);
     expect(game).toMatchObject({ opponent: null, maps: [{ map: "vertigo", ourScore: 0, theirScore: 0 }] });
-    expect(game?.maps[0].rows[0]).toMatchObject({ kills: 0, adr: 0, fk: 0, fd: 0, multikills: 0, clutches: 0, flashTime: 0 });
+    expect(game?.maps[0].rows[0]).toMatchObject({ kills: 0, adr: 0, kast: 0, udr: 0, fk: 0, fd: 0, multikills: 0, clutches: 0, flashTime: 0 });
   });
 
   const cases: [string, () => GameInput][] = [
@@ -100,6 +100,12 @@ describe("validation limits", () => {
     ["adr over 300", () => withRow({ adr: 300.1 })],
     ["adr below 0", () => withRow({ adr: -0.1 })],
     ["adr with two decimals", () => withRow({ adr: 78.46 })],
+    ["kast over 100", () => withRow({ kast: 100.1 })],
+    ["kast below 0", () => withRow({ kast: -0.1 })],
+    ["kast with two decimals", () => withRow({ kast: 78.46 })],
+    ["udr over 500", () => withRow({ udr: 500.1 })],
+    ["udr below 0", () => withRow({ udr: -1 })],
+    ["udr with two decimals", () => withRow({ udr: 12.25 })],
     ["fk over 30", () => withRow({ fk: 31 })],
     ["fd over 30", () => withRow({ fd: 31 })],
     ["multikills over 10", () => withRow({ multikills: 10.1 })],
@@ -147,7 +153,7 @@ describe("saving and reading", () => {
     expect(game?.maps.map((m) => [m.position, m.map, m.ourScore, m.theirScore, m.pistol1, m.pistol2])).toEqual([
       [0, "nuke", 13, 7, "won", "lost"], [1, "anubis", 9, 13, "lost", "lost"],
     ]);
-    expect(game?.maps[0].rows[0]).toMatchObject({ nickname: "ringer", kills: 20, adr: 82.5, fk: null, fd: null, multikills: null, clutches: null, flashTime: null });
+    expect(game?.maps[0].rows[0]).toMatchObject({ nickname: "ringer", kills: 20, adr: 82.5, kast: null, udr: null, fk: null, fd: null, multikills: null, clutches: null, flashTime: null });
   });
 
   it("keepsTheIdTheCallerChose", async () => {

@@ -35,8 +35,10 @@ export interface GameRowInput {
   deaths: number;
   assists: number;
   adr: number;
+  kast?: number | null;
   fk?: number | null;
   fd?: number | null;
+  udr?: number | null;
   multikills?: number | null;
   clutches?: number | null;
   flashTime?: number | null;
@@ -81,8 +83,10 @@ const RowSchema = z.object({
   deaths: count(99),
   assists: count(99),
   adr: oneDecimal(300),
+  kast: optional(oneDecimal(100)),
   fk: optional(count(30)),
   fd: optional(count(30)),
+  udr: optional(oneDecimal(500)),
   multikills: optional(oneDecimal(10)),
   clutches: optional(count(20)),
   flashTime: optional(oneDecimal(60)),
@@ -126,6 +130,8 @@ export interface GameRow extends RowStats {
   id: string;
   /** The nickname the line was entered with. */
   nickname: string;
+  kast: number | null;
+  udr: number | null;
   multikills: number | null;
   clutches: number | null;
   flashTime: number | null;
@@ -186,9 +192,9 @@ async function withMaps(db: Queryable, records: readonly GameRecord[]): Promise<
     from team_game_maps where game_id in ${db(ids)} order by game_id, position`;
   const rows = maps.length === 0 ? [] : await db<{
     id: string; map_id: string; player_id: string | null; nickname: string; kills: number; deaths: number; assists: number;
-    adr: number; fk: number | null; fd: number | null; multikills: number | null; clutches: number | null; flash_time: number | null;
+    adr: number; kast: number | null; fk: number | null; fd: number | null; udr: number | null; multikills: number | null; clutches: number | null; flash_time: number | null;
   }[]>`
-    select id, map_id, player_id, nickname, kills, deaths, assists, adr::float8 as adr, fk, fd,
+    select id, map_id, player_id, nickname, kills, deaths, assists, adr::float8 as adr, kast::float8 as kast, fk, fd, udr::float8 as udr,
       multikills::float8 as multikills, clutches, flash_time::float8 as flash_time
     from team_game_rows where map_id in ${db(maps.map((m) => m.id))} order by map_id, position`;
   const rowsByMap = Map.groupBy(rows, (r) => r.map_id);
@@ -201,7 +207,7 @@ async function withMaps(db: Queryable, records: readonly GameRecord[]): Promise<
       pistol1: m.pistol1, pistol2: m.pistol2,
       rows: (rowsByMap.get(m.id) ?? []).map((r) => ({
         id: r.id, playerId: r.player_id, nickname: r.nickname, kills: r.kills, deaths: r.deaths, assists: r.assists,
-        adr: r.adr, fk: r.fk, fd: r.fd, multikills: r.multikills, clutches: r.clutches, flashTime: r.flash_time,
+        adr: r.adr, kast: r.kast, fk: r.fk, fd: r.fd, udr: r.udr, multikills: r.multikills, clutches: r.clutches, flashTime: r.flash_time,
       })),
     })),
   }));
@@ -285,7 +291,7 @@ async function insertMaps(tx: TransactionSql, gameId: string, game: ParsedGame, 
   const mapIds = new Map(maps.map((m) => [m.position, m.id]));
   const rows = game.maps.flatMap((m, mapPosition) => m.rows.map((r, position) => ({
     map_id: mapIds.get(mapPosition) as string, position, player_id: r.playerId ?? null, nickname: nicknameOf(r, known),
-    kills: r.kills, deaths: r.deaths, assists: r.assists, adr: r.adr, fk: r.fk, fd: r.fd,
+    kills: r.kills, deaths: r.deaths, assists: r.assists, adr: r.adr, kast: r.kast, fk: r.fk, fd: r.fd, udr: r.udr,
     multikills: r.multikills, clutches: r.clutches, flash_time: r.flashTime,
   })));
   await tx`insert into team_game_rows ${tx(rows)}`;

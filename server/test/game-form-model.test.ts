@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { checkDraft } from "@/components/staff/game-stats/check";
 import {
   CELLS, GAME_KIND_OPTIONS, GAME_MAP_OPTIONS, MAX_MAPS, MAX_NICKNAME, MAX_OPPONENT, MAX_ROWS, TEAM, draftFromGame, isBlank, newDraft,
-  readCell, readScore, toGameInput, visibleRows, withCell, withNewMap, withPastedCells, withRoster, withStandIn, withWho,
+  normalizeCell, readCell, readScore, toGameInput, visibleRows, withCell, withNewMap, withPastedCells, withRoster, withStandIn, withWho,
   type Draft, type RosterPlayer,
 } from "@/components/staff/game-stats/draft";
 import { liveSummary, rowFigures } from "@/components/staff/game-stats/figures";
@@ -39,11 +39,29 @@ describe("the form agrees with the server's limits", () => {
     expect(MAX_NICKNAME).toBe(40);
   });
 
+  it("roundsExtraDecimalsInsteadOfRefusingThem", () => {
+    expect(readCell("adr", "76,25")).toEqual({ kind: "ok", value: 76.3 });
+    expect(readCell("adr", "76.249")).toEqual({ kind: "ok", value: 76.2 });
+    expect(readCell("kast", "99,96")).toEqual({ kind: "ok", value: 100 });
+    expect(readCell("udr", "1.15")).toEqual({ kind: "ok", value: 1.2 });
+    expect(readCell("kills", "24,5")).toEqual({ kind: "ok", value: 25 });
+    // Rounding happens first, so a value that rounds past the limit is still refused.
+    expect(readCell("kast", "100,06")).toEqual({ kind: "bad" });
+    expect(readCell("adr", "300,04")).toEqual({ kind: "ok", value: 300 });
+    expect(normalizeCell("adr", "76.25")).toBe("76,3");
+    expect(normalizeCell("adr", "80")).toBe("80");
+    expect(normalizeCell("adr", "abc")).toBe("abc");
+    // What the form sends is the rounded number.
+    let draft = withCell(withCell(played(fresh()), 0, A.id, "adr", "76,25"), 0, A.id, "kast", "55.55");
+    draft = withCell(draft, 0, A.id, "udr", "12,34");
+    const row = toGameInput(draft).maps[0].rows[0];
+    expect(row).toMatchObject({ adr: 76.3, kast: 55.6, udr: 12.3 });
+  });
+
   it("readsCellsTheWayTheServerWantsThem", () => {
     expect(readCell("kills", " 24 ")).toEqual({ kind: "ok", value: 24 });
-    expect(readCell("kills", "24,5")).toEqual({ kind: "bad" });
     expect(readCell("adr", "91,5")).toEqual({ kind: "ok", value: 91.5 });
-    expect(readCell("adr", "91.55")).toEqual({ kind: "bad" });
+    expect(readCell("adr", "91.5")).toEqual({ kind: "ok", value: 91.5 });
     expect(readCell("adr", "abc")).toEqual({ kind: "bad" });
     expect(readCell("adr", "-1")).toEqual({ kind: "bad" });
     expect(readCell("fk", "")).toEqual({ kind: "empty" });
@@ -71,12 +89,27 @@ describe("the draft", () => {
     expect(next.maps[0].rows[1]).toBe(draft.maps[0].rows[1]);
   });
 
+  it("anElevenColumnBlockLandsInTheBoardsColumns", () => {
+    expect(CELLS.map((c) => c.label)).toEqual(["K", "D", "A", "ADR", "KAST %", "FK", "FD", "UDR", "Мульти", "Клатчи", "Ослепл."]);
+    const text = "24\t15\t5\t91,25\t78,5\t5\t2\t14,7\t3\t1\t2,2\n18\t17\t7\t76\t\t\t\t\t\t\t";
+    const cells = pasteCells(parsePaste(text), { row: 0, col: 0 }, { rows: 2, cols: CELLS.length });
+    const rows = withPastedCells(fresh(), 0, cells).maps[0].rows;
+    expect(rows[0].cells).toEqual({
+      kills: "24", deaths: "15", assists: "5", adr: "91,3", kast: "78,5", fk: "5", fd: "2", udr: "14,7",
+      multikills: "3", clutches: "1", flashTime: "2,2",
+    });
+    expect(rows[1].cells).toMatchObject({ kills: "18", adr: "76", kast: "", fk: "", udr: "", flashTime: "" });
+    // The same block pasted from the FK cell shifts right: FK, FD, UDR, Мульти, Клатчи, Ослепл. get the first six.
+    const shifted = withPastedCells(fresh(), 0, pasteCells(parsePaste("1\t2\t3\t4\t5\t6\t7"), { row: 0, col: 5 }, { rows: 2, cols: CELLS.length }));
+    expect(shifted.maps[0].rows[0].cells).toMatchObject({ fk: "1", fd: "2", udr: "3", multikills: "4", clutches: "5", flashTime: "6", adr: "" });
+  });
+
   it("aPasteFillsFromTheCellRightAndDown", () => {
     const grid = parsePaste("24\t15\t5\t91,5\n18\t17\t7\t76");
     const cells = pasteCells(grid, { row: 0, col: 0 }, { rows: 2, cols: CELLS.length });
     const draft = withPastedCells(fresh(), 0, cells);
     expect(draft.maps[0].rows.map((r) => [r.cells.kills, r.cells.deaths, r.cells.assists, r.cells.adr])).toEqual([
-      ["24", "15", "5", "91.5"], ["18", "17", "7", "76"],
+      ["24", "15", "5", "91,5"], ["18", "17", "7", "76"],
     ]);
   });
 
@@ -133,7 +166,7 @@ describe("the checklist", () => {
   it("countsMissingAndWrongCells", () => {
     let draft = played(fresh(), { our: "31" });
     draft = withCell(draft, 0, A.id, "kills", "x");
-    draft = withCell(draft, 0, A.id, "adr", "80.55");
+    draft = withCell(draft, 0, A.id, "adr", "301");
     const issues = checkDraft(draft).issues;
     expect(issues).toContain("Карта 1: счёт — целые числа от 0 до 30");
     expect(issues).toContain("Карта 1: не заполнено 6 обязательных ячеек");
@@ -161,10 +194,10 @@ describe("the live numbers", () => {
   it("figuresOfARow", () => {
     let draft = played(fresh(), { our: "13", their: "7" });
     for (const [key, value] of [["kills", "20"], ["deaths", "0"], ["fk", "5"], ["fd", "2"]] as const) draft = withCell(draft, 0, A.id, key, value);
-    expect(rowFigures(draft.maps[0], draft.maps[0].rows[0])).toEqual({ kd: "20.00", kpr: "1.00", dpr: "0.00", open: "+3" });
+    expect(rowFigures(draft.maps[0], draft.maps[0].rows[0])).toEqual({ kd: "20,00", kpr: "1,00", dpr: "0,00", open: "+3" });
     expect(rowFigures(draft.maps[0], draft.maps[0].rows[1])).toEqual({ kd: "—", kpr: "—", dpr: "—", open: "—" });
     // Without a score there are no rounds: no KPR, DPR.
-    expect(rowFigures({ ...draft.maps[0], our: "" }, draft.maps[0].rows[0])).toMatchObject({ kd: "20.00", kpr: "—", dpr: "—" });
+    expect(rowFigures({ ...draft.maps[0], our: "" }, draft.maps[0].rows[0])).toMatchObject({ kd: "20,00", kpr: "—", dpr: "—" });
   });
 
   it("summaryOfMapsRoundsAndPistols", () => {
@@ -175,7 +208,7 @@ describe("the live numbers", () => {
     draft = { ...draft, maps: [...draft.maps.slice(0, 2), { ...draft.maps[2], our: "12", their: "12" }] };
     expect(liveSummary(draft)).toMatchObject({
       maps: "1 : 1 : 1", mapsSub: "по картам · 3 карты (П : П : Н)", winRate: "33%", roundWinRate: "51%", rounds: "35–34",
-      pistolWinRate: "75%", avgRoundsWon: "11.7", avgRoundsLost: "11.3",
+      pistolWinRate: "75%", avgRoundsWon: "11,7", avgRoundsLost: "11,3",
     });
   });
 
@@ -202,9 +235,9 @@ describe("the roster", () => {
       maps: [{
         id: "m1", position: 0, map: "vertigo", ourScore: 13, theirScore: 10, pistol1: "won", pistol2: "won",
         rows: [
-          { id: "r1", playerId: A.id, nickname: "vega-then", kills: 20, deaths: 10, assists: 3, adr: 80.5, fk: 2, fd: null, multikills: null, clutches: 1, flashTime: 2.5 },
-          { id: "r2", playerId: GONE.id, nickname: GONE.nickname, kills: 10, deaths: 14, assists: 2, adr: 55, fk: null, fd: null, multikills: null, clutches: null, flashTime: null },
-          { id: "r3", playerId: null, nickname: "ringer", kills: 5, deaths: 5, assists: 5, adr: 50, fk: null, fd: null, multikills: null, clutches: null, flashTime: null },
+          { id: "r1", playerId: A.id, nickname: "vega-then", kills: 20, deaths: 10, assists: 3, adr: 80.5, kast: 71.5, udr: null, fk: 2, fd: null, multikills: null, clutches: 1, flashTime: 2.5 },
+          { id: "r2", playerId: GONE.id, nickname: GONE.nickname, kills: 10, deaths: 14, assists: 2, adr: 55, kast: null, udr: null, fk: null, fd: null, multikills: null, clutches: null, flashTime: null },
+          { id: "r3", playerId: null, nickname: "ringer", kills: 5, deaths: 5, assists: 5, adr: 50, kast: null, udr: null, fk: null, fd: null, multikills: null, clutches: null, flashTime: null },
         ],
       }],
     } as Game;
@@ -212,7 +245,7 @@ describe("the roster", () => {
     // vega shows under her current nickname; nova (not on the game) gets no line; the player who left stays.
     expect(draft.maps[0].rows.map((r) => r.nickname)).toEqual(["vega", "left-the-team", "ringer"]);
     expect(draft).toMatchObject({ id: game.id, kind: "tournament", opponent: "", who: TEAM });
-    expect(draft.maps[0].rows[0].cells).toMatchObject({ kills: "20", fk: "2", fd: "", flashTime: "2.5" });
+    expect(draft.maps[0].rows[0].cells).toMatchObject({ kills: "20", kast: "71,5", fk: "2", fd: "", udr: "", flashTime: "2,5" });
     expect(checkDraft(draft).issues).toEqual([]);
     const back = toGameInput(draft);
     expect(back).toMatchObject({ id: game.id, opponent: null });
@@ -221,7 +254,7 @@ describe("the roster", () => {
   });
 
   it("aGameOfOnePlayerOpensAsThatPlayer", () => {
-    const row = (id: string) => ({ id, playerId: B.id, nickname: "nova", kills: 1, deaths: 1, assists: 1, adr: 1, fk: null, fd: null, multikills: null, clutches: null, flashTime: null });
+    const row = (id: string) => ({ id, playerId: B.id, nickname: "nova", kills: 1, deaths: 1, assists: 1, adr: 1, kast: null, udr: null, fk: null, fd: null, multikills: null, clutches: null, flashTime: null });
     const map = (id: string) => ({ id, position: 0, map: "mirage", ourScore: 1, theirScore: 0, pistol1: "won", pistol2: "won", rows: [row(`${id}r`)] });
     const game = { id: "e5555555-5555-4555-8555-555555555555", kind: "pracc", playedOn: "2026-10-01", opponent: "x", maps: [map("m1"), map("m2")] } as unknown as Game;
     expect(draftFromGame(game, [A, B]).who).toBe(B.id);

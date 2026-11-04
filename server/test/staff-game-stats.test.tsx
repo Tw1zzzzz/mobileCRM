@@ -41,7 +41,7 @@ describe("«Внести игру» form", () => {
     // A line per player of the team, with every input of the table.
     expect(markup).toMatch(/<span role="rowheader"[^>]*>vega<\/span>/);
     expect(markup).toMatch(/<span role="rowheader"[^>]*>nova<\/span>/);
-    for (const title of ["Убийства", "Смерти", "Ассисты", "Средний урон за раунд", "First Kills", "First Deaths", "Ср. мультикиллы", "Выигранные клатчи", "Ср. время ослепления, с"]) {
+    for (const title of ["KAST, %", "Utility damage per round", "Убийства", "Смерти", "Ассисты", "Средний урон за раунд", "First Kills", "First Deaths", "Ср. мультикиллы", "Выигранные клатчи", "Ср. время ослепления, с"]) {
       expect(markup).toContain(`aria-label="vega, ${title}"`);
       expect(markup).toContain(`aria-label="nova, ${title}"`);
     }
@@ -70,13 +70,13 @@ describe("«Внести игру» form", () => {
     expect(checkDraft(draft).issues).toEqual([]);
     const t = text(render([ALPHA, BRAVO], draft));
     expect(t).toContain("Всё обязательное заполнено");
-    expect(t).toContain("Необязательные метрики: пусто 10 ячеек. Игру можно сохранить и дополнить позже.");
+    expect(t).toContain("Необязательные метрики: пусто 14 ячеек. Игру можно сохранить и дополнить позже.");
     // The live block: 13:9 is a win, 22 rounds, no draw.
     expect(t).toContain("1 : 0");
     expect(t).toContain("по картам · 1 карта (П : П)");
     expect(t).toContain("100% ");
     expect(t).toContain("13–9");
-    expect(t).toContain("K/D команды 2.00");
+    expect(t).toContain("K/D команды 2,00");
   });
 
   it("anEditedGameKeepsNoDraftNote", () => {
