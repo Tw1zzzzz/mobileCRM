@@ -346,7 +346,9 @@ describe("page wiring", () => {
     expect(stats).toMatchObject({ href: "/staff/statistics", activePath: "/staff/statistics" });
     expect(isActive(stats as (typeof items)[number], "/staff/statistics")).toBe(true);
     expect(isActive(stats as (typeof items)[number], "/staff/overview")).toBe(false);
-    // «Игровая статистика» is plan C
-    expect(items.find((i) => i.name === "Игровая статистика")).toMatchObject({ href: null, activePath: null });
+    // «Игровая статистика» is its own page, highlighted on it and below it
+    const games = items.find((i) => i.name === "Игровая статистика") as (typeof items)[number];
+    expect(games).toMatchObject({ href: "/staff/game-stats", activePath: "/staff/game-stats" });
+    expect(isActive(games, "/staff/game-stats")).toBe(true);
   });
 });

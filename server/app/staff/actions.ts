@@ -25,6 +25,8 @@ import { deleteImageCore, saveNoteCore, uploadImageCore } from "@/lib/staff/note
 import { removeMemberCore, rotateCodeCore, teamHref } from "@/lib/staff/team-management";
 import { deleteCalendarEvent, saveCalendarEvent } from "@/lib/staff/calendar";
 import { deleteStaffLineup, saveStaffLineup, toggleStaffLineupFavorite } from "@/lib/staff/lineups";
+import { saveGameCore } from "@/lib/staff/game-forms";
+import { deleteGame } from "@/lib/staff/games";
 import { revalidatePath } from "next/cache";
 
 const SignInFields = z.object({ email: z.string().trim().min(1), password: z.string().min(1) });
@@ -256,4 +258,25 @@ export async function deleteAccountAction(_previous: FormState, form: FormData):
   if (result.status !== "done") return result;
   (await cookies()).delete(STAFF_COOKIE);
   return redirect("/staff/login");
+}
+
+// ---- «Игровая статистика» ----
+// The team always comes from the session; the game id of the form is only ever looked up inside that team.
+
+const GAME_STATS_PATH = "/staff/game-stats";
+
+/** «Сохранить игру»: the whole game as the form built it (not a FormData: maps and lines are nested). */
+export async function saveGameAction(game: unknown): Promise<FormState> {
+  const ctx = await requireStaffContext();
+  const result = await saveGameCore(defaultDeps(), ctx, game);
+  if (result.status === "done") revalidatePath(GAME_STATS_PATH);
+  return result;
+}
+
+export async function deleteGameAction(form: FormData): Promise<void> {
+  const ctx = await requireStaffContext();
+  const id = field(form, "id");
+  const deleted = id !== undefined && z.string().uuid().safeParse(id).success && (await deleteGame(defaultDeps(), ctx, id));
+  revalidatePath(GAME_STATS_PATH);
+  redirect(deleted ? GAME_STATS_PATH : `${GAME_STATS_PATH}?error=not-found`);
 }

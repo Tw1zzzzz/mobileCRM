@@ -30,7 +30,7 @@ export const NAV_GROUPS: readonly NavGroup[] = [
     title: "Аналитика",
     items: [
       { name: "Статистика", href: "/staff/statistics", activePath: "/staff/statistics", icon: "M4 20V10M10 20V4M16 20v-7M22 20H2" },
-      { name: "Игровая статистика", href: null, activePath: null, icon: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 3v3M12 18v3M3 12h3M18 12h3" },
+      { name: "Игровая статистика", href: "/staff/game-stats", activePath: "/staff/game-stats", icon: "M12 3a9 9 0 1 0 0 18a9 9 0 1 0 0-18zM12 8a4 4 0 1 0 0 8a4 4 0 1 0 0-8zM12 3v3M12 18v3M3 12h3M18 12h3" },
     ],
   },
 ];
