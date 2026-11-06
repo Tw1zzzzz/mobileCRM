@@ -1,6 +1,6 @@
 import { renderToStaticMarkup } from "react-dom/server";
 import { describe, expect, it } from "vitest";
-import { ChartHover } from "@/components/staff/ChartHover";
+import { ChartHover, nextHover } from "@/components/staff/ChartHover";
 import { testsPoints } from "@/lib/staff/card-charts";
 import { wheelData } from "@/lib/staff/card-wheel";
 import { fraction, nearestPoint, stepPoint, type HoverPoint } from "@/lib/staff/chart-hover";
@@ -99,9 +99,38 @@ describe("wheel sectors", () => {
 
   it("theMarkerSitsOnTheValuesVertex", () => {
     // The first spoke goes straight up from the centre (170, 170), radius 115 for 10 of 10.
-    expect(figure?.sectors[0]).toMatchObject({ x: 170, y: 55, left: "50.0%" });
+    expect(figure?.sectors[0]).toMatchObject({ x: 170, y: 55 });
     // A zero is at the centre.
-    expect(figure?.sectors[2]).toMatchObject({ x: 170, y: 170, top: "50.0%" });
+    expect(figure?.sectors[2]).toMatchObject({ x: 170, y: 170 });
+  });
+});
+
+describe("nextHover", () => {
+  it("firstPickAppears", () => {
+    expect(nextHover(null, 2)).toEqual({ index: 2, on: true, entry: 1 });
+  });
+
+  it("movingKeepsTheSameAppearanceSoTheLayerGlides", () => {
+    expect(nextHover({ index: 2, on: true, entry: 1 }, 3)).toEqual({ index: 3, on: true, entry: 1 });
+  });
+
+  it("theSameDayIsNoChange", () => {
+    const state = { index: 2, on: true, entry: 1 };
+    expect(nextHover(state, 2)).toBe(state);
+  });
+
+  it("leavingKeepsTheDayForTheFadeOut", () => {
+    expect(nextHover({ index: 2, on: true, entry: 1 }, null)).toEqual({ index: 2, on: false, entry: 1 });
+  });
+
+  it("nothingToLeaveIsNoChange", () => {
+    const off = { index: 2, on: false, entry: 1 };
+    expect(nextHover(null, null)).toBeNull();
+    expect(nextHover(off, null)).toBe(off);
+  });
+
+  it("comingBackIsANewAppearanceInsteadOfAGlideFromTheOldDay", () => {
+    expect(nextHover({ index: 2, on: false, entry: 1 }, 5)).toEqual({ index: 5, on: true, entry: 2 });
   });
 });
 

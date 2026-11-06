@@ -18,7 +18,8 @@ export function RevealOnSelect({ entryId, listSelector }: { entryId: string; lis
     const list = panel ? document.querySelector(listSelector) : null;
     if (!panel || !list || previous === null || previous === entryId) return;
     const stacked = panel.getBoundingClientRect().top >= list.getBoundingClientRect().bottom - 1;
-    if (stacked) panel.scrollIntoView({ behavior: "smooth", block: "start" });
+    const still = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (stacked) panel.scrollIntoView({ behavior: still ? "auto" : "smooth", block: "start" });
   }, [entryId, listSelector]);
   return <span ref={marker} hidden />;
 }

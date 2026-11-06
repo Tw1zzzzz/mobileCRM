@@ -51,18 +51,20 @@ export function MoodBreakdown({ categories, arcs, average, aria, averageLabel }:
           </g>
         </svg>
         <div className={styles.donutCenter} aria-live="polite">
-          {shown === null ? (
-            <>
-              <span className={styles.donutValue}>{fmt1(average)}</span>
-              <span className={styles.donutLabel}>{averageLabel}</span>
-            </>
-          ) : (
-            <>
-              <span className={styles.donutValue}>{shown.percent}%</span>
-              <span className={styles.donutLabel}>{shown.name}</span>
-              <span className={styles.donutLabel}>{records(shown.count)}</span>
-            </>
-          )}
+          <div key={shown?.name ?? "average"} className={styles.donutSwap}>
+            {shown === null ? (
+              <>
+                <span className={styles.donutValue}>{fmt1(average)}</span>
+                <span className={styles.donutLabel}>{averageLabel}</span>
+              </>
+            ) : (
+              <>
+                <span className={styles.donutValue}>{shown.percent}%</span>
+                <span className={styles.donutLabel}>{shown.name}</span>
+                <span className={styles.donutLabel}>{records(shown.count)}</span>
+              </>
+            )}
+          </div>
         </div>
       </div>
       <div className={styles.cats}>

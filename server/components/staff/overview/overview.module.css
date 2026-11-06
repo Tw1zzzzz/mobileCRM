@@ -155,7 +155,20 @@ a.chipOn:hover {
   display: flex;
   flex-direction: column;
   min-width: 0;
-  transition: border-color 180ms ease, box-shadow 180ms ease;
+  transition: var(--transition-soft);
+  animation: card-in var(--motion-entry) var(--ease-soft) backwards;
+}
+.card:nth-child(2) {
+  animation-delay: var(--motion-stagger);
+}
+.card:nth-child(3) {
+  animation-delay: calc(var(--motion-stagger) * 2);
+}
+.card:nth-child(n + 4) {
+  animation-delay: calc(var(--motion-stagger) * 3);
+}
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(4px); }
 }
 .card:hover {
   border-color: rgba(63, 208, 255, 0.24);
@@ -301,7 +314,17 @@ a.iconBtn:focus-visible {
   flex-direction: column;
   align-items: center;
   justify-content: center;
+}
+/* Remounted when the shown value changes, so the new one eases in. */
+.donutSwap {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   gap: 2px;
+  animation: donut-swap var(--motion-base) var(--ease-soft);
+}
+@keyframes donut-swap {
+  from { opacity: 0; transform: translateY(3px); }
 }
 .donutValue {
   font-size: 46px;
@@ -336,7 +359,7 @@ a.iconBtn:focus-visible {
 .cat {
   border: 1px solid transparent;
   cursor: default;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: var(--transition-soft);
 }
 .catOn {
   border-color: rgba(63, 208, 255, 0.45);
@@ -348,7 +371,9 @@ a.iconBtn:focus-visible {
 }
 .donutArc {
   cursor: pointer;
-  transition: stroke-width 120ms ease, stroke-opacity 120ms ease;
+  transition:
+    stroke-width var(--motion-base) var(--ease-soft),
+    stroke-opacity var(--motion-base) var(--ease-soft);
 }
 .catDot {
   flex: 0 0 auto;
@@ -494,56 +519,29 @@ a.iconBtn:focus-visible {
   height: auto;
   overflow: visible;
 }
-.trendArea {
-  opacity: 0;
-  animation: chart-fill 520ms ease-out 180ms forwards;
+.trendArea,
+.trendDots,
+.sleepDots {
+  animation: chart-fill var(--motion-entry) var(--ease-soft) calc(var(--motion-draw) / 3) backwards;
 }
 .trendLine,
 .sleepLine {
   stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: chart-draw 950ms cubic-bezier(0.22, 1, 0.36, 1) 80ms forwards;
-}
-.trendDots,
-.sleepDots {
-  opacity: 0;
-  transform-box: fill-box;
-  transform-origin: center;
-  animation: chart-points 360ms ease-out 580ms forwards;
+  animation: chart-draw var(--motion-draw) var(--ease-soft) backwards;
 }
 .sleepBars {
   transform-box: fill-box;
   transform-origin: center bottom;
-  animation: chart-rise 680ms cubic-bezier(0.22, 1, 0.36, 1) both;
+  animation: chart-rise var(--motion-draw) var(--ease-soft);
 }
 @keyframes chart-draw {
-  to { stroke-dashoffset: 0; }
+  from { stroke-dashoffset: 1; }
 }
 @keyframes chart-fill {
-  to { opacity: 1; }
-}
-@keyframes chart-points {
-  0% { opacity: 0; transform: scale(0.65); }
-  75% { opacity: 1; transform: scale(1.08); }
-  100% { opacity: 1; transform: scale(1); }
+  from { opacity: 0; }
 }
 @keyframes chart-rise {
   from { opacity: 0.35; transform: scaleY(0.12); }
-  to { opacity: 0.9; transform: scaleY(1); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .card { transition: none; }
-  .trendArea,
-  .trendLine,
-  .trendDots,
-  .sleepBars,
-  .sleepLine,
-  .sleepDots {
-    animation: none;
-    opacity: 1;
-    transform: none;
-    stroke-dashoffset: 0;
-  }
 }
 
 /* ---- empty team ---- */

@@ -345,6 +345,16 @@ a.rowOn:hover {
   padding: 16px;
   box-sizing: border-box;
 }
+/* Doubled class: the dialog is itself one of the page's blocks, and this outranks their entry. */
+.overlay.overlay {
+  animation: overlay-in var(--motion-base) var(--ease-soft);
+}
+@keyframes overlay-in {
+  from { opacity: 0; }
+}
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(8px); }
+}
 .backdrop {
   position: absolute;
   inset: 0;
@@ -362,6 +372,7 @@ a.rowOn:hover {
   box-shadow: 0 30px 80px rgba(0, 0, 0, 0.6);
   display: flex;
   flex-direction: column;
+  animation: dialog-in var(--motion-entry) var(--ease-soft);
 }
 .dlgShot {
   position: relative;

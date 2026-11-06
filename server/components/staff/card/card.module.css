@@ -209,6 +209,10 @@ a.tabOn:hover {
   flex-direction: column;
   gap: 14px;
   min-width: 0;
+  animation: tab-in var(--motion-entry) var(--ease-soft);
+}
+@keyframes tab-in {
+  from { opacity: 0; transform: translateY(4px); }
 }
 .soonPanel {
   margin: 0;
@@ -389,6 +393,7 @@ a.chipOn:hover {
   max-width: 100%;
   aspect-ratio: 1 / 1;
   margin: 0 auto;
+  container-type: size; /* the marker and the tip are placed in cqw/cqh, so they can glide on `transform` */
 }
 .rl {
   position: absolute;
@@ -397,6 +402,7 @@ a.chipOn:hover {
   font-weight: 600;
   color: var(--text-soft);
   white-space: nowrap;
+  transition: color var(--motion-base) var(--ease-soft);
 }
 .rlOn {
   color: var(--text);
@@ -404,9 +410,32 @@ a.chipOn:hover {
 }
 .wheelSector {
   cursor: pointer;
+  fill-opacity: 0;
+  transition: fill-opacity var(--motion-base) var(--ease-soft);
+}
+.wheelSectorOn {
+  fill-opacity: 1;
+}
+.wheelMark {
+  transform: translate(var(--px), var(--py));
+  transition:
+    transform var(--motion-base) var(--ease-soft),
+    opacity var(--motion-fast) var(--ease-soft),
+    visibility var(--motion-fast);
+  animation: wheel-in var(--motion-fast) var(--ease-soft);
+}
+.wheelMark[data-on="false"],
+.wheelTip[data-on="false"] {
+  opacity: 0;
+  visibility: hidden;
+}
+@keyframes wheel-in {
+  from { opacity: 0; }
 }
 .wheelTip {
   position: absolute;
+  left: 0;
+  top: 0;
   padding: 3px 9px;
   border-radius: 8px;
   border: 1px solid rgba(120, 150, 220, 0.25);
@@ -414,8 +443,13 @@ a.chipOn:hover {
   font-size: 14px;
   font-weight: 700;
   color: var(--text);
-  transform: translate(-50%, calc(-100% - 10px));
+  transform: translate(calc(var(--x) * 100cqw - 50%), calc(var(--y) * 100cqh - 100% - 10px));
   pointer-events: none;
+  transition:
+    transform var(--motion-base) var(--ease-soft),
+    opacity var(--motion-fast) var(--ease-soft),
+    visibility var(--motion-fast);
+  animation: wheel-in var(--motion-fast) var(--ease-soft);
 }
 .wheelList {
   flex: 1 1 260px;
@@ -434,7 +468,7 @@ a.chipOn:hover {
 }
 .kv {
   border: 1px solid transparent;
-  transition: border-color 120ms ease, background 120ms ease;
+  transition: var(--transition-soft);
 }
 .kvOn {
   border-color: rgba(63, 208, 255, 0.45);

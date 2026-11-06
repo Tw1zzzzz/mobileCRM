@@ -404,7 +404,20 @@ a.mchipOnGame:hover {
   background: var(--raised);
   border: 1px solid var(--line);
   min-width: 0;
-  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+  transition: var(--transition-soft);
+  animation: multiple-in var(--motion-entry) var(--ease-soft) backwards;
+}
+.multiple:nth-child(2) {
+  animation-delay: var(--motion-stagger);
+}
+.multiple:nth-child(3) {
+  animation-delay: calc(var(--motion-stagger) * 2);
+}
+.multiple:nth-child(n + 4) {
+  animation-delay: calc(var(--motion-stagger) * 3);
+}
+@keyframes multiple-in {
+  from { opacity: 0; transform: translateY(4px); }
 }
 .multiple:hover {
   transform: translateY(-2px);
@@ -442,23 +455,19 @@ a.mchipOnGame:hover {
 }
 .chartLine {
   stroke-dasharray: 1;
-  stroke-dashoffset: 1;
-  animation: stats-chart-draw 900ms cubic-bezier(0.22, 1, 0.36, 1) 80ms forwards;
+  animation: stats-chart-draw var(--motion-draw) var(--ease-soft) backwards;
 }
 .chartDots {
-  opacity: 0;
-  animation: stats-chart-points 340ms ease-out 560ms forwards;
+  animation: stats-chart-points var(--motion-entry) var(--ease-soft) calc(var(--motion-draw) / 3) backwards;
 }
 @keyframes stats-chart-draw {
-  to { stroke-dashoffset: 0; }
+  from { stroke-dashoffset: 1; }
 }
 @keyframes stats-chart-points {
-  to { opacity: 1; }
+  from { opacity: 0; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .multiple { transition: none; }
-  .chartLine { animation: none; stroke-dashoffset: 0; }
-  .chartDots { animation: none; opacity: 1; }
+  .multiple:hover { transform: none; }
 }
 .chartEmpty {
   display: flex;
@@ -507,6 +516,7 @@ a.mchipOnGame:hover {
   grid-row: 1 / span 2;
 }
 .toggle {
+  transition: var(--transition-soft);
   min-height: 42px;
   padding: 0 16px;
   border-radius: 12px;

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
+import { useRef, useState, type CSSProperties, type KeyboardEvent, type PointerEvent, type ReactNode } from "react";
 import { nearestPoint, stepPoint, type HoverPoint } from "@/lib/staff/chart-hover";
 import styles from "./chart-hover.module.css";
 
@@ -12,7 +12,20 @@ interface ChartHoverProps {
   children: ReactNode;
 }
 
-const percent = (value: number): string => `${(value * 100).toFixed(2)}%`;
+export interface HoverState {
+  index: number;
+  on: boolean;
+  /** Counts the appearances: a new one starts at its day instead of gliding there from the last one. */
+  entry: number;
+}
+
+/** The next state for a picked day, or `null` for none: the last day stays while the layer fades out. */
+export function nextHover(prev: HoverState | null, index: number | null): HoverState | null {
+  if (index === null) return prev === null || !prev.on ? prev : { ...prev, on: false };
+  if (prev === null) return { index, on: true, entry: 1 };
+  if (!prev.on) return { index, on: true, entry: prev.entry + 1 };
+  return prev.index === index ? prev : { ...prev, index };
+}
 
 /** Which way the tooltip leans so it stays inside the chart near the edges. */
 function edge(x: number): "start" | "end" | "middle" {
@@ -24,14 +37,17 @@ function edge(x: number): "start" | "end" | "middle" {
  * value and a tooltip with the day's numbers. Leaving the chart (or Esc, or focus moving away) clears it.
  */
 export function ChartHover({ points, label, children }: ChartHoverProps) {
-  const [active, setActive] = useState<number | null>(null);
+  const [hover, setHover] = useState<HoverState | null>(null);
   const layer = useRef<HTMLDivElement>(null);
+  const active = hover !== null && hover.on ? hover.index : null;
+
+  const show = (index: number | null): void => setHover((prev) => nextHover(prev, index));
 
   const pick = (event: PointerEvent<HTMLDivElement>): void => {
     const box = layer.current?.getBoundingClientRect();
     if (box === undefined || box.width <= 0) return;
     const index = nearestPoint(points, (event.clientX - box.left) / box.width);
-    setActive(index < 0 ? null : index);
+    show(index < 0 ? null : index);
   };
 
   const onKeyDown = (event: KeyboardEvent<HTMLDivElement>): void => {
@@ -45,10 +61,10 @@ export function ChartHover({ points, label, children }: ChartHoverProps) {
     const move = moves[event.key];
     if (move === undefined) return;
     event.preventDefault();
-    setActive(move());
+    show(move());
   };
 
-  const point = active === null ? null : points[active] ?? null;
+  const point = hover === null ? null : points[hover.index] ?? null;
   return (
     <div className={styles.wrap}>
       {children}
@@ -60,25 +76,25 @@ export function ChartHover({ points, label, children }: ChartHoverProps) {
         onPointerMove={pick}
         onPointerDown={pick}
         onPointerLeave={(event) => {
-          if (event.pointerType === "mouse") setActive(null);
+          if (event.pointerType === "mouse") show(null);
         }}
         onKeyDown={onKeyDown}
-        onBlur={() => setActive(null)}
+        onBlur={() => show(null)}
       >
-        {point !== null && (
-          <>
-            <span className={styles.guide} style={{ left: percent(point.x) }} aria-hidden="true" />
+        {hover !== null && point !== null && (
+          <div key={hover.entry} className={styles.overlay} data-on={hover.on} style={{ "--x": point.x } as CSSProperties}>
+            <span className={styles.guide} aria-hidden="true" />
             {point.rows.map((row) =>
               row.y === undefined ? null : (
                 <span
                   key={row.label}
                   className={styles.marker}
-                  style={{ left: percent(point.x), top: percent(row.y), borderColor: row.color }}
+                  style={{ "--y": row.y, borderColor: row.color } as CSSProperties}
                   aria-hidden="true"
                 />
               ),
             )}
-            <div className={styles.tip} data-edge={edge(point.x)} style={{ left: percent(point.x) }} role="status">
+            <div className={styles.tip} data-edge={edge(point.x)} role="status">
               <span className={styles.tipTitle}>{point.title}</span>
               {point.rows.map((row) => (
                 <span key={row.label} className={styles.tipRow}>
@@ -88,7 +104,7 @@ export function ChartHover({ points, label, children }: ChartHoverProps) {
                 </span>
               ))}
             </div>
-          </>
+          </div>
         )}
       </div>
     </div>

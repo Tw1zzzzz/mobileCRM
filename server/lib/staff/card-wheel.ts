@@ -63,9 +63,6 @@ export interface WheelSector {
   /** The value's vertex on the radar. */
   x: number;
   y: number;
-  /** The same vertex in CSS percentages of the square. */
-  left: string;
-  top: string;
 }
 
 export interface WheelData {
@@ -99,8 +96,6 @@ function sector(index: number, value: number): WheelSector {
     points: `${CENTRE},${CENTRE} ${edge(-Math.PI / 8)} ${edge(Math.PI / 8)}`,
     x: Number(x.toFixed(1)),
     y: Number(y.toFixed(1)),
-    left: `${((x / SIZE) * 100).toFixed(1)}%`,
-    top: `${((y / SIZE) * 100).toFixed(1)}%`,
   };
 }
 

@@ -10,6 +10,13 @@
   /* the board's main column has a 24px gap; the panel shell's is 28px */
   margin-top: -4px;
 }
+/* Only a fade here: the panel's entry transform would hold the fixed dialog and toast inside this block meanwhile. */
+.page.page {
+  animation-name: page-fade;
+}
+@keyframes page-fade {
+  from { opacity: 0; }
+}
 
 /* ---- counters ---- */
 
@@ -240,6 +247,20 @@
   background: rgba(15, 21, 40, 0.88);
   overflow: hidden;
   min-width: 0;
+  transition: var(--transition-soft);
+  animation: card-in var(--motion-entry) var(--ease-soft) backwards;
+}
+.lu:nth-child(2) {
+  animation-delay: var(--motion-stagger);
+}
+.lu:nth-child(3) {
+  animation-delay: calc(var(--motion-stagger) * 2);
+}
+.lu:nth-child(n + 4) {
+  animation-delay: calc(var(--motion-stagger) * 3);
+}
+@keyframes card-in {
+  from { opacity: 0; transform: translateY(4px); }
 }
 .lu:hover {
   border-color: rgba(63, 208, 255, 0.45);
@@ -624,8 +645,16 @@
   justify-content: center;
   padding: 16px;
   box-sizing: border-box;
+  animation: overlay-in var(--motion-base) var(--ease-soft);
+}
+@keyframes overlay-in {
+  from { opacity: 0; }
+}
+@keyframes dialog-in {
+  from { opacity: 0; transform: translateY(8px); }
 }
 .dlg {
+  animation: dialog-in var(--motion-entry) var(--ease-soft);
   width: 100%;
   max-width: 560px;
   max-height: 100%;
@@ -753,6 +782,10 @@
   color: var(--text);
   max-width: calc(100% - 32px);
   box-sizing: border-box;
+  animation: toast-in var(--motion-entry) var(--ease-soft);
+}
+@keyframes toast-in {
+  from { opacity: 0; transform: translate(-50%, 8px); }
 }
 
 @media (max-width: 560px) {

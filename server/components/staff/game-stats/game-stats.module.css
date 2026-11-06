@@ -1034,6 +1034,10 @@
   color: #fff;
   background: rgba(0, 102, 255, 0.12);
 }
+.sumRow td,
+.sumRow th {
+  transition: background-color var(--motion-base) var(--ease-soft);
+}
 .sumRow:hover td,
 .sumRow:hover th {
   background-color: rgba(30, 39, 64, 0.45);

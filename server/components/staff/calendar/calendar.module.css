@@ -8,7 +8,8 @@
 .filters { display:flex; gap:8px; overflow-x:auto; padding:2px 1px 6px; }
 .chip { display:inline-flex; align-items:center; gap:8px; min-height:38px; padding:0 14px; border:1px solid rgba(120,150,220,.18); border-radius:999px; background:#141b30; color:#c3cce2!important; font-size:13px; font-weight:600; text-decoration:none; white-space:nowrap; }
 .chip span { color:inherit; opacity:.65; }
-.chipOn { background:linear-gradient(90deg,#0066ff,#00b4f0); color:#fff!important; border-color:transparent; }
+.chipOn { background:linear-gradient(90deg,#0066ff,#00b4f0); color:#fff!important; border-color:transparent; animation:chip-on var(--motion-base) var(--ease-soft); }
+@keyframes chip-on { from { opacity:.6; } }
 .team { --tag:#3fd0ff; --tag-soft:rgba(63,208,255,.14); --tag-text:#7fe0ff; }
 .player { --tag:#ff8a3d; --tag-soft:rgba(255,138,61,.16); --tag-text:#ffb07a; }
 .personal { --tag:#b07cff; --tag-soft:rgba(176,124,255,.16); --tag-text:#c9a6ff; }

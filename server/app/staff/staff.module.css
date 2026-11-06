@@ -35,6 +35,23 @@
   --brand-flat: linear-gradient(90deg, #0066ff, #00b4f0);
   --staff-avatar: linear-gradient(135deg, #7a4dff, #b07cff);
 
+  --motion-fast: 120ms;
+  --motion-base: 180ms;
+  --motion-entry: 300ms;
+  --motion-draw: 640ms;
+  --motion-stagger: 30ms;
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+  --transition-soft:
+    color var(--motion-base) var(--ease-soft),
+    background-color var(--motion-base) var(--ease-soft),
+    border-color var(--motion-base) var(--ease-soft),
+    box-shadow var(--motion-base) var(--ease-soft),
+    opacity var(--motion-base) var(--ease-soft),
+    filter var(--motion-base) var(--ease-soft),
+    transform var(--motion-base) var(--ease-soft),
+    translate var(--motion-base) var(--ease-soft),
+    outline-offset var(--motion-base) var(--ease-soft);
+
   min-height: 100vh;
   background: var(--bg);
   background-image:
@@ -49,6 +66,41 @@
 }
 .root a:hover {
   color: #8be4ff;
+}
+
+/* ---- motion: every control eases the same way, the modules only say what changes ---- */
+
+.root a,
+.root button,
+.root summary,
+.root input,
+.root select,
+.root textarea,
+.root label > span {
+  transition: var(--transition-soft);
+}
+/* `translate`, not `transform`: it adds to a control's own positioning instead of replacing it. */
+.root a:active:not([aria-disabled="true"]),
+.root button:active:not(:disabled, [aria-disabled="true"]) {
+  translate: 0 1px;
+  transition-duration: var(--motion-fast);
+}
+/* A newly selected chip, tab or card: its gradient cannot transition, so the state settles in instead. */
+.root a[aria-current]:not(.navItem),
+.root button[aria-pressed="true"] {
+  animation: settle var(--motion-base) var(--ease-soft);
+}
+@keyframes settle {
+  from { opacity: 0.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .root *,
+  .root *::before,
+  .root *::after {
+    animation: none !important;
+    transition: none !important;
+    translate: none !important;
+  }
 }
 
 /* ---- shell ---- */
@@ -122,6 +174,8 @@
   color: var(--label);
 }
 .navItem {
+  position: relative;
+  isolation: isolate;
   display: flex;
   align-items: center;
   gap: 12px;
@@ -134,6 +188,17 @@
   font-weight: 500;
   white-space: nowrap;
 }
+/* The selected item's gradient lives on its own layer: a gradient cannot transition, its opacity can. */
+.navItem::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  border-radius: inherit;
+  background: linear-gradient(90deg, rgba(0, 102, 255, 0.9), rgba(0, 200, 255, 0.75));
+  opacity: 0;
+  transition: opacity var(--motion-base) var(--ease-soft);
+}
 a.navItem:hover {
   background: rgba(30, 39, 64, 0.8);
   color: var(--text) !important;
@@ -145,8 +210,11 @@ a.navItem:hover {
 .navOn,
 a.navOn:hover {
   color: #fff !important;
-  background: linear-gradient(90deg, rgba(0, 102, 255, 0.9), rgba(0, 200, 255, 0.75));
+  background: transparent;
   box-shadow: 0 6px 20px rgba(0, 110, 255, 0.35);
+}
+.navOn::before {
+  opacity: 1;
 }
 .navSoon {
   color: var(--faint) !important;
@@ -264,6 +332,19 @@ a.account:focus-visible {
   display: flex;
   flex-direction: column;
   gap: 28px;
+}
+/* Each page's blocks are new elements after a navigation (not after a filter in the URL), so this replays by itself. */
+.main > * {
+  animation: page-in var(--motion-entry) var(--ease-soft) backwards;
+}
+.main > :nth-child(2) {
+  animation-delay: var(--motion-stagger);
+}
+.main > :nth-child(n + 3) {
+  animation-delay: calc(var(--motion-stagger) * 2);
+}
+@keyframes page-in {
+  from { opacity: 0; transform: translateY(6px); }
 }
 
 /* ---- page header ---- */
